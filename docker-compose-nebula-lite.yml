@@ -1,0 +1,137 @@
+version: '3.4'
+
+services:
+  metad:
+    image: docker.io/vesoft/nebula-metad:v3.8.0
+    container_name: nebula-metad
+    environment:
+      USER: root
+      TZ: "UTC"
+    command:
+      - --meta_server_addrs=metad:9559
+      - --local_ip=metad
+      - --ws_ip=metad
+      - --port=9559
+      - --ws_http_port=19559
+      - --data_path=/data/meta
+      - --v=0
+      - --minloglevel=0
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://metad:19559/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    ports:
+      - 9559
+      - 19559
+      - 19560
+    volumes:
+      - ./.volumes/nebula/meta:/data/meta
+    networks:
+      - nebula-net
+    restart: on-failure
+
+  storaged:
+    image: docker.io/vesoft/nebula-storaged:v3.8.0
+    container_name: nebula-storaged
+    environment:
+      USER: root
+      TZ: "UTC"
+    command:
+      - --meta_server_addrs=metad:9559
+      - --local_ip=storaged
+      - --ws_ip=storaged
+      - --port=9779
+      - --ws_http_port=19779
+      - --data_path=/data/storage
+      - --v=0
+      - --minloglevel=0
+    depends_on:
+      - metad
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://storaged:19779/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    ports:
+      - 9779
+      - 19779
+      - 19780
+    volumes:
+      - ./.volumes/nebula/storage:/data/storage
+    networks:
+      - nebula-net
+    restart: on-failure
+
+  graphd:
+    image: docker.io/vesoft/nebula-graphd:v3.8.0
+    container_name: nebula-graphd
+    environment:
+      USER: root
+      TZ: "UTC"
+    command:
+      - --meta_server_addrs=metad:9559
+      - --port=9669
+      - --local_ip=graphd
+      - --ws_ip=graphd
+      - --ws_http_port=19669
+      - --v=0
+      - --minloglevel=0
+    depends_on:
+      - storaged
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://graphd:19669/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    ports:
+      - "9669:9669"
+      - 19669
+      - 19670
+    volumes:
+      - ./.volumes/nebula/graph:/logs
+    networks:
+      - nebula-net
+    restart: on-failure
+
+  console:
+    image: docker.io/vesoft/nebula-console:v3.8.0
+    container_name: nebula-console
+    entrypoint: ""
+    command:
+      - sh
+      - -c
+      - |
+        echo "Waiting for NebulaGraph lite cluster..."
+        for i in $(seq 1 60); do
+          output=$(nebula-console -addr graphd -port 9669 -u root -p nebula -e 'SHOW HOSTS' 2>&1);
+          if echo "$output" | grep -q "localhost"; then
+            echo "✓ NebulaGraph lite cluster is ready!";
+            echo "";
+            echo "📊 Cluster info:"
+            echo "$output";
+            echo "";
+            echo "📝 Example queries:";
+            echo "  - CREATE SPACE my_space;";
+            echo "  - USE my_space;";
+            echo "  - SHOW TAGS;";
+            break;
+          fi;
+          if [ $i -eq 60 ]; then
+            echo "❌ Failed after 60 attempts. Check logs with: docker compose -f docker-compose-nebula-lite.yml logs";
+          fi;
+          echo "Waiting... ($i/60)";
+          sleep 1;
+        done && tail -f /dev/null;
+
+    depends_on:
+      - graphd
+    networks:
+      - nebula-net
+
+networks:
+  nebula-net:
+    driver: bridge

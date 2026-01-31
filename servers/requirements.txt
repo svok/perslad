@@ -1,0 +1,19 @@
+# MCP Core
+mcp[cli]==1.25.0
+fastmcp>=2.14.3
+
+# HTTP/SSE Transport
+sse-starlette==3.1.2
+uvicorn[standard]==0.40.0
+
+# Utils
+pydantic==2.12.4
+
+# SQL
+aiomysql==0.3.2
+
+# Дополнительные утилиты
+aiofiles==23.2.1
+
+# logging
+structlog>=25.4.0
