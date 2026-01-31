@@ -1,0 +1,14 @@
+**/.idea/
+/.volumes/
+/out*.txt
+.env
+
+**/*.iml
+
+**/.ipynb_checkpoints/
+**/__pycache__
+/venv/
+/.venv
+/.idea/
+/.gigaide/
+/logs/

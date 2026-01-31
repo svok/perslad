@@ -1,0 +1,166 @@
+services:
+  # === LLM ENGINE ===
+  llm:
+    image: ${LLM_ENGINE_IMAGE:-vllm/vllm-openai}
+    container_name: llm-engine
+    env_file: .env  # <-- ДОБАВЛЕНО: Чтобы MODEL_NAME и QUANTIZATION попали внутрь
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./scripts/entrypoint_llm.sh:/entrypoint.sh:ro
+      - ./.volumes/model_cache:/root/.cache
+      - ./scripts/qwen_tool_template.jinja:/app/qwen_tool_template.jinja:ro
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - agent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-s", "-H", "Content-Type: application/json", "http://localhost:8000/v1/models"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 800s  # Увеличено для загрузки модели
+
+  # ======================
+  # === POSTGRES (RAG) ====
+  # ======================
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rag-postgres
+    environment:
+      POSTGRES_DB: rag
+      POSTGRES_USER: rag
+      POSTGRES_PASSWORD: rag
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./.volumes/postgres:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [agent-network]
+
+  # === MCP SERVERS ===
+
+  mcp-bash:
+    build:
+      context: .
+      dockerfile: servers/Dockerfile
+    container_name: mcp-bash
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}:/workspace
+    ports:
+      - "8081:8081"
+    command: ["python", "-m", "servers.mcp_bash"]
+    networks:
+      - agent-network
+
+  mcp-project:
+    build:
+      context: .
+      dockerfile: servers/Dockerfile
+    container_name: mcp-project
+    volumes:
+      - ${PROJECT_ROOT}:/workspace
+    ports:
+      - "8083:8083"
+    command: ["python", "-m", "servers.mcp_project"]
+    networks:
+      - agent-network
+
+  # === ORCHESTRATOR ===
+  langgraph-agent:
+    image: agentnet-langgraph-agent
+    build:
+      context: .
+      dockerfile: agents/Dockerfile
+    env_file: .env
+    environment:
+      - OPENAI_API_BASE=http://llm:8000/v1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CONTEXT_LENGTH=${CONTEXT_SIZE}
+      - MODEL_NAME=${MODEL_NAME}
+      - MCP_BASH_URL=http://mcp-bash:8081/mcp
+      - MCP_PROJECT_URL=http://mcp-project:8083/mcp
+      - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./agents:/app/agents:ro
+    depends_on:
+      - llm
+    networks:
+      - agent-network
+
+  ingestor:
+    image: agentnet-ingestor
+    build:
+      context: .
+      dockerfile: ingestor/Dockerfile
+    env_file: .env
+    environment:
+      - OPENAI_API_BASE=http://llm:8000/v1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CONTEXT_LENGTH=${CONTEXT_SIZE}
+      - MODEL_NAME=${MODEL_NAME}
+      - MCP_BASH_URL=http://mcp-bash:8081/mcp
+      - MCP_PROJECT_URL=http://mcp-project:8083/mcp
+      - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
+      - INGEST_STORAGE_TYPE=postgres
+      - INGEST_POSTGRES_HOST=postgres
+      - INGEST_POSTGRES_PORT=5432
+      - INGEST_POSTGRES_DB=rag
+      - INGEST_POSTGRES_USER=rag
+      - INGEST_POSTGRES_PASSWORD=rag
+      - INGEST_LOG_LEVEL=INFO
+    ports:
+      - "8124:8124"
+    volumes:
+      - ./infra:/app/infra:ro
+      - ./ingestor:/app/ingestor:ro
+#      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PROJECT_ROOT}:/workspace
+    depends_on:
+      - llm
+      - postgres
+    networks:
+      - agent-network
+
+
+  # === OPEN WEBUI FRONTEND ===
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:cuda
+    container_name: openwebui
+    ports:
+      - "8080:8080"
+    environment:
+      # Указываем на наш LangGraph сервер
+      - OPENAI_API_BASE=http://langgraph-agent:8123/v1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-your-secret-key-change-me}
+      - WEBUI_NAME="LangGraph Agent System"
+      - WEBUI_AUTH=false
+      - ENABLE_SIGNUP=false
+      - DEFAULT_MODELS="langgraph-agent"
+    volumes:
+      - ./.volumes/openwebui_data:/app/backend/data
+    depends_on:
+      - langgraph-agent  # Важно: ждем запуска LangGraph
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    driver: bridge

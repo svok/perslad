@@ -1,0 +1,61 @@
+{% if not add_generation_prompt is defined %}{% set add_generation_prompt = false %}{% endif %}
+{% set valid_roles = ['user', 'assistant', 'system', 'tool'] %}
+
+{% for message in messages %}
+{% if message['role'] not in valid_roles %}
+  {{ raise_exception('Invalid role: ' + message['role']) }}
+{% endif %}
+{% endfor %}
+
+{% for message in messages %}
+{% if loop.first and message['role'] != 'system' %}
+<|im_start|>system
+{% if tools is defined and tools %}
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant with access to tools.
+
+<tools>
+{% for tool in tools %}
+{"name": "{{ tool['name'] }}", "description": "{{ tool['description'] }}", "parameters": {{ tool['parameters'] | tojson }}}
+{% endfor %}
+</tools>
+
+When you need to use a tool, output:
+<tool_call>
+{"name": "tool_name", "arguments": {"arg1": "value1"}}
+</tool_call>
+{% else %}
+You are Qwen, created by Alibaba Cloud. You are a helpful assistant.
+{% endif %}
+<|im_end|>
+{% endif %}
+
+{% if message['role'] == 'system' %}
+<|im_start|>system
+{{ message['content'] }}
+<|im_end|>
+{% elif message['role'] == 'user' %}
+<|im_start|>user
+{{ message['content'] }}
+<|im_end|>
+{% elif message['role'] == 'assistant' %}
+<|im_start|>assistant
+{% if message['content'] %}{{ message['content'] }}{% endif %}
+{% if 'tool_calls' in message and message['tool_calls'] %}
+<tool_call>
+{% for tool_call in message['tool_calls'] %}
+{{ {'name': tool_call['name'], 'arguments': tool_call['arguments']} | tojson }}
+{% endfor %}
+</tool_call>
+{% endif %}
+<|im_end|>
+{% elif message['role'] == 'tool' or message['role'] == 'function' %}
+<|im_start|>tool
+name={{ message['name'] }}:
+{{ message['content'] }}
+<|im_end|>
+{% endif %}
+{% endfor %}
+
+{% if add_generation_prompt %}
+<|im_start|>assistant
+{% endif %}

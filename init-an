@@ -1,0 +1,3 @@
+#!/bin/bash
+
+docker network create shared_agent_network
