@@ -53,7 +53,7 @@ async def run_api_server(api: IngestorAPI, port: int):
 
 
 async def main() -> None:
-    load_dotenv()
+    load_dotenv(dotenv_path="../.env", override=False)
 
     env = runtime.ENV
     workspace = runtime.WORKSPACE_PATH

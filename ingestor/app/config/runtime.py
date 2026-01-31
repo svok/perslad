@@ -8,9 +8,4 @@ class RuntimeConfig(BaseSettings):
     WORKSPACE_PATH: str = Field(default="/workspace")
     INGESTOR_PORT: int = Field(default=8001)
 
-    class Config:
-        env_prefix = "INGEST_"
-        case_sensitive = False
-
-
 runtime = RuntimeConfig()

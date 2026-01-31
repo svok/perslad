@@ -16,9 +16,12 @@ class StorageConfig(BaseSettings):
     USE_PGVECTOR: bool = Field(default=True)
     PGVECTOR_DIMENSIONS: int = Field(default=1536)
 
-    class Config:
-        env_prefix = "INGEST_"
-        case_sensitive = False
+    def to_dict(self) -> dict:
+        """Возвращает полный конфиг как словарь."""
+        return self.model_dump()
 
+    def to_dict_public(self) -> dict:
+        """Возвращает конфиг без секретных полей."""
+        return self.model_dump(exclude={"POSTGRES_PASSWORD"})
 
 storage = StorageConfig()

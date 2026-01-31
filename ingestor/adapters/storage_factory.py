@@ -6,12 +6,14 @@ Supports memory and PostgreSQL storage backends.
 
 from typing import Optional
 
+from infra.logger import get_logger
 from ingestor.adapters.base_storage import BaseStorage
 from ingestor.adapters.memory_storage import MemoryStorage
 from ingestor.adapters.postgres_storage import PostgreSQLStorage
 from ingestor.app.config.storage import storage as storage_config
 from ingestor.app.config import runtime
 
+log = get_logger("ingestor.llm_lock")
 
 class StorageFactory:
     """Factory for creating storage instances."""
@@ -24,6 +26,7 @@ class StorageFactory:
         Returns:
             Storage instance (memory or postgres)
         """
+        log.info("storage.factory.config", **storage_config.to_dict_public())
         if storage_config.STORAGE_TYPE == "postgres":
             return PostgreSQLStorage()
         else:

@@ -10,9 +10,4 @@ class LLMConfig(BaseSettings):
     # Embedding settings
     OPENAI_EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
 
-    class Config:
-        env_prefix = "INGEST_"
-        case_sensitive = False
-
-
 llm = LLMConfig()
