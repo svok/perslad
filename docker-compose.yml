@@ -89,7 +89,7 @@ services:
     env_file: .env
     environment:
       - OPENAI_API_BASE=http://llm:8000/v1
-      - OPENAI_API_KEY=sk-dummy
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
       - MODEL_NAME=${MODEL_NAME}
       - MCP_BASH_URL=http://mcp-bash:8081/mcp
@@ -112,12 +112,19 @@ services:
     env_file: .env
     environment:
       - OPENAI_API_BASE=http://llm:8000/v1
-      - OPENAI_API_KEY=sk-dummy
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
       - MODEL_NAME=${MODEL_NAME}
       - MCP_BASH_URL=http://mcp-bash:8081/mcp
       - MCP_PROJECT_URL=http://mcp-project:8083/mcp
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
+      - INGEST_STORAGE_TYPE=postgres
+      - INGEST_POSTGRES_HOST=postgres
+      - INGEST_POSTGRES_PORT=5432
+      - INGEST_POSTGRES_DB=rag
+      - INGEST_POSTGRES_USER=rag
+      - INGEST_POSTGRES_PASSWORD=rag
+      - INGEST_LOG_LEVEL=INFO
     ports:
       - "8124:8124"
     volumes:
@@ -127,6 +134,7 @@ services:
       - ${PROJECT_ROOT}:/workspace
     depends_on:
       - llm
+      - postgres
     networks:
       - agent-network
 
@@ -140,7 +148,7 @@ services:
     environment:
       # Указываем на наш LangGraph сервер
       - OPENAI_API_BASE=http://langgraph-agent:8123/v1
-      - OPENAI_API_KEY=sk-dummy
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-your-secret-key-change-me}
       - WEBUI_NAME="LangGraph Agent System"
       - WEBUI_AUTH=false

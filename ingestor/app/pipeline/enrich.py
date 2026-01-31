@@ -8,6 +8,7 @@ USES LOCAL LLM.
 """
 
 from typing import List
+import asyncio
 
 from infra.logger import get_logger
 from infra.llm import LLMClient
@@ -50,29 +51,36 @@ class EnrichStage:
 
     async def run(self, chunks: List[Chunk]) -> List[Chunk]:
         """
-        Обогащает чанки summaries.
+        Обогащает чанки summaries с параллелизмом.
         """
         log.info("enrich.start", chunks_count=len(chunks))
         
         enriched = 0
         skipped = 0
         
-        for chunk in chunks:
-            # Проверяем LLM lock
+        # Process chunks in batches to respect LLM lock
+        batch_size = 10
+        for i in range(0, len(chunks), batch_size):
+            batch = chunks[i:i + batch_size]
+            
+            # Check lock once per batch
             if await self.lock_manager.is_locked():
                 log.info("enrich.llm_locked.waiting")
                 await self.lock_manager.wait_unlocked()
             
-            try:
-                await self._enrich_chunk(chunk)
-                enriched += 1
-            except Exception as e:
-                log.warning(
-                    "enrich.chunk.failed",
-                    chunk_id=chunk.id,
-                    error=str(e),
-                )
-                skipped += 1
+            tasks = [self._enrich_chunk(chunk) for chunk in batch]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            
+            for chunk, result in zip(batch, results):
+                if isinstance(result, Exception):
+                    log.warning(
+                        "enrich.chunk.failed",
+                        chunk_id=chunk.id,
+                        error=str(result),
+                    )
+                    skipped += 1
+                else:
+                    enriched += 1
         
         log.info(
             "enrich.complete",

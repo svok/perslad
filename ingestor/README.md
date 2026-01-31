@@ -23,7 +23,8 @@ Batch-компонент для индексации кода и докумен�
 │                    │                            │
 │            ┌───────▼────────┐                   │
 │            │    Storage     │                   │
-│            │  (in-memory)   │                   │
+│            │  (Postgres)    │                   │
+│            │    or Memory   │                   │
 │            └────────────────┘                   │
 │                                                 │
 └─────────────────────────────────────────────────┘
@@ -31,31 +32,15 @@ Batch-компонент для индексации кода и докумен�
 
 ## Компоненты
 
-### Pipeline Stages
+### Pipeline
 
-1. **Scan** (NO LLM)
-   - Сканирует workspace
-   - Фильтрует файлы по расширениям
-   - Исключает служебные директории
+Ingestor обрабатывает код в последовательности этапов:
 
-2. **Parse** (NO LLM)
-   - Использует LlamaIndex splitters
-   - Разбивает код на функции/классы
-   - Разбивает документы на секции
-
-3. **Enrich** (LOCAL LLM)
-   - Генерирует summaries для чанков
-   - Извлекает purpose
-   - Уважает LLM lock от агента
-
-4. **Embed** (NO LLM reasoning)
-   - Вычисляет embeddings
-   - Батчинг для эффективности
-   - Можно делать при LLM lock
-
-5. **Persist** (NO LLM)
-   - Сохраняет в storage
-   - Атомарные операции
+1. **Scan** — поиск файлов в workspace, фильтрация по расширениям
+2. **Parse** — разделение кода на чанки (функции, классы) через LlamaIndex splitters
+3. **Enrich** — генерация описаний для чанков и extraction purpose (использует LLM)
+4. **Embed** — вычисление векторных представлений
+5. **Persist** — сохранение в storage (Postgres или memory)
 
 ### LLM Lock Manager
 
@@ -70,94 +55,81 @@ Batch-компонент для индексации кода и докумен�
 
 Единственная точка интеграции с агентом:
 
-- `POST /knowledge/search` - поиск по embedding
-- `GET /knowledge/file/{path}` - контекст файла
-- `GET /knowledge/overview` - обзор проекта
+- `POST /knowledge/search` — поиск по embedding
+- `GET /knowledge/file/{path}` — контекст файла
+- `GET /knowledge/overview` — обзор проекта
 
 **Гарантия**: агент НИКОГДА не получает всю базу (max 50 KB per request).
+
+### Storage
+
+Поддерживает два backend'а через adapter pattern:
+
+- **Memory**: in-process storage, быстрый для разработки, без persistence
+- **PostgreSQL**: production-ready с pgvector, atomic операции, async API
+
+**Архитектурный принцип**: storage полностью изолирован, изменение backend не требует изменений кода API.
+
+### Configuration
+
+Config разделен на модули по concerns:
+
+- `runtime.py` — ENV, LOG_LEVEL, порт
+- `storage.py` — тип storage, PostgreSQL connection
+- `llm.py` — LLM endpoints, embeddings
+- `llm_lock.py` — агент communication URL
 
 ## Запуск
 
 ### Локально
 
 ```bash
-# Установка зависимостей
 pip install -r requirements.txt
-
-# Переменные окружения
 export WORKSPACE=/path/to/repo
 export OPENAI_API_BASE=http://localhost:8000/v1
-export OPENAI_API_KEY=dummy
-export INGESTOR_PORT=8001
-
-# Запуск
+export INGEST_STORAGE_TYPE=postgres
+export INGEST_POSTGRES_HOST=localhost
+export INGEST_POSTGRES_PORT=5432
+export INGEST_POSTGRES_DB=rag
+export INGEST_POSTGRES_USER=rag
+export INGEST_POSTGRES_PASSWORD=rag
 python -m ingestor.app.main
 ```
 
 ### Docker
 
 ```bash
-docker build -f ingestor/Dockerfile -t ingestor .
-docker run -v /path/to/repo:/workspace \
-  -e OPENAI_API_BASE=http://llm:8000/v1 \
-  -p 8001:8001 \
-  ingestor
+docker-compose up -d
+docker-compose logs -f ingestor
 ```
 
 ## API Endpoints
 
 ### System
 
-- `GET /` - статус сервиса
-- `GET /health` - health check
-- `GET /stats` - статистика storage
+- `GET /` — статус сервиса
+- `GET /health` — health check
+- `GET /stats` — статистика storage
 
 ### LLM Lock (для агента)
 
-- `POST /system/llm_lock` - установить блокировку
+- `POST /system/llm_lock` — установить блокировку
   ```json
   {"locked": true, "ttl_seconds": 300}
   ```
-- `GET /system/llm_lock` - получить состояние блокировки
+- `GET /system/llm_lock` — состояние блокировки
 
 ### Knowledge Port (для агента)
 
-- `POST /knowledge/search` - поиск по embedding
-  ```json
-  {
-    "query_embedding": [...],
-    "top_k": 5
-  }
-  ```
-- `GET /knowledge/file/{path}` - контекст файла
-- `GET /knowledge/overview` - обзор проекта
-
-### Debug
-
-- `GET /chunks?limit=10` - список чанков
-
-## Конфигурация
-
-Через переменные окружения:
-
-- `WORKSPACE` - путь к репозиторию (default: `/workspace`)
-- `INGESTOR_PORT` - порт HTTP API (default: `8001`)
-- `OPENAI_API_BASE` - URL LLM сервера
-- `OPENAI_API_KEY` - API ключ
-- `ENV` - окружение (`dev`/`prod`)
+- `POST /knowledge/search` — поиск по embedding
+- `GET /knowledge/file/{path}` — контекст файла
+- `GET /knowledge/overview` — обзор проекта
 
 ## Принципы
 
-1. **Детерминированность**: можно перезапустить в любой момент
-2. **Изоляция**: storage — внутренняя деталь
-3. **Координация**: уважает LLM lock от агента
-4. **Эффективность**: батчинг, параллелизм где возможно
-5. **Fail-safe**: TTL защищает от deadlock
-
-## Будущее
-
-- [ ] Incremental indexing (file watcher)
-- [ ] Hierarchical summaries (cloud LLM)
-- [ ] Postgres storage
-- [ ] gRPC API
-- [ ] Distributed processing
+1. **Детерминированность** — можно перезапустить в любой момент
+2. **Изоляция** — storage — внутренняя деталь
+3. **Координация** — уважает LLM lock от агента
+4. **Эффективность** — батчинг, параллелизм где возможно
+5. **Fail-safe** — TTL защищает от deadlock
+6. **Extensibility** — adapter pattern для storage, modular config
