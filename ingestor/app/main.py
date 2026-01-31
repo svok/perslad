@@ -14,7 +14,6 @@ import sys
 
 from dotenv import load_dotenv
 import uvicorn
-from llama_index.embeddings.openai import OpenAIEmbedding
 
 from infra.logger import setup_logging, get_logger
 from infra.llm import get_llm
@@ -25,12 +24,12 @@ from ingestor.app.api import IngestorAPI
 from ingestor.app.config import runtime, storage as storage_config, llm as llm_config
 from ingestor.adapters import get_storage
 
-
 _shutdown = asyncio.Event()
 
 
 def _install_signal_handlers(log):
     """Устанавливает обработчики сигналов."""
+
     def _handler(signame: str):
         log.info("ingestor.shutdown.signal", signal=signame)
         _shutdown.set()
@@ -76,10 +75,8 @@ async def main() -> None:
     # === Инициализация компонентов ===
 
     llm = get_llm()
-    embed_model = OpenAIEmbedding()
     lock_manager = LLMLockManager()
     storage = get_storage()
-    knowledge_port = KnowledgePort(storage)
     knowledge_port = KnowledgePort(storage)
 
     # Pipeline orchestrator
@@ -88,7 +85,8 @@ async def main() -> None:
         llm=llm,
         lock_manager=lock_manager,
         storage=storage,
-        embed_model=embed_model,
+        embed_url=runtime.EMBED_URL,
+        embed_api_key=runtime.EMBED_API_KEY,
     )
 
     # HTTP API

@@ -28,9 +28,9 @@ Content:
 {content}
 ```
 
-Provide a brief analysis:
-1. Summary (1-2 sentences)
-2. Purpose (what does it do?)
+Provide a brief analysis using the following format:
+Summary: <1-2 sentences describing what this code does>
+Purpose: <what is the purpose of this code/function?>
 
 Keep it concise and factual.
 """
@@ -114,33 +114,55 @@ class EnrichStage:
             return response.content
         
         result = await self.llm.call_raw(_call)
-        
-        # Парсим результат (упрощённо)
-        # В production можно использовать structured output
+
+        log.info("enrich.chunk.raw_response", chunk_id=chunk.id, response=result[:500])
+
+        # Парсим результат
         lines = result.strip().split("\n")
-        
+
         summary_lines = []
         purpose_lines = []
-        current_section = None
-        
+        in_summary_section = False
+        in_purpose_section = False
+
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-            
-            if "summary" in line.lower():
-                current_section = "summary"
+
+            # Если строка начинается с "Summary:" - начинаем секцию summary
+            if line.lower().startswith("summary:"):
+                in_summary_section = True
+                in_purpose_section = False
+                # Извлекаем текст summary (убираем префикс "Summary:")
+                summary_text = line.replace("Summary:", "", 1).strip()
+                if summary_text:
+                    summary_lines.append(summary_text)
                 continue
-            elif "purpose" in line.lower():
-                current_section = "purpose"
+
+            # Если строка начинается с "Purpose:" - начинаем секцию purpose
+            elif line.lower().startswith("purpose:"):
+                in_purpose_section = True
+                in_summary_section = False
+                # Извлекаем текст purpose (убираем префикс "Purpose:")
+                purpose_text = line.replace("Purpose:", "", 1).strip()
+                if purpose_text:
+                    purpose_lines.append(purpose_text)
                 continue
-            
-            if current_section == "summary":
+
+            # Если мы внутри секции, добавляем строку
+            if in_summary_section:
                 summary_lines.append(line)
-            elif current_section == "purpose":
+            elif in_purpose_section:
                 purpose_lines.append(line)
-        
-        chunk.summary = " ".join(summary_lines) if summary_lines else result[:200]
-        chunk.purpose = " ".join(purpose_lines) if purpose_lines else None
-        
-        log.debug("enrich.chunk.complete", chunk_id=chunk.id)
+
+        # Если не найден отдельный purpose, берем первый line summary как purpose
+        chunk.summary = " ".join(summary_lines) if summary_lines else None
+        chunk.purpose = " ".join(purpose_lines) if purpose_lines else (summary_lines[0] if summary_lines else None)
+
+        log.info("enrich.chunk.parsed",
+                  chunk_id=chunk.id,
+                  summary_len=len(chunk.summary) if chunk.summary else 0,
+                  purpose_len=len(chunk.purpose) if chunk.purpose else 0,
+                  summary_preview=chunk.summary[:100] if chunk.summary else None,
+                  purpose_preview=chunk.purpose[:100] if chunk.purpose else None)

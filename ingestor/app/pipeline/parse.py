@@ -53,13 +53,9 @@ class ParseStage:
         success_count = 0
         failed_count = 0
         
-        print(f"DEBUG parse.starting loop", flush=True)
         for i, file in enumerate(files):
-            print(f"DEBUG parse file iteration {i}/{len(files)}: {file.relative_path}", flush=True)
             try:
-                log.info("parse.file.start", index=i, total=len(files), file=file.relative_path)
                 chunks = await self._parse_file(file)
-                log.info("parse.file.success", index=i, total=len(files), file=file.relative_path, chunks=len(chunks))
                 all_chunks.extend(chunks)
                 success_count += 1
             except Exception as e:
@@ -80,16 +76,14 @@ class ParseStage:
         """
         Парсит один файл.
         """
-        log.debug("parse.file.before_read", file=file.relative_path, path=file.path)
         # Читаем содержимое с обработкой различных кодировок
         content = self._read_file_content(file.path, file.relative_path)
         if content is None:
             return []
-        log.debug("parse.file.after_read", file=file.relative_path, content_length=len(content))
-        
+
         # Определяем тип и splitter
         chunk_type, splitter = self._get_splitter(file.extension)
-        
+
         # Создаём Document для LlamaIndex
         doc = Document(
             text=content,
@@ -98,12 +92,10 @@ class ParseStage:
                 "extension": file.extension,
             },
         )
-        
+
         # Разбиваем на nodes
         try:
-            log.debug("parse.file.before_split", file=file.relative_path, chunk_type=chunk_type)
             nodes = splitter.get_nodes_from_documents([doc])
-            log.debug("parse.file.after_split", file=file.relative_path, nodes_count=len(nodes))
         except Exception as e:
             log.error(
                 "parse.split.failed",
@@ -112,12 +104,12 @@ class ParseStage:
                 exc_info=True,
             )
             return []
-        
+
         # Конвертируем в наши Chunks
         chunks = []
         for idx, node in enumerate(nodes):
             chunk_id = self._generate_chunk_id(file.relative_path, idx)
-            
+
             chunk = Chunk(
                 id=chunk_id,
                 file_path=file.relative_path,
@@ -131,13 +123,7 @@ class ParseStage:
                 },
             )
             chunks.append(chunk)
-        
-        log.debug(
-            "parse.file.complete",
-            file=file.relative_path,
-            chunks=len(chunks),
-        )
-        
+
         return chunks
 
     def _read_file_content(self, file_path: str, relative_path: str) -> str | None:
@@ -151,18 +137,10 @@ class ParseStage:
             try:
                 with open(file_path, 'r', encoding=encoding, errors='strict') as f:
                     content = f.read()
-                
-                # Успешно прочитали
-                if encoding != 'utf-8':
-                    log.debug(
-                        "parse.read.encoding",
-                        file=relative_path,
-                        encoding=encoding,
-                    )
+
                 return content
-                
+
             except UnicodeDecodeError:
-                # Пробуем следующую кодировку
                 continue
             except Exception as e:
                 log.warning(

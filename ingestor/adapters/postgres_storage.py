@@ -139,6 +139,13 @@ class PostgreSQLStorage(BaseStorage):
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 for chunk in chunks:
+                    log.debug(
+                        "postgres.save_chunk.embedding",
+                        chunk_id=chunk.id,
+                        has_embedding=chunk.embedding is not None,
+                        embedding_type=type(chunk.embedding).__name__,
+                        embedding_len=len(chunk.embedding) if chunk.embedding else 0,
+                    )
                     await conn.execute(
                         """
                         INSERT INTO chunks (

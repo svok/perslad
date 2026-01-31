@@ -4,7 +4,7 @@
 if echo "$LLM_ENGINE_IMAGE" | grep -q "sglang"; then
     echo "Starting SGLang for ${MODEL_NAME}..."
     exec python3 -m sglang.launch_server \
-        --log-level debug \
+        --log-level info \
         --model-path ${MODEL_NAME} \
         --mem-fraction-static ${GPU_MEM_FRACTION} \
         --tool-call-parser ${TOOL_CALL_PARSER} \

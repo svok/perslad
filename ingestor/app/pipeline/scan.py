@@ -144,12 +144,10 @@ class ScanStage:
             for d in dirs:
                 dir_path = root_path / d
                 relative_dir = dir_path.relative_to(self.workspace_path)
-                
+
                 if not self._should_ignore_path(dir_path):
                     filtered_dirs.append(d)
-                else:
-                    log.debug("scan.dir.ignored", dir=str(relative_dir))
-            
+
             # Обновляем список директорий для os.walk
             dirs[:] = filtered_dirs
 
@@ -170,36 +168,26 @@ class ScanStage:
 
                 # Исключаем файлы по .gitignore
                 if self._should_ignore_path(file_path):
-                    log.debug("scan.file.ignored", file=relative_str)
                     continue
 
                 # Проверяем расширение - оставляем только файлы с расширением
                 # (игнорируем безрасширения и бинарные файлы)
                 if not file_path.suffix:
-                    log.debug("scan.file.no_extension", file=relative_str)
                     continue
 
                 # Проверяем, не является ли файл бинарным
                 if self._is_binary_file(file_path):
-                    log.debug("scan.file.binary", file=relative_str)
                     continue
 
                 # Проверяем размер
                 try:
                     size = file_path.stat().st_size
                     if size > self.MAX_FILE_SIZE:
-                        log.debug(
-                            "scan.file.too_large",
-                            file=relative_str,
-                            size=size,
-                        )
                         continue
-                    
-                    # Пропускаем пустые файлы
+
                     if size == 0:
-                        log.debug("scan.file.empty", file=relative_str)
                         continue
-                        
+
                 except OSError as e:
                     log.warning("scan.file.error", file=relative_str, error=str(e))
                     continue

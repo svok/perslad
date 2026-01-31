@@ -8,6 +8,7 @@ class LLMConfig(BaseSettings):
     OPENAI_API_KEY: str = Field(default="sk-dummy")
 
     # Embedding settings
-    OPENAI_EMBEDDING_MODEL: str = Field(default="text-embedding-3-small")
+    OPENAI_API_BASE: str | None = Field(default=None)
+    OPENAI_EMBEDDING_MODEL: str = Field(default="embed-model")
 
 llm = LLMConfig()

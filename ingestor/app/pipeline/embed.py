@@ -2,14 +2,11 @@
 Stage 4: Embeddings
 
 Задача: посчитать embeddings для чанков.
-NO LLM reasoning (но использует embedding endpoint).
-
-В MVP можно делать даже при LLM lock, если это отдельный endpoint.
+Использует локальный embedding endpoint без llama-index.
 """
 
 from typing import List
-
-from llama_index.embeddings.openai import OpenAIEmbedding
+import httpx
 
 from infra.logger import get_logger
 from ingestor.app.storage import Chunk
@@ -19,26 +16,27 @@ log = get_logger("ingestor.pipeline.embed")
 
 class EmbedStage:
     """
-    Вычисляет embeddings для чанков.
+    Вычисляет embeddings для чанков с помощью локального embedding endpoint.
     """
 
-    def __init__(self, embed_model: OpenAIEmbedding) -> None:
-        self.embed_model = embed_model
+    def __init__(self, embed_url: str, api_key: str) -> None:
+        self.embed_url = embed_url
+        self.api_key = api_key
 
     async def run(self, chunks: List[Chunk]) -> List[Chunk]:
         """
         Вычисляет embeddings для всех чанков.
         """
         log.info("embed.start", chunks_count=len(chunks))
-        
+
         embedded = 0
         skipped = 0
-        
-        # Батчим для эффективности
+
+        # Batch for efficiency
         batch_size = 10
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i + batch_size]
-            
+
             try:
                 await self._embed_batch(batch)
                 embedded += len(batch)
@@ -50,31 +48,41 @@ class EmbedStage:
                     error=str(e),
                 )
                 skipped += len(batch)
-        
+
         log.info(
             "embed.complete",
             embedded=embedded,
             skipped=skipped,
         )
-        
+
         return chunks
 
     async def _embed_batch(self, chunks: List[Chunk]) -> None:
         """
         Вычисляет embeddings для батча чанков.
         """
-        # Подготавливаем тексты
+        # Prepare texts
         texts = []
         for chunk in chunks:
-            # Используем summary если есть, иначе content
             text = chunk.summary or chunk.content[:500]
             texts.append(text)
-        
-        # Вызываем embedding model
-        embeddings = await self.embed_model.aget_text_embedding_batch(texts)
-        
-        # Сохраняем embeddings
+
+        # Call embedding endpoint
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                f"{self.embed_url}/embeddings",
+                json={
+                    "model": "embed-model",
+                    "input": texts,
+                },
+                headers={"Authorization": f"Bearer {self.api_key}"},
+            )
+            response.raise_for_status()
+            result = response.json()
+
+        # Save embeddings
+        embeddings = result.get("data", [])
         for chunk, embedding in zip(chunks, embeddings):
-            chunk.embedding = embedding
-        
+            chunk.embedding = embedding["embedding"]
+
         log.debug("embed.batch.complete", batch_size=len(chunks))
