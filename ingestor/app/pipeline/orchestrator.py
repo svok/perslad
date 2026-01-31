@@ -65,14 +65,20 @@ class PipelineOrchestrator:
             self.done = False
             self.storage = storage
             self.debounce = debounce
+            self.total_added = 0
+            self.total_flushed = 0
 
         async def add(self, chunk: Chunk):
+            self.total_added += 1
+            log.debug("collector.add.call", total_added=self.total_added)
             await self.queue.put(chunk)
             async with self.lock:
                 if self.timer is None:
                     self.timer = asyncio.create_task(self._flush())
 
         async def _flush(self):
+            log.debug("collector.flush.start", buffer_len=len(self.buffer), queue_empty=self.queue.empty())
+            
             while not self.queue.empty():
                 try:
                     chunk = await asyncio.wait_for(self.queue.get(), timeout=self.debounce)
@@ -81,11 +87,18 @@ class PipelineOrchestrator:
                     break
 
             if len(self.buffer) >= 100:
+                log.info("collector.flush.buffer_full", buffer_len=len(self.buffer), flushing=True)
+                await self.storage.save_chunks(self.buffer.copy())
+                self.total_flushed += len(self.buffer)
+                log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
+                self.buffer.clear()
                 return
 
             if self.buffer and (time.time() - self.last_time >= self.debounce):
-                log.info("collector.flush", chunk_count=len(self.buffer))
+                log.info("collector.flush.timeout", buffer_len=len(self.buffer))
                 await self.storage.save_chunks(self.buffer.copy())
+                self.total_flushed += len(self.buffer)
+                log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
                 self.buffer.clear()
 
             self.last_time = time.time()
@@ -93,12 +106,17 @@ class PipelineOrchestrator:
                 self.timer = None
 
         async def wait_done(self):
-            log.info("collector.waiting_done")
+            log.info("collector.waiting_done", total_added=self.total_added, buffer_len=len(self.buffer), queue_empty=self.queue.empty())
             await self.queue.join()
             await self._flush()
             if self.buffer:
-                log.info("collector.flush.final", chunk_count=len(self.buffer))
+                log.info("collector.flush.final", buffer_len=len(self.buffer))
                 await self.storage.save_chunks(self.buffer.copy())
+                self.total_flushed += len(self.buffer)
+                log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
+                self.buffer.clear()
+            
+            log.info("collector.done", total_added=self.total_added, total_flushed=self.total_flushed)
 
     async def run_full_pipeline(self) -> None:
         """
@@ -112,11 +130,13 @@ class PipelineOrchestrator:
 
             collector = self.EnrichCollector(self.storage, max_buffer=100, debounce=1.0)
 
+            log.info("pipeline.tasks.created")
+            
             scan_task = asyncio.create_task(self._scan_producer(files_queue))
             parse_enrich_task = asyncio.create_task(self._parse_enrich_consumer(files_queue, enriched_queue))
             save_task = asyncio.create_task(self._save_consumer(enriched_queue, collector))
 
-            log.info("pipeline.tasks.created")
+            log.info("pipeline.tasks.running")
             await scan_task
             log.info("pipeline.task.scan.complete")
 
@@ -132,58 +152,71 @@ class PipelineOrchestrator:
             log.error("pipeline.failed", error=str(e), exc_info=True)
             raise
 
-    async def _scan_producer(self, queue: asyncio.Queue) -> None:
+    async def _scan_producer(self, files_queue: asyncio.Queue) -> None:
         log.info("scan_producer.starting")
         files = await self.scan_stage.run()
         log.info("scan_producer.finished", files_count=len(files))
-        for file in files:
-            await queue.put(file)
-        # Отправляем два sentinel для разных consumer
-        await queue.put(None)  # sentinel для parse_enrich_consumer
-        await queue.put(None)  # sentinel для save_consumer
+        
+        future = asyncio.Future()
+        
+        async def put_with_callback():
+            try:
+                for i, file in enumerate(files):
+                    await files_queue.put(file)
+                    log.debug("scan_producer.put_file", index=i, total=len(files), filename=file)
+                future.set_result(None)
+            except Exception as e:
+                future.set_exception(e)
+        
+        asyncio.create_task(put_with_callback())
+        await future
+        log.info("scan_producer.all_files_sent")
+        
+        # Отправляем только 1 sentinel после того, как все файлы отправлены
+        await files_queue.put(None)
         log.info("scan_producer.sentinel_sent")
 
     async def _parse_enrich_consumer(self, files_queue: asyncio.Queue, enriched_queue: asyncio.Queue) -> None:
         log.info("parse_enrich_consumer.starting")
         enriched_count = 0
-        sentinel_count = 0
+        sentinel_received = False
 
         while True:
             files = await files_queue.get()
             if files is None:
-                sentinel_count += 1
-                log.info("parse_enrich_consumer.received sentinel", count=sentinel_count)
-                # Дождаться двух sentinel-ов: один для parse, один для save
-                if sentinel_count >= 2:
-                    break
-                continue
+                sentinel_received = True
+                log.info("parse_enrich_consumer.received sentinel")
+                break
 
+            log.info("parse_enrich_consumer.get_files", files_count=len(files), files=files[:3] if len(files) > 3 else files)
+            
             chunks = await self.parse_stage.run(files)
             enriched = await self.enrich_stage.run(chunks)
             enriched_count += len(enriched)
             log.info("parse_enrich_consumer.enriched", chunks_count=len(chunks), enriched_count=enriched_count)
 
-            for chunk in enriched:
+            for i, chunk in enumerate(enriched):
                 await enriched_queue.put(chunk)
+                log.debug("parse_enrich_consumer.put_chunk", chunk_index=i, total=len(enriched), chunk_id=chunk.id)
 
-        log.info("parse_enrich_consumer.finished", total_enriched=enriched_count)
+        # Отправляем sentinel в enriched_queue после обработки всех files
+        if sentinel_received:
+            log.info("parse_enrich_consumer.send_enriched_sentinel", total_enriched=enriched_count)
+            await enriched_queue.put(None)
+        log.info("parse_enrich_consumer.finished", total_enriched=enriched_count, sentinel_received=sentinel_received)
 
     async def _save_consumer(self, queue: asyncio.Queue, collector: EnrichCollector) -> None:
         log.info("save_consumer.starting")
-        sentinel_count = 0
         enriched_chunks_passed = 0
 
         while True:
             chunk = await queue.get()
             if chunk is None:
-                sentinel_count += 1
-                log.info("save_consumer.received sentinel", count=sentinel_count)
-                if sentinel_count >= 2:
-                    break
-                continue
+                log.info("save_consumer.received sentinel")
+                break
 
             enriched_chunks_passed += 1
-            log.debug("save_consumer.received enriched chunk", count=enriched_chunks_passed)
+            log.debug("save_consumer.get_chunk", count=enriched_chunks_passed, chunk_id=chunk.id, file_path=chunk.file_path)
             await collector.add(chunk)
 
         log.info("save_consumer.finished", enriched_chunks_passed=enriched_chunks_passed)
