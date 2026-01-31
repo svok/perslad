@@ -58,8 +58,9 @@ async def main() -> None:
     env = runtime.ENV
     workspace = runtime.WORKSPACE_PATH
     api_port = runtime.INGESTOR_PORT
+    log_level = runtime.LOG_LEVEL
 
-    setup_logging(env=env)
+    setup_logging(env=env, log_level=log_level)
     log = get_logger("ingestor")
 
     log.info(

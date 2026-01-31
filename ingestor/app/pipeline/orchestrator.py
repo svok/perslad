@@ -70,7 +70,7 @@ class PipelineOrchestrator:
 
         async def add(self, chunk: Chunk):
             self.total_added += 1
-            log.debug("collector.add.call", total_added=self.total_added)
+            log.debug("collector.add.call", total_added=self.total_added, chunk_id=chunk.id, file_path=chunk.file_path[:50] if chunk.file_path else None)
             await self.queue.put(chunk)
             async with self.lock:
                 if self.timer is None:
@@ -79,15 +79,21 @@ class PipelineOrchestrator:
         async def _flush(self):
             log.debug("collector.flush.start", buffer_len=len(self.buffer), queue_empty=self.queue.empty())
             
+            items_processed = 0
             while not self.queue.empty():
                 try:
                     chunk = await asyncio.wait_for(self.queue.get(), timeout=self.debounce)
                     self.buffer.append(chunk)
+                    self.queue.task_done()
+                    items_processed += 1
                 except asyncio.TimeoutError:
                     break
 
+            log.debug("collector.flush.items_processed", count=items_processed, buffer_len=len(self.buffer))
+
             if len(self.buffer) >= 100:
                 log.info("collector.flush.buffer_full", buffer_len=len(self.buffer), flushing=True)
+                log.debug("collector.flush.buffer_contents", first_chunk_id=self.buffer[0].id if self.buffer else None)
                 await self.storage.save_chunks(self.buffer.copy())
                 self.total_flushed += len(self.buffer)
                 log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
@@ -95,7 +101,7 @@ class PipelineOrchestrator:
                 return
 
             if self.buffer and (time.time() - self.last_time >= self.debounce):
-                log.info("collector.flush.timeout", buffer_len=len(self.buffer))
+                log.info("collector.flush.timeout", buffer_len=len(self.buffer), first_chunk_id=self.buffer[0].id if self.buffer else None)
                 await self.storage.save_chunks(self.buffer.copy())
                 self.total_flushed += len(self.buffer)
                 log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
@@ -107,10 +113,13 @@ class PipelineOrchestrator:
 
         async def wait_done(self):
             log.info("collector.waiting_done", total_added=self.total_added, buffer_len=len(self.buffer), queue_empty=self.queue.empty())
+            log.info("collector.waiting_done.before_queue_join")
             await self.queue.join()
+            log.info("collector.waiting_done.after_queue_join")
             await self._flush()
             if self.buffer:
-                log.info("collector.flush.final", buffer_len=len(self.buffer))
+                log.info("collector.flush.final", buffer_len=len(self.buffer), first_chunk_id=self.buffer[0].id if self.buffer else None)
+                log.debug("collector.flush.buffer_contents", first_chunk_id=self.buffer[0].id if self.buffer else None)
                 await self.storage.save_chunks(self.buffer.copy())
                 self.total_flushed += len(self.buffer)
                 log.info("collector.flush.saved", saved_count=len(self.buffer), total_flushed=self.total_flushed)
@@ -181,23 +190,37 @@ class PipelineOrchestrator:
         enriched_count = 0
         sentinel_received = False
 
+        loop_count = 0
         while True:
-            files = await files_queue.get()
-            if files is None:
+            loop_count += 1
+            log.debug("parse_enrich_consumer.before_wait", loop=loop_count)
+            file = await files_queue.get()
+            log.debug("parse_enrich_consumer.after_get", loop=loop_count, file_type=type(file).__name__, file_is_none=file is None)
+
+            if file is None:
                 sentinel_received = True
-                log.info("parse_enrich_consumer.received sentinel")
+                log.info("parse_enrich_consumer.received_sentinel")
                 break
 
-            log.info("parse_enrich_consumer.get_files", files_count=len(files), files=files[:3] if len(files) > 3 else files)
+            log.debug("parse_enrich_consumer.processing_file", file=file.relative_path)
             
-            chunks = await self.parse_stage.run(files)
+            # Parse single file (expects a list, so wrap it)
+            log.debug("parse_enrich_consumer.before_parse", file=file.relative_path)
+            chunks = await self.parse_stage.run([file])
+            log.debug("parse_enrich_consumer.after_parse", file=file.relative_path, chunks_count=len(chunks))
+
+            if not chunks:
+                log.debug("parse_enrich_consumer.no_chunks", file=file.relative_path)
+                continue
+
+            log.debug("parse_enrich_consumer.before_enrich", file=file.relative_path, chunks_count=len(chunks))
             enriched = await self.enrich_stage.run(chunks)
             enriched_count += len(enriched)
-            log.info("parse_enrich_consumer.enriched", chunks_count=len(chunks), enriched_count=enriched_count)
+            log.info("parse_enrich_consumer.enriched", file=file.relative_path, chunks_count=len(chunks), total_enriched=enriched_count)
 
             for i, chunk in enumerate(enriched):
+                log.debug("parse_enrich_consumer.put_chunk", chunk_index=i, total=len(enriched), chunk_id=chunk.id, file_path=chunk.file_path[:50] if chunk.file_path else None)
                 await enriched_queue.put(chunk)
-                log.debug("parse_enrich_consumer.put_chunk", chunk_index=i, total=len(enriched), chunk_id=chunk.id)
 
         # Отправляем sentinel в enriched_queue после обработки всех files
         if sentinel_received:
@@ -208,6 +231,7 @@ class PipelineOrchestrator:
     async def _save_consumer(self, queue: asyncio.Queue, collector: EnrichCollector) -> None:
         log.info("save_consumer.starting")
         enriched_chunks_passed = 0
+        chunks_sent = 0
 
         while True:
             chunk = await queue.get()
@@ -216,10 +240,12 @@ class PipelineOrchestrator:
                 break
 
             enriched_chunks_passed += 1
-            log.debug("save_consumer.get_chunk", count=enriched_chunks_passed, chunk_id=chunk.id, file_path=chunk.file_path)
+            log.debug("save_consumer.get_chunk", count=enriched_chunks_passed, chunk_id=chunk.id, file_path=chunk.file_path[:50] if chunk.file_path else None)
             await collector.add(chunk)
+            chunks_sent += 1
 
-        log.info("save_consumer.finished", enriched_chunks_passed=enriched_chunks_passed)
+        log.info("save_consumer.finished", enriched_chunks_passed=enriched_chunks_passed, chunks_sent=chunks_sent)
+        log.info("save_consumer.before_wait_done")
         await collector.wait_done()
 
     async def run_incremental(self, file_paths: list[str]) -> None:

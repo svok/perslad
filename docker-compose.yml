@@ -130,7 +130,6 @@ services:
     volumes:
       - ./infra:/app/infra:ro
       - ./ingestor:/app/ingestor:ro
-#      - /var/run/docker.sock:/var/run/docker.sock
       - ${PROJECT_ROOT}:/workspace
     depends_on:
       - llm

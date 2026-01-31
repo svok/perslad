@@ -25,9 +25,11 @@ class PersistStage:
         """
         Сохраняет все чанки.
         """
-        log.info("persist.start", chunks_count=len(chunks))
+        log.info("persist.start", chunks_count=len(chunks), first_chunk_id=chunks[0].id if chunks else None, first_file_path=chunks[0].file_path[:50] if chunks and chunks[0].file_path else None)
         
+        log.info("persist.before_save_chunks")
         await self.storage.save_chunks(chunks)
+        log.info("persist.after_save_chunks")
         
         stats = await self.storage.get_stats()
         log.info("persist.complete", stats=stats)

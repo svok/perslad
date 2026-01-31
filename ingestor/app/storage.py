@@ -79,9 +79,11 @@ class InMemoryStorage:
 
     async def save_chunks(self, chunks: List[Chunk]) -> None:
         async with self._lock:
+            log.debug("storage.save_chunks.before", count=len(chunks))
             for chunk in chunks:
                 self._chunks[chunk.id] = chunk
-            log.info("storage.chunks.saved", count=len(chunks))
+                log.debug("storage.chunk.saved", chunk_id=chunk.id, file_path=chunk.file_path[:50] if chunk.file_path else None)
+            log.info("storage.chunks.saved", count=len(chunks), total_in_storage=len(self._chunks))
 
     async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
         async with self._lock:

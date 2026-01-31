@@ -50,29 +50,42 @@ class ParseStage:
         log.info("parse.start", files_count=len(files))
         
         all_chunks: List[Chunk] = []
+        success_count = 0
+        failed_count = 0
         
-        for file in files:
+        print(f"DEBUG parse.starting loop", flush=True)
+        for i, file in enumerate(files):
+            print(f"DEBUG parse file iteration {i}/{len(files)}: {file.relative_path}", flush=True)
             try:
+                log.info("parse.file.start", index=i, total=len(files), file=file.relative_path)
                 chunks = await self._parse_file(file)
+                log.info("parse.file.success", index=i, total=len(files), file=file.relative_path, chunks=len(chunks))
                 all_chunks.extend(chunks)
+                success_count += 1
             except Exception as e:
-                log.warning(
+                failed_count += 1
+                log.error(
                     "parse.file.failed",
+                    index=i,
+                    total=len(files),
                     file=file.relative_path,
                     error=str(e),
+                    exc_info=True,
                 )
         
-        log.info("parse.complete", chunks_count=len(all_chunks))
+        log.info("parse.complete", files_count=len(files), success_count=success_count, failed_count=failed_count, chunks_count=len(all_chunks))
         return all_chunks
 
     async def _parse_file(self, file: ScannedFile) -> List[Chunk]:
         """
         Парсит один файл.
         """
+        log.debug("parse.file.before_read", file=file.relative_path, path=file.path)
         # Читаем содержимое с обработкой различных кодировок
         content = self._read_file_content(file.path, file.relative_path)
         if content is None:
             return []
+        log.debug("parse.file.after_read", file=file.relative_path, content_length=len(content))
         
         # Определяем тип и splitter
         chunk_type, splitter = self._get_splitter(file.extension)
@@ -88,12 +101,15 @@ class ParseStage:
         
         # Разбиваем на nodes
         try:
+            log.debug("parse.file.before_split", file=file.relative_path, chunk_type=chunk_type)
             nodes = splitter.get_nodes_from_documents([doc])
+            log.debug("parse.file.after_split", file=file.relative_path, nodes_count=len(nodes))
         except Exception as e:
-            log.warning(
+            log.error(
                 "parse.split.failed",
                 file=file.relative_path,
                 error=str(e),
+                exc_info=True,
             )
             return []
         

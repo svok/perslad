@@ -62,6 +62,10 @@ class EnrichStage:
         batch_size = 10
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i + batch_size]
+            batch_num = i // batch_size + 1
+            total_batches = (len(chunks) + batch_size - 1) // batch_size
+            
+            log.info("enrich.batch.start", batch_num=batch_num, total_batches=total_batches, batch_size=len(batch))
             
             # Check lock once per batch
             if await self.lock_manager.is_locked():
@@ -73,14 +77,17 @@ class EnrichStage:
             
             for chunk, result in zip(batch, results):
                 if isinstance(result, Exception):
-                    log.warning(
+                    log.error(
                         "enrich.chunk.failed",
                         chunk_id=chunk.id,
                         error=str(result),
+                        file_path=chunk.file_path[:50] if chunk.file_path else None
                     )
                     skipped += 1
                 else:
                     enriched += 1
+            
+            log.info("enrich.batch.complete", batch_num=batch_num, enriched_in_batch=len(batch) - skipped)
         
         log.info(
             "enrich.complete",
