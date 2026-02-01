@@ -11,7 +11,6 @@ from ingestor.adapters.base_storage import BaseStorage
 from ingestor.adapters.memory_storage import MemoryStorage
 from ingestor.adapters.postgres_storage import PostgreSQLStorage
 from ingestor.app.config.storage import storage as storage_config
-from ingestor.app.config import runtime
 
 log = get_logger("ingestor.llm_lock")
 
@@ -27,10 +26,23 @@ class StorageFactory:
             Storage instance (memory or postgres)
         """
         log.info("storage.factory.config", **storage_config.to_dict_public())
-        if storage_config.STORAGE_TYPE == "postgres":
-            return PostgreSQLStorage()
-        else:
-            return MemoryStorage()
+        storage_type = (
+            storage_config.STORAGE_TYPE.lower()
+            if isinstance(storage_config.STORAGE_TYPE, str)
+            else storage_config.STORAGE_TYPE
+        )
+
+        match storage_type:
+            case "pg" | "postgres" | "postgresql":
+                return PostgreSQLStorage()
+            case None | "mem" | "memory" | "in-memory":
+                return MemoryStorage()
+            case _:
+                # Показываем исходное значение для отладки
+                raise ValueError(
+                    f"Unsupported storage type: {repr(storage_config.STORAGE_TYPE)}. "
+                    f"Supported values: 'pg', 'postgres', 'postgresql', 'mem', 'memory', 'in-memory', None"
+                )
 
     @staticmethod
     def get_storage_type() -> str:

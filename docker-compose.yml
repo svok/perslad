@@ -146,12 +146,6 @@ services:
       - MCP_BASH_URL=http://mcp-bash:8081/mcp
       - MCP_PROJECT_URL=http://mcp-project:8083/mcp
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
-      - STORAGE_TYPE=postgres
-      - POSTGRES_HOST=postgres
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=rag
-      - POSTGRES_USER=rag
-      - POSTGRES_PASSWORD=rag
       - LOG_LEVEL=INFO
     ports:
       - "8124:8124"

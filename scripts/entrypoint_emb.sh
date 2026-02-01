@@ -19,7 +19,7 @@
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${EMB_MODEL_NAME} \
         --port 8001 \
-        --task embed \
+        --convert embed \
         --gpu-memory-utilization 0.07 \
         --max-model-len 512 \
         --served-model-name embed-model

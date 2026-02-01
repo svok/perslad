@@ -41,11 +41,12 @@ class EmbedStage:
                 await self._embed_batch(batch)
                 embedded += len(batch)
             except Exception as e:
-                log.warning(
+                log.error(
                     "embed.batch.failed",
                     batch_start=i,
                     batch_size=len(batch),
                     error=str(e),
+                    exc_info=True,
                 )
                 skipped += len(batch)
 
@@ -79,10 +80,23 @@ class EmbedStage:
             )
             response.raise_for_status()
             result = response.json()
-
+            
+        # Debug info for troubleshooting
+        log.debug("embed.batch.response", result=result)
+        
         # Save embeddings
         embeddings = result.get("data", [])
-        for chunk, embedding in zip(chunks, embeddings):
+        log.debug("embed.batch.embeddings_extracted", count=len(embeddings), chunks_count=len(chunks))
+        
+        if len(embeddings) != len(chunks):
+            log.warning("embed.batch.mismatch", expected=len(chunks), got=len(embeddings))
+            raise ValueError(f"Embedding count mismatch: expected {len(chunks)}, got {len(embeddings)}")
+            
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+            if "embedding" not in embedding:
+                log.error("embed.batch.embedding_missing_key", chunk_id=chunk.id[:20], embedding=embedding)
+                raise ValueError(f"Missing 'embedding' key in response for chunk {chunk.id}")
             chunk.embedding = embedding["embedding"]
+            log.debug("embed.batch.chunk_embedding_set", chunk_id=chunk.id[:20], embedding_len=len(embedding["embedding"]))
 
         log.debug("embed.batch.complete", batch_size=len(chunks))

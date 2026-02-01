@@ -87,12 +87,12 @@ Config разделен на модули по concerns:
 pip install -r requirements.txt
 export WORKSPACE=/path/to/repo
 export OPENAI_API_BASE=http://localhost:8000/v1
-export INGEST_STORAGE_TYPE=postgres
-export INGEST_POSTGRES_HOST=localhost
-export INGEST_POSTGRES_PORT=5432
-export INGEST_POSTGRES_DB=rag
-export INGEST_POSTGRES_USER=rag
-export INGEST_POSTGRES_PASSWORD=rag
+export STORAGE_TYPE=postgres
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_DB=rag
+export POSTGRES_USER=rag
+export POSTGRES_PASSWORD=rag
 python -m ingestor.app.main
 ```
 

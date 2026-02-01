@@ -175,6 +175,7 @@ class PipelineOrchestrator:
         await future
         log.info("scan_producer.all_files_sent")
 
+        log.info("scan_producer.preparing_sentinel")
         await files_queue.put(None)
         log.info("scan_producer.sentinel_sent")
 
@@ -182,10 +183,14 @@ class PipelineOrchestrator:
         log.info("parse_enrich_consumer.starting")
         enriched_count = 0
         sentinel_received = False
+        files_processed = 0
 
         while True:
+            log.info("parse_enrich_consumer.waiting_for_file")
             file = await files_queue.get()
 
+            files_processed += 1
+            log.info("parse_enrich_consumer.received_file", file_name=file.relative_path if hasattr(file, 'relative_path') else file[:50], files_processed=files_processed)
             if file is None:
                 sentinel_received = True
                 log.info("parse_enrich_consumer.received_sentinel")
@@ -199,7 +204,6 @@ class PipelineOrchestrator:
 
             enriched = await self.enrich_stage.run(chunks)
             enriched_count += len(enriched)
-            log.info("parse_enrich_consumer.enriched", file=file.relative_path, chunks_count=len(chunks), total_enriched=enriched_count)
 
             for i, chunk in enumerate(enriched):
                 await enriched_queue.put(chunk)
@@ -208,7 +212,7 @@ class PipelineOrchestrator:
         if sentinel_received:
             log.info("parse_enrich_consumer.send_enriched_sentinel", total_enriched=enriched_count)
             await enriched_queue.put(None)
-        log.info("parse_enrich_consumer.finished", total_enriched=enriched_count, sentinel_received=sentinel_received)
+        log.info("parse_enrich_consumer.finished", total_enriched=enriched_count, sentinel_received=sentinel_received, files_processed=files_processed)
 
     async def _embed_consumer(self, enriched_queue: asyncio.Queue, embedded_queue: asyncio.Queue) -> None:
         log.info("embed_consumer.starting")

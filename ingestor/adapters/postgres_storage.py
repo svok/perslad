@@ -75,7 +75,7 @@ class PostgreSQLStorage(BaseStorage):
             chunk_type TEXT NOT NULL,
             summary TEXT,
             purpose TEXT,
-            embedding vector(1536)
+            embedding vector(768)
         );
 
         CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
@@ -104,6 +104,15 @@ class PostgreSQLStorage(BaseStorage):
         await self._init_db()
 
         async with self._pool.acquire() as conn:
+            # Debug log
+            log.debug(
+                "postgres.save_chunk.before_execute",
+                chunk_id=chunk.id,
+                has_embedding=chunk.embedding is not None,
+                embedding_type=type(chunk.embedding).__name__ if chunk.embedding else "None",
+                embedding_len=len(chunk.embedding) if chunk.embedding else 0,
+            )
+            
             await conn.execute(
                 """
                 INSERT INTO chunks (
