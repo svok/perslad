@@ -9,8 +9,10 @@ class Config:
 
     MCP_BASH_URL = os.getenv("MCP_BASH_URL", "http://mcp-bash:8081/mcp")
     MCP_PROJECT_URL = os.getenv("MCP_PROJECT_URL", "http://mcp-project:8083/mcp")
+    
+    INGESTOR_URL = os.getenv("INGESTOR_URL", "http://ingestor:8124")
 
-    SYSTEM_PROMPT = "You are an intelligent assistant. Use tools when necessary."
+    SYSTEM_PROMPT = "You are an intelligent assistant. Use tools when necessary. When answering questions about code or project structure, you have access to indexed knowledge from the codebase."
 
     # Этот лимит должен соответствовать --max-model-len в entrypoint_llm.sh
     MAX_MODEL_TOKENS = int(os.getenv("CONTEXT_LENGTH", "0")) or 4096
