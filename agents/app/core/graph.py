@@ -1,24 +1,19 @@
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import Runnable, RunnableLambda
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from .state import AgentState
 from ..nodes.agent import agent_node
 from ..nodes.tools import tool_node
 
-def create_graph(llm: Runnable, tool_registry):
+def create_graph(llm: Runnable, tool_registry, ingestor_manager=None):
     """Создает граф с корректной обработкой инструментов."""
     workflow = StateGraph(AgentState)
 
     # 1. Узел Агента
     async def agent_wrapper(state: dict):
-        # Передаем LLM и реестр (если нужно внутри, но сейчас LLM уже имеет биндинг)
-        # В этом узле мы просто вызываем agent_node, который дергает LLM
-        # Обратите внимание: мы биндим инструменты к модели ПЕРЕД передачей в граф или здесь
-
-        # Для гибкости, биндинг лучше делать в chat.py перед компиляцией,
-        # но если нужно динамически:
-        return await agent_node(state, llm)
+        # Передаем LLM и ingestor manager для RAG контекста
+        return await agent_node(state, llm, ingestor_manager)
 
     workflow.add_node("agent", RunnableLambda(agent_wrapper))
 
