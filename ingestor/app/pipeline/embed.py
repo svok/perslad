@@ -6,8 +6,8 @@ Stage 4: Embeddings
 """
 
 from typing import List
-import httpx
 
+import httpx
 from infra.logger import get_logger
 from ingestor.app.storage import Chunk
 
@@ -22,6 +22,15 @@ class EmbedStage:
     def __init__(self, embed_url: str, api_key: str) -> None:
         self.embed_url = embed_url
         self.api_key = api_key
+
+    @staticmethod
+    def _parse_embedding_response(result: dict) -> List[dict]:
+        """Parse and validate embedding response (DRY)."""
+        embeddings = result.get("data", [])
+        if not embeddings:
+            raise ValueError("No embeddings in response")
+        
+        return embeddings
 
     async def run(self, chunks: List[Chunk]) -> List[Chunk]:
         """
@@ -80,12 +89,9 @@ class EmbedStage:
             )
             response.raise_for_status()
             result = response.json()
-            
-        # Debug info for troubleshooting
-        log.debug("embed.batch.response", result=result)
         
         # Save embeddings
-        embeddings = result.get("data", [])
+        embeddings = self._parse_embedding_response(result)
         log.debug("embed.batch.embeddings_extracted", count=len(embeddings), chunks_count=len(chunks))
         
         if len(embeddings) != len(chunks):

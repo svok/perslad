@@ -2,7 +2,7 @@ import asyncio
 import os
 from typing import Optional, Callable, Awaitable, Any
 
-import aiohttp
+import httpx
 from langchain_openai import ChatOpenAI
 
 from .health import HealthFlag
@@ -15,6 +15,7 @@ from .exceptions import (
     ServiceUnavailableError,
     ValidationError,
 )
+from .httpx_handler import map_httpx_error_to_exception, map_httpx_status_to_exception
 
 log = get_logger("infra.llm")
 
@@ -59,27 +60,13 @@ class LLMClient:
             self.health.set_ready()
         except (InfraConnectionError, TimeoutError) as e:
             self.model = None
-            raise InfraConnectionError(f"LLM connection failed: {str(e)}")
-        except aiohttp.ClientResponseError as e:
+            raise InfraConnectionError(f"LLM connection failed: {str(e)}") from e
+        except httpx.HTTPError as e:
             self.model = None
-            match e.status:
-                case 401 | 403:
-                    raise AuthorizationError(f"LLM authentication failed: {e.status}")
-                case 500 | 502 | 503 | 504:
-                    raise ServiceUnavailableError(f"LLM service unavailable: {e.status}")
-                case 400:
-                    raise ValidationError(f"LLM bad request: {e.status}")
-                case 404:
-                    raise FatalValidationError(f"LLM endpoint not found: {e.status}")
-                case 405:
-                    raise FatalValidationError(f"LLM method not allowed: {e.status}")
-                case 429:
-                    raise ServiceUnavailableError(f"LLM rate limit exceeded: {e.status}")
-                case _:
-                    raise ValidationError(f"LLM probe failed: {e.status}")
+            raise map_httpx_error_to_exception(e, "LLM")
         except Exception as e:
             self.model = None
-            raise FatalValidationError(f"LLM probe failed: {str(e)}")
+            raise FatalValidationError(f"LLM probe failed: {str(e)}") from e
 
     async def ensure_ready(self) -> None:
         """
