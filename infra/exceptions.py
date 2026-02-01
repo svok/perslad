@@ -21,3 +21,8 @@ class ServiceUnavailableError(ConnectionError):
 class ValidationError(RuntimeError):
     """General validation error."""
     pass
+
+
+class InfraConnectionError(ConnectionError):
+    """Infrastructure connection error for retry logic."""
+    pass

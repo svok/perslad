@@ -8,7 +8,13 @@ from langchain_openai import ChatOpenAI
 from .health import HealthFlag
 from .logger import get_logger
 from .reconnect import retry_forever
-from .exceptions import AuthorizationError, ServiceUnavailableError, ValidationError, FatalValidationError
+from .exceptions import (
+    AuthorizationError,
+    FatalValidationError,
+    InfraConnectionError,
+    ServiceUnavailableError,
+    ValidationError,
+)
 
 log = get_logger("infra.llm")
 
@@ -51,9 +57,9 @@ class LLMClient:
                 preview=str(response.content)[:50],
             )
             self.health.set_ready()
-        except (ConnectionError, TimeoutError) as e:
+        except (InfraConnectionError, TimeoutError) as e:
             self.model = None
-            raise ConnectionError(f"LLM connection failed: {str(e)}")
+            raise InfraConnectionError(f"LLM connection failed: {str(e)}")
         except aiohttp.ClientResponseError as e:
             self.model = None
             match e.status:
@@ -82,7 +88,7 @@ class LLMClient:
         """
         await retry_forever(
             self._connect_once,
-            retryable_exceptions=[AuthorizationError, ServiceUnavailableError, ConnectionError],
+            retryable_exceptions=[AuthorizationError, ServiceUnavailableError, InfraConnectionError],
         )
 
     async def wait_ready(self) -> None:

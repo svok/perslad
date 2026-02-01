@@ -10,9 +10,9 @@ from typing import Any, Callable, Awaitable
 from ingestor.app.config import runtime
 from ingestor.adapters.embedding_model import EmbeddingModel
 from ingestor.app.llm_lock import LLMLockManager
+from infra.exceptions import FatalValidationError, InfraConnectionError
 from infra.logger import get_logger
 from infra.reconnect import retry_forever
-from infra.exceptions import FatalValidationError
 
 log = get_logger("ingestor.dimension_validator")
 
@@ -82,5 +82,5 @@ class DimensionValidator:
         """
         await retry_forever(
             self._connect_once,
-            retryable_exceptions=[ConnectionError],
+            retryable_exceptions=[InfraConnectionError],
         )

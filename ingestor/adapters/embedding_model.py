@@ -4,15 +4,20 @@ Embedding model adapter.
 Manages communication with the embedding model service.
 """
 
-from typing import List
+from typing import List, Type
 
 import httpx
 from infra.exceptions import (
+    AuthorizationError,
+    InfraConnectionError,
     FatalValidationError,
     ServiceUnavailableError,
+    ValidationError,
 )
 
 from infra.logger import get_logger
+
+__all__ = ["EmbeddingModel"]
 
 log = get_logger("ingestor.embedding_model")
 
@@ -25,6 +30,57 @@ class EmbeddingModel:
     def __init__(self, embed_url: str, api_key: str) -> None:
         self.embed_url = embed_url
         self.api_key = api_key
+
+    @staticmethod
+    def _parse_embedding_response(result: dict, context: str) -> dict:
+        """Parse and validate embedding response (DRY)."""
+        embeddings = result.get("data", [])
+        if not embeddings:
+            raise FatalValidationError(f"{context}: no embeddings in response")
+        
+        embedding_obj = embeddings[0]
+        if "embedding" not in embedding_obj:
+            raise FatalValidationError(f"{context}: missing 'embedding' key")
+        
+        vector = embedding_obj["embedding"]
+        if not isinstance(vector, list) or len(vector) == 0:
+            raise FatalValidationError(f"{context}: invalid embedding format")
+        
+        return embedding_obj
+
+    @staticmethod
+    def _map_httpx_error_to_exception(exc: httpx.HTTPError, context: str) -> InfraConnectionError | FatalValidationError:
+        """Map httpx errors to exceptions."""
+        if isinstance(exc, httpx.ConnectError):
+            raise InfraConnectionError(f"{context}: connection failed") from exc
+        if isinstance(exc, (httpx.ReadTimeout, httpx.ConnectTimeout)):
+            raise InfraConnectionError(f"{context}: timeout") from exc
+        if isinstance(exc, httpx.NetworkError):
+            raise InfraConnectionError(f"{context}: network error") from exc
+        if isinstance(exc, httpx.RemoteProtocolError):
+            raise FatalValidationError(f"{context}: remote protocol error") from exc
+        if isinstance(exc, httpx.LocalProtocolError):
+            raise FatalValidationError(f"{context}: local protocol error") from exc
+        raise FatalValidationError(f"{context}: {exc}")
+
+    @staticmethod
+    def _map_httpx_status_to_exception(status: int, context: str, cause: BaseException = None) -> Type[BaseException]:
+        """Map HTTP status codes to exceptions with template."""
+        status_map = {
+            401: (AuthorizationError, "authentication"),
+            403: (AuthorizationError, "authentication"),
+            400: (ValidationError, "bad request"),
+            404: (FatalValidationError, "not found"),
+            405: (FatalValidationError, "method not allowed"),
+            429: (ServiceUnavailableError, "rate limit exceeded"),
+            500: (ServiceUnavailableError, "service unavailable"),
+            502: (ServiceUnavailableError, "bad gateway"),
+            503: (ServiceUnavailableError, "service unavailable"),
+            504: (ServiceUnavailableError, "gateway timeout"),
+        }
+        
+        exc_type, prefix = status_map.get(status, (FatalValidationError, "failed"))
+        raise exc_type(f"{context}: {prefix} failed: {status}") from cause
 
     async def get_embedding_dimension(self) -> int:
         """
@@ -54,40 +110,19 @@ class EmbeddingModel:
                 
                 result = response.json()
                 
-                # Validate response structure
-                embeddings = result.get("data", [])
-                if not embeddings or len(embeddings) == 0:
-                    raise RuntimeError(
-                        f"Embedding model returned no data. Response: {result}"
-                    )
-                
-                embedding_obj = embeddings[0]
-                if "embedding" not in embedding_obj:
-                    raise RuntimeError(
-                        f"Embedding model response missing 'embedding' key. Response: {embedding_obj}"
-                    )
-                
+                # Validate and parse response
+                embedding_obj = self._parse_embedding_response(result, "Embedding model")
                 embedding_vector = embedding_obj["embedding"]
-                if not isinstance(embedding_vector, list) or len(embedding_vector) == 0:
-                    raise RuntimeError(
-                        f"Invalid embedding format from model. Expected list with at least one element, got {type(embedding_vector)}"
-                    )
                 
                 dimension = len(embedding_vector)
                 log.info("embedding_model.get_dimension.success", dimension=dimension)
                 return dimension
 
-        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
-            log.error("embedding_model.get_dimension.connection_error", error=str(e))
-            raise ConnectionError(f"Failed to connect to embedding model: {str(e)}") from e
-        except httpx.HTTPStatusError as e:
-            log.error("embedding_model.get_dimension.http_error", error=str(e))
-            if e.response.status_code >= 500:
-                raise ServiceUnavailableError(f"Embedding model service unavailable: {e.response.status_code}") from e
-            raise FatalValidationError(f"Embedding model failed: {e.response.status_code}") from e
         except httpx.HTTPError as e:
             log.error("embedding_model.get_dimension.http_error", error=str(e))
-            raise ConnectionError(f"Failed to connect to embedding model: {str(e)}") from e
+            self._map_httpx_error_to_exception(e, "Embedding model")
+            return -1  # Type safety, unreachable
+
         except Exception as e:
             log.error("embedding_model.get_dimension.error", error=str(e))
             raise FatalValidationError(f"Failed to get embedding dimension: {str(e)}") from e
@@ -121,26 +156,18 @@ class EmbeddingModel:
                 
                 result = response.json()
                 
-                embeddings = result.get("data", [])
-                if len(embeddings) != len(texts):
-                    raise RuntimeError(
-                        f"Embedding count mismatch: requested {len(texts)}, got {len(embeddings)}"
-                    )
+                # Validate response structure
+                embedding_obj = self._parse_embedding_response(result, "Embedding model")
+                embedding = embedding_obj["embedding"]
                 
-                log.debug("embedding_model.embed.batch_complete", count=len(embeddings))
-                return embeddings
+                log.debug("embedding_model.embed.batch_complete", count=len(embedding))
+                return embedding
 
-        except (httpx.ConnectError, httpx.ReadTimeout, httpx.ConnectTimeout) as e:
-            log.error("embedding_model.embed.connection_error", error=str(e))
-            raise ConnectionError(f"Failed to connect to embedding model: {str(e)}") from e
-        except httpx.HTTPStatusError as e:
-            log.error("embedding_model.embed.http_error", error=str(e))
-            if e.response.status_code >= 500:
-                raise ServiceUnavailableError(f"Embedding model service unavailable: {e.response.status_code}") from e
-            raise FatalValidationError(f"Embedding model failed: {e.response.status_code}") from e
         except httpx.HTTPError as e:
             log.error("embedding_model.embed.http_error", error=str(e))
-            raise ConnectionError(f"Failed to connect to embedding model: {str(e)}") from e
+            self._map_httpx_error_to_exception(e, "Embedding model")
+            return []  # Type safety, unreachable
+
         except Exception as e:
             log.error("embedding_model.embed.error", error=str(e))
             raise FatalValidationError(f"Failed to generate embeddings: {str(e)}") from e
