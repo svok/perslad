@@ -8,21 +8,28 @@ Ingestor Main Entry Point
 """
 
 import asyncio
-import os
 import signal
 import sys
 
-from dotenv import load_dotenv
 import uvicorn
+from dotenv import load_dotenv
 
-from infra.logger import setup_logging, get_logger
 from infra.llm import get_llm
+from infra.logger import setup_logging, get_logger
+from ingestor.adapters import get_storage
+from ingestor.adapters.embedding_model import EmbeddingModel
+from ingestor.app.api import IngestorAPI
+from ingestor.app.config import runtime, storage as storage_config
+from ingestor.app.dimension_validator import DimensionValidator
+from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.api import IngestorAPI
 from ingestor.app.config import runtime, storage as storage_config, llm as llm_config
+from ingestor.app.dimension_validator import DimensionValidator
 from ingestor.adapters import get_storage
+from ingestor.adapters.embedding_model import EmbeddingModel
 
 _shutdown = asyncio.Event()
 
@@ -78,6 +85,16 @@ async def main() -> None:
     lock_manager = LLMLockManager()
     storage = get_storage()
     knowledge_port = KnowledgePort(storage)
+
+    # Validate dimensions - will retry indefinitely
+    log.info("dimension_validator.validation.started")
+    dimension_validator = DimensionValidator(
+        embed_model=EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY),
+        storage=storage,
+        lock_manager=lock_manager
+    )
+    await dimension_validator.validate_dimensions()
+    log.info("dimension_validator.validation.complete")
 
     # Pipeline orchestrator
     pipeline = PipelineOrchestrator(

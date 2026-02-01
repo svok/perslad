@@ -2,11 +2,13 @@ import asyncio
 import os
 from typing import Optional, Callable, Awaitable, Any
 
+import aiohttp
 from langchain_openai import ChatOpenAI
 
 from .health import HealthFlag
 from .logger import get_logger
 from .reconnect import retry_forever
+from .exceptions import AuthorizationError, ServiceUnavailableError, ValidationError, FatalValidationError
 
 log = get_logger("infra.llm")
 
@@ -39,7 +41,6 @@ class LLMClient:
             max_retries=2,
         )
 
-        # ping — ровно как у тебя
         try:
             response = await asyncio.wait_for(
                 self.model.ainvoke("ping"),
@@ -50,16 +51,39 @@ class LLMClient:
                 preview=str(response.content)[:50],
             )
             self.health.set_ready()
-        except Exception:
+        except (ConnectionError, TimeoutError) as e:
             self.model = None
-            raise
+            raise ConnectionError(f"LLM connection failed: {str(e)}")
+        except aiohttp.ClientResponseError as e:
+            self.model = None
+            match e.status:
+                case 401 | 403:
+                    raise AuthorizationError(f"LLM authentication failed: {e.status}")
+                case 500 | 502 | 503 | 504:
+                    raise ServiceUnavailableError(f"LLM service unavailable: {e.status}")
+                case 400:
+                    raise ValidationError(f"LLM bad request: {e.status}")
+                case 404:
+                    raise FatalValidationError(f"LLM endpoint not found: {e.status}")
+                case 405:
+                    raise FatalValidationError(f"LLM method not allowed: {e.status}")
+                case 429:
+                    raise ServiceUnavailableError(f"LLM rate limit exceeded: {e.status}")
+                case _:
+                    raise ValidationError(f"LLM probe failed: {e.status}")
+        except Exception as e:
+            self.model = None
+            raise FatalValidationError(f"LLM probe failed: {str(e)}")
 
     async def ensure_ready(self) -> None:
         """
         Бесконечно пытается восстановить соединение с LLM.
         Никогда не падает наружу.
         """
-        await retry_forever(self._connect_once)
+        await retry_forever(
+            self._connect_once,
+            retryable_exceptions=[AuthorizationError, ServiceUnavailableError, ConnectionError],
+        )
 
     async def wait_ready(self) -> None:
         await self.health.wait_ready()

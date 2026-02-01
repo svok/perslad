@@ -1,6 +1,7 @@
 import asyncio
 import random
 from collections.abc import Awaitable, Callable
+from typing import List, Type
 
 from .logger import get_logger
 
@@ -11,7 +12,10 @@ async def retry_forever(
         fn: Callable[[], Awaitable[None]],
         base_delay: float = 1.0,
         max_delay: float = 30.0,
+        retryable_exceptions: List[Type[BaseException]] = None,
 ) -> None:
+    if retryable_exceptions is None:
+        retryable_exceptions = []
     delay = base_delay
 
     while True:
@@ -19,6 +23,8 @@ async def retry_forever(
             await fn()
             return
         except Exception as e:
+            if not any(isinstance(e, exc) for exc in retryable_exceptions):
+                raise
             log.warning(
                 "reconnect.failed",
                 error=str(e),

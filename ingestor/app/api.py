@@ -9,13 +9,14 @@ Ingestor HTTP API
 """
 
 from typing import Dict, Any, List
-from fastapi import FastAPI, HTTPException
+
+from fastapi import FastAPI
 from pydantic import BaseModel
 
 from infra.logger import get_logger
-from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.storage import InMemoryStorage
+from ingestor.adapters import BaseStorage
 from ingestor.app.knowledge_port import KnowledgePort
+from ingestor.app.llm_lock import LLMLockManager
 
 log = get_logger("ingestor.api")
 
@@ -40,7 +41,7 @@ class IngestorAPI:
     def __init__(
         self,
         lock_manager: LLMLockManager,
-        storage: InMemoryStorage,
+        storage: BaseStorage,
         knowledge_port: KnowledgePort,
     ) -> None:
         self.lock_manager = lock_manager
