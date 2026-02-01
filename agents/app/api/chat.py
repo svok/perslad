@@ -56,7 +56,7 @@ class ChatHandler:
                 logger.info(f"Formatted Tools: {formatted_tools}")
                 model_with_tools = model.bind_tools(formatted_tools, tool_choice="auto")
 
-                self._graph = create_graph(model_with_tools, self.system.tools)
+                self._graph = create_graph(model_with_tools, self.system.tools, self.system.ingestor)
                 logger.info("✅ Graph created (Native LangChain + vLLM Qwen Parser)")
             else:
                 logger.error("❌ Cannot create graph")

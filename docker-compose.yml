@@ -122,6 +122,7 @@ services:
       - MODEL_NAME=${MODEL_NAME}
       - MCP_BASH_URL=http://mcp-bash:8081/mcp
       - MCP_PROJECT_URL=http://mcp-project:8083/mcp
+      - INGESTOR_URL=http://ingestor:8124
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
     ports:
       - "8123:8123"
@@ -129,6 +130,7 @@ services:
       - ./agents:/app/agents:ro
     depends_on:
       - llm
+      - ingestor
     networks:
       - agent-network
 
