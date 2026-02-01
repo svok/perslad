@@ -4,15 +4,15 @@ PostgreSQL storage adapter.
 Persistent storage with asyncpg driver. Supports pgvector for embeddings.
 """
 
-import asyncpg
 from typing import List, Optional, Dict
-from dataclasses import asdict
+
+import asyncpg
 from pgvector.asyncpg import register_vector
 
-from ingestor.adapters.base_storage import BaseStorage
-from ingestor.app.storage import Chunk, FileSummary, ModuleSummary
-from ingestor.app.config.storage import storage
 from infra.logger import get_logger
+from ingestor.adapters.base_storage import BaseStorage
+from ingestor.app.config.storage import storage
+from ingestor.app.storage import Chunk, FileSummary, ModuleSummary
 
 log = get_logger("ingestor.storage.postgres")
 
@@ -61,11 +61,36 @@ class PostgreSQLStorage(BaseStorage):
         await self._create_tables()
         log.info("postgres.init.complete")
 
+    async def get_embedding_dimension(self) -> int:
+        """Get embedding dimension from database schema."""
+        await self._init_db()
+        
+        async with self._pool.acquire() as conn:
+            # PostgreSQL vector type stores dimension directly in atttypmod
+            # For vector(768), atttypmod will be 768 (not 772 or 764)
+            result = await conn.fetchval("""
+                SELECT atttypmod
+                FROM pg_attribute pa
+                JOIN pg_class pc ON pa.attrelid = pc.oid
+                WHERE pc.relname = 'chunks' AND pa.attname = 'embedding'
+            """)
+            
+            if result is None:
+                raise RuntimeError("Cannot find embedding column in chunks table")
+            
+            dimension = result
+            log.info("postgres.embedding.dimension", atttypmod=dimension, calculated=dimension)
+            
+            if dimension <= 0:
+                raise RuntimeError(f"Invalid embedding dimension from database: {dimension}")
+            
+            return dimension
+
     async def _create_tables(self) -> None:
         """Create database tables if they don't exist."""
         log.info("postgres.create_tables.start")
         
-        tables_sql = """
+        tables_sql = f"""
         CREATE TABLE IF NOT EXISTS chunks (
             id TEXT PRIMARY KEY,
             file_path TEXT NOT NULL,
@@ -75,7 +100,7 @@ class PostgreSQLStorage(BaseStorage):
             chunk_type TEXT NOT NULL,
             summary TEXT,
             purpose TEXT,
-            embedding vector(768)
+            embedding vector({storage.PGVECTOR_DIMENSIONS})
         );
 
         CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
@@ -97,8 +122,6 @@ class PostgreSQLStorage(BaseStorage):
             await conn.execute(tables_sql)
         
         log.info("postgres.create_tables.complete")
-
-    # === Chunks ===
 
     async def save_chunk(self, chunk: Chunk) -> None:
         await self._init_db()

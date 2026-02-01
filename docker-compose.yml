@@ -157,6 +157,7 @@ services:
       - ${PROJECT_ROOT}:/workspace
     depends_on:
       - llm
+      - emb
       - postgres
     networks:
       - agent-network

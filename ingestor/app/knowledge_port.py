@@ -9,11 +9,11 @@ MVP: прямой доступ к storage внутри ingestor.
 Будущее: gRPC API, отдельный адаптер на стороне агента.
 """
 
-from typing import List, Optional, Dict, Any
 import math
+from typing import List, Dict, Any
 
 from infra.logger import get_logger
-from ingestor.app.storage import InMemoryStorage, Chunk
+from ingestor.adapters import BaseStorage
 
 log = get_logger("ingestor.knowledge_port")
 
@@ -26,7 +26,7 @@ class KnowledgePort:
     Типичные payloads: 10-50 KB.
     """
 
-    def __init__(self, storage: InMemoryStorage) -> None:
+    def __init__(self, storage: BaseStorage) -> None:
         self.storage = storage
 
     async def search_by_embedding(

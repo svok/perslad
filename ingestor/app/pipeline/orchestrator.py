@@ -5,21 +5,19 @@ Pipeline Orchestrator
 Детерминированный, перезапускаемый, можно остановить в любой момент.
 """
 
-from typing import Optional
 import asyncio
 import time
 
-from llama_index.embeddings.openai import OpenAIEmbedding
-
-from infra.logger import get_logger
 from infra.llm import LLMClient
-from ingestor.app.storage import InMemoryStorage, Chunk
+from infra.logger import get_logger
+from ingestor.adapters import BaseStorage
 from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.pipeline.scan import ScanStage
-from ingestor.app.pipeline.parse import ParseStage
-from ingestor.app.pipeline.enrich import EnrichStage
 from ingestor.app.pipeline.embed import EmbedStage
+from ingestor.app.pipeline.enrich import EnrichStage
+from ingestor.app.pipeline.parse import ParseStage
 from ingestor.app.pipeline.persist import PersistStage
+from ingestor.app.pipeline.scan import ScanStage
+from ingestor.app.storage import InMemoryStorage, Chunk
 
 log = get_logger("ingestor.pipeline.orchestrator")
 
@@ -34,7 +32,7 @@ class PipelineOrchestrator:
         workspace_path: str,
         llm: LLMClient,
         lock_manager: LLMLockManager,
-        storage: InMemoryStorage,
+        storage: BaseStorage,
         embed_url: str = "http://emb:8001/v1",
         embed_api_key: str = "sk-dummy",
     ) -> None:

@@ -2,11 +2,20 @@ import asyncio
 import os
 from typing import Optional, Callable, Awaitable, Any
 
+import httpx
 from langchain_openai import ChatOpenAI
 
 from .health import HealthFlag
 from .logger import get_logger
 from .reconnect import retry_forever
+from .exceptions import (
+    AuthorizationError,
+    FatalValidationError,
+    InfraConnectionError,
+    ServiceUnavailableError,
+    ValidationError,
+)
+from .httpx_handler import map_httpx_error_to_exception, map_httpx_status_to_exception
 
 log = get_logger("infra.llm")
 
@@ -39,7 +48,6 @@ class LLMClient:
             max_retries=2,
         )
 
-        # ping — ровно как у тебя
         try:
             response = await asyncio.wait_for(
                 self.model.ainvoke("ping"),
@@ -50,16 +58,25 @@ class LLMClient:
                 preview=str(response.content)[:50],
             )
             self.health.set_ready()
-        except Exception:
+        except (InfraConnectionError, TimeoutError) as e:
             self.model = None
-            raise
+            raise InfraConnectionError(f"LLM connection failed: {str(e)}") from e
+        except httpx.HTTPError as e:
+            self.model = None
+            raise map_httpx_error_to_exception(e, "LLM")
+        except Exception as e:
+            self.model = None
+            raise FatalValidationError(f"LLM probe failed: {str(e)}") from e
 
     async def ensure_ready(self) -> None:
         """
         Бесконечно пытается восстановить соединение с LLM.
         Никогда не падает наружу.
         """
-        await retry_forever(self._connect_once)
+        await retry_forever(
+            self._connect_once,
+            retryable_exceptions=[AuthorizationError, ServiceUnavailableError, InfraConnectionError],
+        )
 
     async def wait_ready(self) -> None:
         await self.health.wait_ready()
