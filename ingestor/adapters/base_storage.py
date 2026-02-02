@@ -5,9 +5,8 @@ All storage implementations (memory, postgres, etc.) must implement this interfa
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import List, Optional
 from typing import Dict
+from typing import List, Optional
 
 from ingestor.app.storage import Chunk, FileSummary, ModuleSummary
 
@@ -76,6 +75,28 @@ class BaseStorage(ABC):
     @abstractmethod
     async def get_all_module_summaries(self) -> List[ModuleSummary]:
         """Get all module summaries."""
+        pass
+
+    # === File Management ===
+
+    @abstractmethod
+    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        """Delete all chunks for given file paths."""
+        pass
+
+    @abstractmethod
+    async def delete_file_summaries(self, file_paths: List[str]) -> None:
+        """Delete file summaries for given file paths."""
+        pass
+
+    @abstractmethod
+    async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
+        """Get file metadata (mtime, checksum, size)."""
+        pass
+
+    @abstractmethod
+    async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
+        """Update file metadata in database."""
         pass
 
     # === Stats ===

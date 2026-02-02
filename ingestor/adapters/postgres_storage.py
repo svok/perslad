@@ -389,6 +389,71 @@ class PostgreSQLStorage(BaseStorage):
 
     # === Stats ===
 
+    # === File Management ===
+
+    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        await self._init_db()
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM chunks WHERE file_path = ANY($1)",
+                file_paths
+            )
+
+            log.info("postgres.delete_chunks", paths=file_paths)
+
+    async def delete_file_summaries(self, file_paths: List[str]) -> None:
+        await self._init_db()
+
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "DELETE FROM file_summaries WHERE file_path = ANY($1)",
+                file_paths
+            )
+
+            log.info("postgres.delete_file_summaries", paths=file_paths)
+
+    async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
+        await self._init_db()
+
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM file_summaries WHERE file_path = $1",
+                file_path
+            )
+
+        if not row:
+            return None
+
+        return {
+            "file_path": row["file_path"],
+            "mtime": row["metadata"].get("mtime", 0) if row["metadata"] else 0,
+            "checksum": row["metadata"].get("checksum", "") if row["metadata"] else "",
+            "size": row["metadata"].get("size", 0) if row["metadata"] else 0,
+        }
+
+    async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
+        await self._init_db()
+
+        async with self._pool.acquire() as conn:
+            # Используем ON CONFLICT для обновления или вставки
+            await conn.execute(
+                """
+                INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata)
+                VALUES ($1, '', '{}', $2)
+                ON CONFLICT (file_path) DO UPDATE SET
+                    metadata = EXCLUDED.metadata
+                """,
+                file_path,
+                {
+                    "mtime": mtime,
+                    "checksum": checksum,
+                    "size": 0  # Будет обновлено при индексации
+                }
+            )
+
+    # === Stats ===
+
     async def get_stats(self) -> Dict:
         await self._init_db()
 

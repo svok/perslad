@@ -24,6 +24,7 @@ from ingestor.app.dimension_validator import DimensionValidator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
+from ingestor.app.indexer import IndexerOrchestrator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.api import IngestorAPI
 from ingestor.app.config import runtime, storage as storage_config, llm as llm_config
@@ -106,6 +107,17 @@ async def main() -> None:
         embed_api_key=runtime.EMBED_API_KEY,
     )
 
+    # Indexer orchestrator (incremental)
+    indexer = IndexerOrchestrator(
+        workspace_path=workspace,
+        llm=llm,
+        lock_manager=lock_manager,
+        storage=storage,
+        knowledge_port=knowledge_port,
+        embed_url=runtime.EMBED_URL,
+        embed_api_key=runtime.EMBED_API_KEY,
+    )
+
     # HTTP API
     api = IngestorAPI(lock_manager, storage, knowledge_port)
 
@@ -124,13 +136,14 @@ async def main() -> None:
     await llm.wait_ready()
     log.info("ingestor.llm.ready")
 
-    # 4. Запускаем pipeline
-    log.info("ingestor.pipeline.starting")
+    # 4. Запускаем indexer (full scan при старте)
+    log.info("ingestor.indexer.starting")
     try:
-        await pipeline.run_full_pipeline()
-        log.info("ingestor.pipeline.finished")
+        await indexer.start()
+        await indexer.start_full_scan()
+        log.info("ingestor.indexer.started")
     except Exception as e:
-        log.error("ingestor.pipeline.error", error=str(e), exc_info=True)
+        log.error("ingestor.indexer.error", error=str(e), exc_info=True)
 
     # === Основной цикл ===
 
@@ -138,6 +151,14 @@ async def main() -> None:
 
     # Ждём сигнала остановки
     await _shutdown.wait()
+
+    # Останавливаем indexer
+    if 'indexer' in locals():
+        log.info("ingestor.indexer.stopping")
+        try:
+            await indexer.stop()
+        except Exception as e:
+            log.error("ingestor.indexer.stop.error", error=str(e), exc_info=True)
 
     # Останавливаем API
     api_task.cancel()
