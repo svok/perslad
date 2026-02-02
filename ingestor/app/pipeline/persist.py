@@ -8,6 +8,7 @@ NO LLM.
 from typing import List
 
 from infra.logger import get_logger
+from ingestor.adapters import BaseStorage
 from ingestor.app.storage import Chunk, InMemoryStorage
 
 log = get_logger("ingestor.pipeline.persist")
@@ -18,7 +19,7 @@ class PersistStage:
     Сохраняет чанки в storage.
     """
 
-    def __init__(self, storage: InMemoryStorage) -> None:
+    def __init__(self, storage: BaseStorage) -> None:
         self.storage = storage
 
     async def run(self, chunks: List[Chunk]) -> None:

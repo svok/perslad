@@ -52,7 +52,7 @@ class PipelineOrchestrator:
         self.persist_stage = PersistStage(storage)
 
     class EnrichCollector:
-        def __init__(self, storage: InMemoryStorage, max_buffer=100, debounce=1.0):
+        def __init__(self, storage: BaseStorage, max_buffer=100, debounce=1.0):
             self.queue = asyncio.Queue(max_buffer)
             self.buffer = []
             self.last_time = time.time()

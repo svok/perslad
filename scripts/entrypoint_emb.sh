@@ -15,7 +15,6 @@
 #        --tp 1
 #else
     echo "Starting vLLM for ${EMB_MODEL_NAME}..."
-    # Ключевые изменения для Qwen 2.5
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${EMB_MODEL_NAME} \
         --port 8001 \

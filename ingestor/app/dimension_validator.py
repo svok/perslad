@@ -17,11 +17,6 @@ from infra.reconnect import retry_forever
 log = get_logger("ingestor.dimension_validator")
 
 
-class FatalValidationError(RuntimeError):
-    """Fatal validation error that prevents application from starting."""
-    pass
-
-
 class DimensionValidator:
     """
     Validates that embedding dimensions match between model and database.
