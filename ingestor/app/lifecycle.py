@@ -1,7 +1,7 @@
 import asyncio
-import structlog
+from infra.logger import get_logger
 
-logger = structlog.get_logger("ingestor.lifecycle")
+log = get_logger("ingestor.lifecycle")
 
 
 class IngestorService:
@@ -9,11 +9,11 @@ class IngestorService:
         self._running = False
 
     async def start(self):
-        logger.info("ingestor.starting")
+        log.info("ingestor.starting")
         self._running = True
 
     async def stop(self):
-        logger.info("ingestor.stopping")
+        log.info("ingestor.stopping")
         self._running = False
 
     async def run_forever(self):
