@@ -12,11 +12,6 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем fsnotify system library (опционально)
-RUN apt-get update && apt-get install -y \
-    libinotify-tools \
- && rm -rf /var/lib/apt/lists/*
-
 # код (может быть заменён volume mount)
 COPY infra/ ./infra/
 COPY ingestor/ ./ingestor/

@@ -1,23 +1,26 @@
 """
-File Notifier - Runtime File Watching with fsnotify
+File Notifier - Runtime File Watching with inotify-simple 2.0.1
 
-Мониторит изменения в реальном времени через fsnotify
+Мониторит изменения в реальном времени через native inotify (C)
 """
 
 import asyncio
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable
 
-import fsnotify
+import inotify_simple
+from inotify_simple import flags
 
+from infra.logger import get_logger
 from ingestor.adapters.base_storage import BaseStorage
-from ingestor.app.storage import FileSummary
 from ingestor.app.watchers.base import BaseFileSource
+
+log = get_logger("ingestor.notifier")
 
 
 class FileNotifierSource(BaseFileSource):
     """
-    Мониторит изменения файлов через fsnotify
+    Мониторит изменения файлов через native inotify (C)
     """
 
     def __init__(
@@ -29,12 +32,14 @@ class FileNotifierSource(BaseFileSource):
         super().__init__(workspace_path)
         self.storage = storage
         self.on_file_event = on_file_event
-        self._observer: fsnotify.Observer = None
+
+        self.IS = inotify_simple.INotify()
         self._running = False
+        self._watch_descriptor: int = 0
         self._lock = asyncio.Lock()
 
     async def start(self) -> None:
-        """Запускает fsnotify наблюдатель"""
+        """Запускает inotify observer"""
         super()._load_gitignore_matchers()
 
         log.info("file_notifier.starting", workspace=str(self.workspace_path))
@@ -46,15 +51,32 @@ class FileNotifierSource(BaseFileSource):
 
             self._running = True
 
-        # Создаем наблюдатель
-        self._observer = fsnotify.Observer()
-        self._observer.schedule(self._on_change, str(self.workspace_path), recursive=True)
-        self._observer.start()
+        # Add watch
+        try:
+            self._watch_descriptor = self.IS.add_watch(
+                self.workspace_path,
+                mask=(
+                    flags.CREATE
+                    | flags.DELETE
+                    | flags.MODIFY
+                    | flags.MOVED_FROM
+                    | flags.MOVED_TO
+                    | flags.CLOSE_WRITE
+                )
+            )
+            log.info("file_notifier.watch_added", descriptor=self._watch_descriptor)
+        except Exception as e:
+            log.error("file_notifier.watch_failed", error=str(e), exc_info=True)
+            self._running = False
+            raise
+
+        # Start event loop in background
+        asyncio.create_task(self._read_loop())
 
         log.info("file_notifier.started")
 
     async def stop(self) -> None:
-        """Останавливает fsnotify наблюдатель"""
+        """Останавливает inotify observer"""
         async with self._lock:
             if not self._running:
                 return
@@ -62,37 +84,64 @@ class FileNotifierSource(BaseFileSource):
             self._running = False
             log.info("file_notifier.stopping")
 
-        if self._observer:
-            self._observer.stop()
-            self._observer.join()
+        # Remove watch
+        if self._watch_descriptor:
+            self.IS.rm_watch(self._watch_descriptor)
 
         log.info("file_notifier.stopped")
 
-    def _on_change(self, event: fsnotify.Event) -> None:
+    async def _read_loop(self) -> None:
         """
-        Обработчик событий fsnotify
+        Non-blocking event loop.
+        Checks inotify queue every 0ms (non-blocking), raises TIMEOUT if empty.
         """
-        # Игнорируем директории
-        if event.is_directory:
-            return
-
-        # Получаем относительный путь
         try:
-            relative_path = Path(event.src_path).relative_to(self.workspace_path)
-        except ValueError:
-            return
+            log.info("file_notifier.read_loop.starting")
 
-        # Проверяем .gitignore
-        if self._should_ignore_path(Path(event.src_path)):
-            return
+            while self._running:
+                try:
+                    # Non-blocking read (timeout=0)
+                    events = self.IS.read(timeout=0)
 
-        # Определяем тип события
-        event_type = self._map_event_type(event)
+                    for event in events:
+                        # Игнорируем события для директорий
+                        if event.mask & flags.IN_ISDIR:
+                            continue
 
-        log.debug("file_notifier.event", event=event_type, file=str(relative_path))
+                        # Получаем относительный путь
+                        try:
+                            relative_path = Path(event.pathname).relative_to(self.workspace_path)
+                        except ValueError:
+                            continue
 
-        # Вызываем callback (event_type может быть "delete", "create", "modified")
-        asyncio.create_task(self._trigger_event(relative_path, event_type))
+                        # Проверяем .gitignore
+                        abs_path = self.workspace_path / relative_path
+                        if self._should_ignore_path(abs_path):
+                            continue
+
+                        # Маппинг событий
+                        event_type = self._map_mask_to_type(event.mask)
+
+                        log.debug("file_notifier.event", file=str(relative_path), event=event_type)
+
+                        # Вызываем callback
+                        asyncio.create_task(self._trigger_event(str(relative_path), event_type))
+
+                except inotify_simple.TIMEOUT:
+                    # Ничего не произошло, проверяем флаг running и продолжаем
+                    continue
+
+                except Exception as e:
+                    if not self._running:
+                        break
+                    log.error("file_notifier.read_loop.error", error=str(e), exc_info=True)
+                    break
+
+            log.info("file_notifier.read_loop.stopped")
+
+        except asyncio.CancelledError:
+            log.info("file_notifier.read_loop.cancelled")
+            raise
 
     async def _trigger_event(self, file_path: str, event_type: str) -> None:
         """Вызывает callback с событием"""
@@ -101,19 +150,12 @@ class FileNotifierSource(BaseFileSource):
         except Exception as e:
             log.error("file_notifier.event_failed", file=file_path, error=str(e), exc_info=True)
 
-    def _map_event_type(self, event: fsnotify.Event) -> str:
-        """Маппинг fsnotify событий в типы событий"""
-        if event.is_create:
-            return "create"
-        elif event.is_delete:
-            return "delete"
-        elif event.is_modify:
-            return "modified"
-        elif event.is_rename:
-            return "rename"
-        else:
-            return "unknown"
-
-    @property
-    def is_running(self) -> bool:
-        return self._running
+    def _map_mask_to_type(self, mask: int) -> str:
+        """
+        Маппинг inotify масок в типы событий
+        """
+        if mask & flags.CREATE: return "create"
+        if mask & flags.DELETE: return "delete"
+        if mask & flags.MODIFY | mask & flags.CLOSE_WRITE: return "modified"
+        if mask & flags.MOVED_FROM | mask & flags.MOVED_TO: return "rename"
+        return "unknown"

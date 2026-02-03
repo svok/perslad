@@ -15,7 +15,7 @@ structlog>=25.4.0
 
 # file system
 gitignore-parser>=0.1.13
-fsnotify>=1.7.0
+inotify-simple==2.0.1
 
 # llamaindex (SDK only)
 llama-index>=0.14.9

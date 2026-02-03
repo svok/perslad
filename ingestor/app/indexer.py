@@ -5,10 +5,11 @@ Indexer Orchestrator
 """
 
 import asyncio
-import logging
+from pathlib import Path
 from typing import List
 
 from infra.llm import LLMClient
+from infra.logger import get_logger
 from ingestor.adapters.base_storage import BaseStorage
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
@@ -19,7 +20,7 @@ from ingestor.app.pipeline.persist import PersistStage
 from ingestor.app.storage import FileSummary
 from ingestor.app.watchers import FileScannerSource, FileNotifierSource
 
-log = logging.getLogger("ingestor.indexer")
+log = get_logger("ingestor.indexer")
 
 
 class IndexerOrchestrator:

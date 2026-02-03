@@ -3,7 +3,7 @@
 Модуль для индексации файлов с поддержкой gitignore и двух типов источников:
 
 - **Full scan**: полный скан workspace для проверки изменений
-- **Notifier**: runtime monitoring с fsnotify
+- **Notifier**: runtime monitoring с native inotify (C)
 
 ## Структура
 
@@ -119,7 +119,7 @@ await indexer.stop()
 
 ## Dependencies
 
-- **fsnotify** (>=1.7.0) - Cross-platform file watching
+- **inotify-simple** (==2.0.1) - Native inotify wrapper (C)
 - **gitignore-parser** - Gitignore support
 
 ## Пример

@@ -7,7 +7,7 @@ File Scanner - Full Workspace Scan with Diff
 
 import asyncio
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Callable
 from datetime import datetime, timezone
 
 from ingestor.adapters.base_storage import BaseStorage
