@@ -6,8 +6,14 @@ Persistent storage with asyncpg driver. Supports pgvector for embeddings.
 
 from typing import List, Optional, Dict
 
+import asyncio
+import json
+import logging
+from typing import List, Optional, Dict, Any
+
 import asyncpg
 from pgvector.asyncpg import register_vector
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from infra.logger import get_logger
 from ingestor.adapters.base_storage import BaseStorage
@@ -20,18 +26,31 @@ log = get_logger("ingestor.storage.postgres")
 class PostgreSQLStorage(BaseStorage):
     """
     PostgreSQL storage implementation with pgvector support.
-
-    Requires:
-    - PostgreSQL 16+ with pgvector extension
-    - Tables will be auto-created on first run
+    
+    Features:
+    - Automatic connection pool management
+    - Robust error handling and retries
+    - Pgvector support for embeddings
+    - JSONB metadata handling
     """
 
-    def __init__(self) -> None:
-        self._pool = None
+    def __init__(self, operation_timeout: float = 60.0) -> None:
+        self._pool: Optional[asyncpg.Pool] = None
+        self._operation_timeout = operation_timeout
 
+    async def initialize(self) -> None:
+        """Explicitly initialize the storage (create tables, etc)."""
+        await self._init_db()
+
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        retry=retry_if_exception_type((OSError, asyncpg.PostgresConnectionError)),
+        reraise=True
+    )
     async def _init_db(self) -> None:
         """Initialize database connection pool and create tables."""
-        if self._pool is not None:
+        if self._pool is not None and not self._pool._closed:
             return
 
         log.info("postgres.init.start")
@@ -41,143 +60,156 @@ class PostgreSQLStorage(BaseStorage):
             f"@{storage.POSTGRES_HOST}:{storage.POSTGRES_PORT}/{storage.POSTGRES_DB}"
         )
 
-        log.debug("postgres.init.creating_pool", host=storage.POSTGRES_HOST, db=storage.POSTGRES_DB)
-        
-        self._pool = await asyncpg.create_pool(
-            conn_string,
-            min_size=2,
-            max_size=10,
-        )
+        try:
+            self._pool = await asyncpg.create_pool(
+                conn_string,
+                min_size=2,
+                max_size=10,
+                timeout=30.0,
+                command_timeout=self._operation_timeout
+            )
+            log.info("postgres.init.pool_created")
 
-        log.info("postgres.init.pool_created")
-
-        # Register pgvector extension if enabled
-        if storage.USE_PGVECTOR:
+            # Register extensions and create schema
             async with self._pool.acquire() as conn:
-                await register_vector(conn)
-                log.info("postgres.init.pgvector_registered")
+                if storage.USE_PGVECTOR:
+                    await register_vector(conn)
+                    log.info("postgres.init.pgvector_registered")
+                
+                await self._create_tables(conn)
+            
+            log.info("postgres.init.complete")
 
-        # Create tables if not exist
-        await self._create_tables()
-        log.info("postgres.init.complete")
+        except Exception as e:
+            log.error("postgres.init.failed", error=str(e))
+            if self._pool:
+                await self._pool.close()
+                self._pool = None
+            raise
 
-    async def get_embedding_dimension(self) -> int:
-        """Get embedding dimension from database schema."""
-        await self._init_db()
-        
-        async with self._pool.acquire() as conn:
-            # PostgreSQL vector type stores dimension directly in atttypmod
-            # For vector(768), atttypmod will be 768 (not 772 or 764)
-            result = await conn.fetchval("""
-                SELECT atttypmod
-                FROM pg_attribute pa
-                JOIN pg_class pc ON pa.attrelid = pc.oid
-                WHERE pc.relname = 'chunks' AND pa.attname = 'embedding'
-            """)
-            
-            if result is None:
-                raise RuntimeError("Cannot find embedding column in chunks table")
-            
-            dimension = result
-            log.info("postgres.embedding.dimension", atttypmod=dimension, calculated=dimension)
-            
-            if dimension <= 0:
-                raise RuntimeError(f"Invalid embedding dimension from database: {dimension}")
-            
-            return dimension
-
-    async def _create_tables(self) -> None:
+    async def _create_tables(self, conn: asyncpg.Connection) -> None:
         """Create database tables if they don't exist."""
         log.info("postgres.create_tables.start")
         
-        tables_sql = f"""
-        CREATE TABLE IF NOT EXISTS chunks (
-            id TEXT PRIMARY KEY,
-            file_path TEXT NOT NULL,
-            content TEXT NOT NULL,
-            start_line INTEGER NOT NULL,
-            end_line INTEGER NOT NULL,
-            chunk_type TEXT NOT NULL,
-            summary TEXT,
-            purpose TEXT,
-            embedding vector({storage.PGVECTOR_DIMENSIONS})
-        );
+        # Chunks table
+        await conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS chunks (
+                id TEXT PRIMARY KEY,
+                file_path TEXT NOT NULL,
+                content TEXT NOT NULL,
+                start_line INTEGER NOT NULL,
+                end_line INTEGER NOT NULL,
+                chunk_type TEXT NOT NULL,
+                summary TEXT,
+                purpose TEXT,
+                embedding vector({storage.PGVECTOR_DIMENSIONS})
+            );
+            CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
+        """)
 
-        CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
+        # File summaries table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS file_summaries (
+                file_path TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                chunk_ids TEXT[],
+                metadata JSONB DEFAULT '{}'::jsonb,
+                checksum TEXT DEFAULT '',
+                mtime FLOAT DEFAULT 0
+            );
+        """)
+        
+        # Migrations
+        try:
+            await conn.execute("ALTER TABLE file_summaries ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb")
+            await conn.execute("ALTER TABLE file_summaries ADD COLUMN IF NOT EXISTS checksum TEXT DEFAULT ''")
+            await conn.execute("ALTER TABLE file_summaries ADD COLUMN IF NOT EXISTS mtime FLOAT DEFAULT 0")
+        except Exception:
+            pass
 
-        CREATE TABLE IF NOT EXISTS file_summaries (
-            file_path TEXT PRIMARY KEY,
-            summary TEXT NOT NULL,
-            chunk_ids TEXT[]
-        );
-
-        CREATE TABLE IF NOT EXISTS module_summaries (
-            module_path TEXT PRIMARY KEY,
-            summary TEXT NOT NULL,
-            file_paths TEXT[]
-        );
-        """
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(tables_sql)
+        # Module summaries table
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS module_summaries (
+                module_path TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                file_paths TEXT[]
+            );
+        """)
         
         log.info("postgres.create_tables.complete")
 
-    async def save_chunk(self, chunk: Chunk) -> None:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            # Debug log
-            log.debug(
-                "postgres.save_chunk.before_execute",
-                chunk_id=chunk.id,
-                has_embedding=chunk.embedding is not None,
-                embedding_type=type(chunk.embedding).__name__ if chunk.embedding else "None",
-                embedding_len=len(chunk.embedding) if chunk.embedding else 0,
-            )
-            
-            await conn.execute(
-                """
-                INSERT INTO chunks (
-                    id, file_path, content, start_line, end_line, chunk_type,
-                    summary, purpose, embedding
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                ON CONFLICT (id) DO UPDATE SET
-                    file_path = EXCLUDED.file_path,
-                    content = EXCLUDED.content,
-                    start_line = EXCLUDED.start_line,
-                    end_line = EXCLUDED.end_line,
-                    chunk_type = EXCLUDED.chunk_type,
-                    summary = EXCLUDED.summary,
-                    purpose = EXCLUDED.purpose,
-                    embedding = EXCLUDED.embedding
-                """,
-                chunk.id,
-                chunk.file_path,
-                chunk.content,
-                chunk.start_line,
-                chunk.end_line,
-                chunk.chunk_type,
-                chunk.summary,
-                chunk.purpose,
-                chunk.embedding,
-            )
-
-    async def save_chunks(self, chunks: List[Chunk]) -> None:
+    async def _execute_query(self, query: str, *args, fetch: str = None, timeout: float = 10.0) -> Any:
+        """
+        Execute a query with aggressive timeout and logging.
+        """
         await self._init_db()
         
+        try:
+            log.info("postgres.query.start", query=query[:50])
+            
+            async with asyncio.timeout(timeout):
+                async with self._pool.acquire(timeout=5.0) as conn:
+                    log.info("postgres.query.acquired", query=query[:50])
+                    
+                    if fetch == 'val':
+                        result = await conn.fetchval(query, *args)
+                    elif fetch == 'row':
+                        result = await conn.fetchrow(query, *args)
+                    elif fetch == 'all':
+                        result = await conn.fetch(query, *args)
+                    else:
+                        result = await conn.execute(query, *args)
+                    
+                    log.info("postgres.query.done", query=query[:50])
+                    return result
+                        
+        except asyncio.TimeoutError:
+            log.error("postgres.timeout", query=query[:50], timeout=timeout)
+            raise TimeoutError(f"Database operation timed out after {timeout}s")
+        except Exception as e:
+            log.error("postgres.query_error", error=str(e), query=query[:50])
+            raise
+                        
+        except asyncio.TimeoutError:
+            log.error("postgres.timeout", query=query[:50])
+            raise TimeoutError(f"Database operation timed out (pool acquisition)")
+        except Exception as e:
+            log.error("postgres.query_error", error=str(e), query=query[:50])
+            raise
+
+    # === Chunks ===
+
+    async def save_chunk(self, chunk: Chunk) -> None:
+        await self._execute_query(
+            """
+            INSERT INTO chunks (
+                id, file_path, content, start_line, end_line, chunk_type,
+                summary, purpose, embedding
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (id) DO UPDATE SET
+                file_path = EXCLUDED.file_path,
+                content = EXCLUDED.content,
+                start_line = EXCLUDED.start_line,
+                end_line = EXCLUDED.end_line,
+                chunk_type = EXCLUDED.chunk_type,
+                summary = EXCLUDED.summary,
+                purpose = EXCLUDED.purpose,
+                embedding = EXCLUDED.embedding
+            """,
+            chunk.id, chunk.file_path, chunk.content, chunk.start_line, 
+            chunk.end_line, chunk.chunk_type, chunk.summary, chunk.purpose, chunk.embedding
+        )
+
+    async def save_chunks(self, chunks: List[Chunk]) -> None:
+        if not chunks:
+            return
+            
+        await self._init_db()
         log.info("postgres.save_chunks.start", count=len(chunks))
 
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 for chunk in chunks:
-                    log.debug(
-                        "postgres.save_chunk.embedding",
-                        chunk_id=chunk.id,
-                        has_embedding=chunk.embedding is not None,
-                        embedding_type=type(chunk.embedding).__name__,
-                        embedding_len=len(chunk.embedding) if chunk.embedding else 0,
-                    )
                     await conn.execute(
                         """
                         INSERT INTO chunks (
@@ -194,31 +226,38 @@ class PostgreSQLStorage(BaseStorage):
                             purpose = EXCLUDED.purpose,
                             embedding = EXCLUDED.embedding
                         """,
-                        chunk.id,
-                        chunk.file_path,
-                        chunk.content,
-                        chunk.start_line,
-                        chunk.end_line,
-                        chunk.chunk_type,
-                        chunk.summary,
-                        chunk.purpose,
-                        chunk.embedding,
+                        chunk.id, chunk.file_path, chunk.content, chunk.start_line,
+                        chunk.end_line, chunk.chunk_type, chunk.summary, chunk.purpose, chunk.embedding
                     )
         
         log.info("postgres.save_chunks.complete", count=len(chunks))
 
     async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM chunks WHERE id = $1",
-                chunk_id,
-            )
-
+        row = await self._execute_query(
+            "SELECT * FROM chunks WHERE id = $1", 
+            chunk_id, 
+            fetch='row'
+        )
         if not row:
             return None
+        return self._map_chunk(row)
 
+    async def get_chunks_by_file(self, file_path: str) -> List[Chunk]:
+        rows = await self._execute_query(
+            "SELECT * FROM chunks WHERE file_path = $1 ORDER BY start_line",
+            file_path,
+            fetch='all'
+        )
+        return [self._map_chunk(row) for row in rows]
+
+    async def get_all_chunks(self) -> List[Chunk]:
+        rows = await self._execute_query(
+            "SELECT * FROM chunks ORDER BY file_path, start_line",
+            fetch='all'
+        )
+        return [self._map_chunk(row) for row in rows]
+
+    def _map_chunk(self, row: Any) -> Chunk:
         return Chunk(
             id=row["id"],
             file_path=row["file_path"],
@@ -232,253 +271,185 @@ class PostgreSQLStorage(BaseStorage):
             metadata={},
         )
 
-    async def get_chunks_by_file(self, file_path: str) -> List[Chunk]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "SELECT * FROM chunks WHERE file_path = $1 ORDER BY start_line",
-                file_path,
-            )
-
-        return [
-            Chunk(
-                id=row["id"],
-                file_path=row["file_path"],
-                content=row["content"],
-                start_line=row["start_line"],
-                end_line=row["end_line"],
-                chunk_type=row["chunk_type"],
-                summary=row["summary"],
-                purpose=row["purpose"],
-                embedding=row["embedding"],
-                metadata={},
-            )
-            for row in rows
-        ]
-
-    async def get_all_chunks(self) -> List[Chunk]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM chunks ORDER BY file_path, start_line")
-
-        return [
-            Chunk(
-                id=row["id"],
-                file_path=row["file_path"],
-                content=row["content"],
-                start_line=row["start_line"],
-                end_line=row["end_line"],
-                chunk_type=row["chunk_type"],
-                summary=row["summary"],
-                purpose=row["purpose"],
-                embedding=row["embedding"],
-                metadata={},
-            )
-            for row in rows
-        ]
-
     # === File Summaries ===
 
     async def save_file_summary(self, summary: FileSummary) -> None:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO file_summaries (file_path, summary, chunk_ids)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (file_path) DO UPDATE SET
-                    summary = EXCLUDED.summary,
-                    chunk_ids = EXCLUDED.chunk_ids
-                """,
-                summary.file_path,
-                summary.summary,
-                summary.chunk_ids,
-            )
+        mtime = summary.metadata.get("mtime", 0)
+        checksum = summary.metadata.get("checksum", "")
+        
+        await self._execute_query(
+            """
+            INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (file_path) DO UPDATE SET
+                summary = EXCLUDED.summary,
+                chunk_ids = EXCLUDED.chunk_ids,
+                metadata = EXCLUDED.metadata,
+                mtime = EXCLUDED.mtime,
+                checksum = EXCLUDED.checksum
+            """,
+            summary.file_path,
+            summary.summary,
+            summary.chunk_ids,
+            json.dumps(summary.metadata),
+            mtime,
+            checksum
+        )
 
     async def get_file_summary(self, file_path: str) -> Optional[FileSummary]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM file_summaries WHERE file_path = $1",
-                file_path,
-            )
-
+        row = await self._execute_query(
+            "SELECT * FROM file_summaries WHERE file_path = $1",
+            file_path,
+            fetch='row'
+        )
         if not row:
             return None
+        return self._map_file_summary(row)
 
+    async def get_all_file_summaries(self) -> List[FileSummary]:
+        log.info("postgres.get_all_file_summaries.start")
+        # Cast JSONB to text to avoid asyncpg ClientRead deadlock
+        rows = await self._execute_query(
+            "SELECT file_path, summary, chunk_ids, metadata::text as metadata_json, mtime, checksum FROM file_summaries",
+            fetch='all',
+            timeout=5.0
+        )
+        log.info("postgres.get_all_file_summaries.fetched", count=len(rows))
+        
+        results = []
+        for row in rows:
+            try:
+                meta = json.loads(row["metadata_json"]) if row.get("metadata_json") else {}
+                if "mtime" in row:
+                    meta["mtime"] = row["mtime"]
+                if "checksum" in row:
+                    meta["checksum"] = row["checksum"]
+                    
+                results.append(FileSummary(
+                    file_path=row["file_path"],
+                    summary=row["summary"],
+                    chunk_ids=list(row["chunk_ids"]) if row["chunk_ids"] else [],
+                    metadata=meta,
+                ))
+            except Exception as e:
+                log.warning("postgres.map_file_summary.failed", file=row.get("file_path"), error=str(e))
+                continue
+        
+        return results
+
+    def _map_file_summary(self, row: Any) -> FileSummary:
+        meta = row["metadata"]
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+        elif meta is None:
+            meta = {}
+            
+        # Ensure mtime/checksum are in metadata if present in columns
+        if "mtime" in row:
+            meta["mtime"] = row["mtime"]
+        if "checksum" in row:
+            meta["checksum"] = row["checksum"]
+            
         return FileSummary(
             file_path=row["file_path"],
             summary=row["summary"],
             chunk_ids=row["chunk_ids"],
-            metadata={},
+            metadata=meta,
         )
-
-    async def get_all_file_summaries(self) -> List[FileSummary]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM file_summaries")
-
-        return [
-            FileSummary(
-                file_path=row["file_path"],
-                summary=row["summary"],
-                chunk_ids=row["chunk_ids"],
-                metadata={},
-            )
-            for row in rows
-        ]
-
-    # === Module Summaries ===
-
-    async def save_module_summary(self, summary: ModuleSummary) -> None:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                """
-                INSERT INTO module_summaries (module_path, summary, file_paths)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (module_path) DO UPDATE SET
-                    summary = EXCLUDED.summary,
-                    file_paths = EXCLUDED.file_paths
-                """,
-                summary.module_path,
-                summary.summary,
-                summary.file_paths,
-            )
-
-    async def get_module_summary(self, module_path: str) -> Optional[ModuleSummary]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM module_summaries WHERE module_path = $1",
-                module_path,
-            )
-
-        if not row:
-            return None
-
-        return ModuleSummary(
-            module_path=row["module_path"],
-            summary=row["summary"],
-            file_paths=row["file_paths"],
-            metadata={},
-        )
-
-    async def get_all_module_summaries(self) -> List[ModuleSummary]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("SELECT * FROM module_summaries")
-
-        return [
-            ModuleSummary(
-                module_path=row["module_path"],
-                summary=row["summary"],
-                file_paths=row["file_paths"],
-                metadata={},
-            )
-            for row in rows
-        ]
-
-    # === Stats ===
-
-    # === File Management ===
-
-    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                "DELETE FROM chunks WHERE file_path = ANY($1)",
-                file_paths
-            )
-
-            log.info("postgres.delete_chunks", paths=file_paths)
-
-    async def delete_file_summaries(self, file_paths: List[str]) -> None:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                "DELETE FROM file_summaries WHERE file_path = ANY($1)",
-                file_paths
-            )
-
-            log.info("postgres.delete_file_summaries", paths=file_paths)
-
-    async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM file_summaries WHERE file_path = $1",
-                file_path
-            )
-
-        if not row:
-            return None
-
-        return {
-            "file_path": row["file_path"],
-            "mtime": row["metadata"].get("mtime", 0) if row["metadata"] else 0,
-            "checksum": row["metadata"].get("checksum", "") if row["metadata"] else "",
-            "size": row["metadata"].get("size", 0) if row["metadata"] else 0,
-        }
 
     async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
-        await self._init_db()
+        """Update file metadata in database."""
+        meta = {
+            "mtime": mtime,
+            "checksum": checksum,
+            "size": 0 
+        }
+        await self._execute_query(
+             """
+            INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
+            VALUES ($1, '', '{}', $2, $3, $4)
+            ON CONFLICT (file_path) DO UPDATE SET
+                metadata = file_summaries.metadata || $2,
+                mtime = EXCLUDED.mtime,
+                checksum = EXCLUDED.checksum
+            """,
+            file_path,
+            json.dumps(meta),
+            mtime,
+            checksum
+        )
 
-        async with self._pool.acquire() as conn:
-            # Используем ON CONFLICT для обновления или вставки
-            await conn.execute(
-                """
-                INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata)
-                VALUES ($1, '', '{}', $2)
-                ON CONFLICT (file_path) DO UPDATE SET
-                    metadata = EXCLUDED.metadata
-                """,
-                file_path,
-                {
-                    "mtime": mtime,
-                    "checksum": checksum,
-                    "size": 0  # Будет обновлено при индексации
-                }
-            )
+    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        await self._execute_query(
+            "DELETE FROM chunks WHERE file_path = ANY($1)",
+            file_paths
+        )
 
-    # === Stats ===
+    async def delete_file_summaries(self, file_paths: List[str]) -> None:
+        await self._execute_query(
+            "DELETE FROM file_summaries WHERE file_path = ANY($1)",
+            file_paths
+        )
+
+        log.info("postgres.delete_file_summaries", paths=file_paths)
+
+    async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
+        row = await self._execute_query(
+            "SELECT * FROM file_summaries WHERE file_path = $1",
+            file_path,
+            fetch='row'
+        )
+        if not row:
+            return None
+        
+        return {
+            "file_path": row["file_path"],
+            "mtime": row.get("mtime", 0),
+            "checksum": row.get("checksum", ""),
+            "size": 0, # Size usually in metadata
+        }
+
+    # Removed duplicate update_file_metadata implementation
+    # The correct implementation is above in Metadata & Cleanup section
+
+    async def get_embedding_dimension(self) -> int:
+        return await self._execute_query(
+            """
+            SELECT atttypmod
+            FROM pg_attribute pa
+            JOIN pg_class pc ON pa.attrelid = pc.oid
+            WHERE pc.relname = 'chunks' AND pa.attname = 'embedding'
+            """,
+            fetch='val'
+        ) or 0
+
+    # === Stats & Lifecycle ===
 
     async def get_stats(self) -> Dict:
-        await self._init_db()
-
-        async with self._pool.acquire() as conn:
-            chunks = await conn.fetchval("SELECT COUNT(*) FROM chunks")
-            file_summaries = await conn.fetchval("SELECT COUNT(*) FROM file_summaries")
-            module_summaries = await conn.fetchval("SELECT COUNT(*) FROM module_summaries")
-            chunks_with_embeddings = await conn.fetchval(
-                "SELECT COUNT(*) FROM chunks WHERE embedding IS NOT NULL"
-            )
-            chunks_with_summary = await conn.fetchval(
-                "SELECT COUNT(*) FROM chunks WHERE summary IS NOT NULL"
-            )
-
-        return {
-            "chunks": chunks,
-            "file_summaries": file_summaries,
-            "module_summaries": module_summaries,
-            "chunks_with_embeddings": chunks_with_embeddings,
-            "chunks_with_summary": chunks_with_summary,
-        }
+        # Run in parallel
+        results = await asyncio.gather(
+            self._execute_query("SELECT COUNT(*) FROM chunks", fetch='val'),
+            self._execute_query("SELECT COUNT(*) FROM file_summaries", fetch='val'),
+            self._execute_query("SELECT COUNT(*) FROM module_summaries", fetch='val'),
+            self._execute_query("SELECT COUNT(*) FROM chunks WHERE embedding IS NOT NULL", fetch='val'),
+            self._execute_query("SELECT COUNT(*) FROM chunks WHERE summary IS NOT NULL", fetch='val'),
+            return_exceptions=True
+        )
+        
+        # Unpack, handling errors gracefully
+        keys = ["chunks", "file_summaries", "module_summaries", "chunks_with_embeddings", "chunks_with_summary"]
+        stats = {}
+        for i, key in enumerate(keys):
+            res = results[i]
+            stats[key] = res if isinstance(res, int) else 0
+            
+        return stats
 
     async def clear(self) -> None:
         await self._init_db()
-
         async with self._pool.acquire() as conn:
             async with conn.transaction():
                 await conn.execute("DELETE FROM chunks")
@@ -488,6 +459,7 @@ class PostgreSQLStorage(BaseStorage):
     async def close(self) -> None:
         if self._pool:
             await self._pool.close()
+            self._pool = None
 
     async def __aenter__(self):
         await self._init_db()
@@ -495,3 +467,13 @@ class PostgreSQLStorage(BaseStorage):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
+    # Stub for interface compatibility
+    async def save_module_summary(self, summary: ModuleSummary) -> None:
+        pass
+    
+    async def get_module_summary(self, module_path: str) -> Optional[ModuleSummary]:
+        return None
+        
+    async def get_all_module_summaries(self) -> List[ModuleSummary]:
+        return []

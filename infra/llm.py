@@ -2,7 +2,9 @@ import asyncio
 import os
 from typing import Optional, Callable, Awaitable, Any
 
+import httpcore
 import httpx
+import openai
 from langchain_openai import ChatOpenAI
 
 from .health import HealthFlag
@@ -13,7 +15,6 @@ from .exceptions import (
     FatalValidationError,
     InfraConnectionError,
     ServiceUnavailableError,
-    ValidationError,
 )
 from .httpx_handler import map_httpx_error_to_exception, map_httpx_status_to_exception
 
@@ -58,7 +59,7 @@ class LLMClient:
                 preview=str(response.content)[:50],
             )
             self.health.set_ready()
-        except (InfraConnectionError, TimeoutError) as e:
+        except (InfraConnectionError, TimeoutError, httpcore.ConnectError, openai.APIConnectionError) as e:
             self.model = None
             raise InfraConnectionError(f"LLM connection failed: {str(e)}") from e
         except httpx.HTTPError as e:
@@ -66,7 +67,7 @@ class LLMClient:
             raise map_httpx_error_to_exception(e, "LLM")
         except Exception as e:
             self.model = None
-            raise FatalValidationError(f"LLM probe failed: {str(e)}") from e
+            raise FatalValidationError(f"LLM probe failed {type(e)}: {str(e)}") from e
 
     async def ensure_ready(self) -> None:
         """

@@ -14,6 +14,9 @@ import sys
 import uvicorn
 from dotenv import load_dotenv
 
+# Load env vars BEFORE config imports
+load_dotenv(dotenv_path="../.env", override=False)
+
 from infra.llm import get_llm
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters import get_storage
@@ -25,12 +28,6 @@ from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
 from ingestor.app.indexer import IndexerOrchestrator
-from ingestor.app.knowledge_port import KnowledgePort
-from ingestor.app.api import IngestorAPI
-from ingestor.app.config import runtime, storage as storage_config, llm as llm_config
-from ingestor.app.dimension_validator import DimensionValidator
-from ingestor.adapters import get_storage
-from ingestor.adapters.embedding_model import EmbeddingModel
 
 _shutdown = asyncio.Event()
 
@@ -60,8 +57,6 @@ async def run_api_server(api: IngestorAPI, port: int):
 
 
 async def main() -> None:
-    load_dotenv(dotenv_path="../.env", override=False)
-
     env = runtime.ENV
     workspace = runtime.WORKSPACE_PATH
     api_port = runtime.INGESTOR_PORT
@@ -85,6 +80,11 @@ async def main() -> None:
     llm = get_llm()
     lock_manager = LLMLockManager()
     storage = get_storage()
+    
+    # Initialize storage tables immediately (explicitly)
+    await storage.initialize()
+    log.info("ingestor.storage.initialized")
+    
     knowledge_port = KnowledgePort(storage)
 
     # Validate dimensions - will retry indefinitely
@@ -144,6 +144,7 @@ async def main() -> None:
         log.info("ingestor.indexer.started")
     except Exception as e:
         log.error("ingestor.indexer.error", error=str(e), exc_info=True)
+        raise
 
     # === Основной цикл ===
 
@@ -175,3 +176,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         sys.exit(0)
+    except Exception:
+        raise

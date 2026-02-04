@@ -6,7 +6,7 @@ File Notifier - Runtime File Watching with inotify-simple 2.0.1
 
 import asyncio
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Awaitable, Optional
 
 import inotify_simple
 from inotify_simple import flags
@@ -14,9 +14,6 @@ from inotify_simple import flags
 from infra.logger import get_logger
 from ingestor.adapters.base_storage import BaseStorage
 from ingestor.app.watchers.base import BaseFileSource
-
-log = get_logger("ingestor.notifier")
-
 
 class FileNotifierSource(BaseFileSource):
     """
@@ -27,9 +24,10 @@ class FileNotifierSource(BaseFileSource):
         self,
         workspace_path: str,
         storage: BaseStorage,
-        on_file_event: Callable[[str, str], None]  # (file_path, event_type)
+        on_file_event: Callable[[str, str], Awaitable[None]]  # (file_path, event_type)
     ):
         super().__init__(workspace_path)
+        self.log = get_logger("ingestor.notifier")
         self.storage = storage
         self.on_file_event = on_file_event
 
@@ -37,16 +35,17 @@ class FileNotifierSource(BaseFileSource):
         self._running = False
         self._watch_descriptor: int = 0
         self._lock = asyncio.Lock()
+        self._task: Optional[asyncio.Task] = None
 
     async def start(self) -> None:
         """Запускает inotify observer"""
         super()._load_gitignore_matchers()
 
-        log.info("file_notifier.starting", workspace=str(self.workspace_path))
+        self.log.info("file_notifier.starting", workspace=str(self.workspace_path))
 
         async with self._lock:
             if self._running:
-                log.warning("file_notifier already running")
+                self.log.warning("file_notifier already running")
                 return
 
             self._running = True
@@ -64,16 +63,16 @@ class FileNotifierSource(BaseFileSource):
                     | flags.CLOSE_WRITE
                 )
             )
-            log.info("file_notifier.watch_added", descriptor=self._watch_descriptor)
+            self.log.info("file_notifier.watch_added", descriptor=self._watch_descriptor)
         except Exception as e:
-            log.error("file_notifier.watch_failed", error=str(e), exc_info=True)
+            self.log.error("file_notifier.watch_failed", error=str(e), exc_info=True)
             self._running = False
             raise
 
         # Start event loop in background
-        asyncio.create_task(self._read_loop())
-
-        log.info("file_notifier.started")
+        self._task = asyncio.create_task(self._read_loop())
+        
+        self.log.info("file_notifier.started")
 
     async def stop(self) -> None:
         """Останавливает inotify observer"""
@@ -82,13 +81,26 @@ class FileNotifierSource(BaseFileSource):
                 return
 
             self._running = False
-            log.info("file_notifier.stopping")
+            self.log.info("file_notifier.stopping")
+
+        # Cancel background task
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+            self._task = None
 
         # Remove watch
         if self._watch_descriptor:
-            self.IS.rm_watch(self._watch_descriptor)
+            try:
+                self.IS.rm_watch(self._watch_descriptor)
+            except Exception:
+                pass
+            self._watch_descriptor = 0
 
-        log.info("file_notifier.stopped")
+        self.log.info("file_notifier.stopped")
 
     async def _read_loop(self) -> None:
         """
@@ -96,7 +108,7 @@ class FileNotifierSource(BaseFileSource):
         Checks inotify queue every 0ms (non-blocking), raises TIMEOUT if empty.
         """
         try:
-            log.info("file_notifier.read_loop.starting")
+            self.log.info("file_notifier.read_loop.starting")
 
             while self._running:
                 try:
@@ -122,7 +134,7 @@ class FileNotifierSource(BaseFileSource):
                         # Маппинг событий
                         event_type = self._map_mask_to_type(event.mask)
 
-                        log.debug("file_notifier.event", file=str(relative_path), event=event_type)
+                        self.log.debug("file_notifier.event", file=str(relative_path), event=event_type)
 
                         # Вызываем callback
                         asyncio.create_task(self._trigger_event(str(relative_path), event_type))
@@ -134,21 +146,21 @@ class FileNotifierSource(BaseFileSource):
                 except Exception as e:
                     if not self._running:
                         break
-                    log.error("file_notifier.read_loop.error", error=str(e), exc_info=True)
+                    self.log.error("file_notifier.read_loop.error", error=str(e), exc_info=True)
                     break
 
-            log.info("file_notifier.read_loop.stopped")
+            self.log.info("file_notifier.read_loop.stopped")
 
         except asyncio.CancelledError:
-            log.info("file_notifier.read_loop.cancelled")
+            self.log.info("file_notifier.read_loop.cancelled")
             raise
 
     async def _trigger_event(self, file_path: str, event_type: str) -> None:
         """Вызывает callback с событием"""
         try:
-            self.on_file_event(file_path, event_type)
+            await self.on_file_event(file_path, event_type)
         except Exception as e:
-            log.error("file_notifier.event_failed", file=file_path, error=str(e), exc_info=True)
+            self.log.error("file_notifier.event_failed", file=file_path, error=str(e), exc_info=True)
 
     def _map_mask_to_type(self, mask: int) -> str:
         """
