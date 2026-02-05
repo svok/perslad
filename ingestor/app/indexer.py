@@ -45,29 +45,6 @@ class IndexerOrchestrator:
         self._running = False
         self._lock = asyncio.Lock()
 
-    # def _load_gitignores(self) -> None:
-    #     """Загружает .gitignore matchers"""
-    #     for gitignore_file in self.workspace_path.rglob('.gitignore'):
-    #         if gitignore_file.is_file():
-    #             try:
-    #                 matcher = parse_gitignore(
-    #                     str(gitignore_file),
-    #                     base_dir=str(gitignore_file.parent)
-    #                 )
-    #                 self.gitignore_matchers[gitignore_file.parent] = matcher
-    #             except Exception as e:
-    #                 self.log.error(f"Failed to load {gitignore_file}: {e}")
-    #
-    # def _should_ignore(self, path: Path) -> bool:
-    #     """Проверяет gitignore"""
-    #     for gitignore_dir, matcher in self.gitignore_matchers.items():
-    #         try:
-    #             if path.is_relative_to(gitignore_dir) and matcher(str(path)):
-    #                 return True
-    #         except Exception:
-    #             continue
-    #     return False
-
     async def start(self) -> None:
         """Запускает пайплайн (processors only)"""
         async with self._lock:

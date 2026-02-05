@@ -26,87 +26,60 @@ class ScannerSourceStage(SourceStage):
     async def _run(self) -> None:
         self.log.info("[scanner] _run() ENTER")
         try:
-            count = 0
             async for item in self.generate():
-                count += 1
-                self.log.info(f"[scanner] Generated item #{count}: {item.path}")
-
+                self.log.info(f"[scanner] Generated item: {item.path}")
                 if self._stop_event.is_set():
-                    self.log.info("[scanner] Stop event detected, breaking")
+                    self.log.info("[scanner] Stop event, breaking")
                     break
-
-                self.log.info(f"[scanner] Putting to queue: {item.path}")
                 await self.output_queue.put(item)
-                self.log.info(f"[scanner] Put successful: {item.path}")
-
         except asyncio.CancelledError:
-            self.log.info("[scanner] CancelledError in _run()")
+            self.log.info("[scanner] CancelledError")
             raise
         except Exception as e:
-            self.log.error(f"[scanner] Exception in _run(): {e}", exc_info=True)
+            self.log.error(f"[scanner] Exception: {e}", exc_info=True)
             raise
         finally:
-            self.log.info(f"[scanner] _run() FINALLY, total items: {count}")
+            self.log.info("[scanner] _run() FINALLY")
 
     async def generate(self) -> AsyncGenerator[FileEvent, None]:
-        self.log.info(f"[scanner] generate() ENTER")
+        try:
+            if not self.workspace_path.exists():
+                self.log.error("Path does not exist: %s", self.workspace_path)
+                return
 
-        if not self.workspace_path.exists():
-            self.log.error(f"[scanner] Path does not exist: {self.workspace_path}")
+            self.log.info("Starting os.walk...")
+
+            for root, dirs, files in os.walk(self.workspace_path):
+                # Filter ignored directories
+                filtered_dirs = [d for d in dirs
+                    if not d.startswith('.') and d not in ('__pycache__', 'node_modules')
+                    and not self.checker.should_ignore(Path(root) / d)]
+
+                if filtered_dirs:
+                    dirs[:] = filtered_dirs
+
+                for filename in files:
+                    file_path = Path(root) / filename
+
+                    if self.checker.should_ignore(file_path):
+                        continue
+
+                    try:
+                        rel_path = file_path.relative_to(self.workspace_path)
+                    except ValueError:
+                        continue
+
+                    yield FileEvent(
+                        path=rel_path,
+                        event_type="scan",
+                        abs_path=file_path
+                    )
+
+            self.log.info("Scan completed")
             return
-
-        self.log.info("[scanner] Starting os.walk...")
-
-        for root, dirs, files in os.walk(self.workspace_path):
-            self.log.info(f"[scanner] Walking: {root}, dirs={len(dirs)}, files={len(files)}")
-
-            # Фильтруем директории
-            filtered_dirs = []
-            for d in dirs:
-                dir_path = Path(root) / d
-                if dir_path.name.startswith('.') or dir_path.name in ('__pycache__', 'node_modules'):
-                    self.log.debug(f"[scanner] Skipping dir by name: {d}")
-                    continue
-                if self.checker.should_ignore(dir_path):
-                    self.log.debug(f"[scanner] Skipping dir by gitignore: {d}")
-                    continue
-                filtered_dirs.append(d)
-
-            removed = len(dirs) - len(filtered_dirs)
-            if removed:
-                self.log.info(f"[scanner] Filtered {removed} dirs in {root}")
-            dirs[:] = filtered_dirs
-
-            # Обрабатываем файлы
-            for filename in files:
-                file_path = Path(root) / filename
-
-                if self.checker.should_ignore(file_path):
-                    self.log.debug(f"[scanner] Ignoring file: {file_path}")
-                    continue
-
-                try:
-                    rel_path = file_path.relative_to(self.workspace_path)
-                except ValueError as e:
-                    self.log.error(f"[scanner] relative_to failed: {e}")
-                    continue
-
-                self.log.info(f"[scanner] Yielding: {rel_path}")
-
-                yield FileEvent(
-                    path=rel_path,
-                    event_type="scan",
-                    abs_path=file_path
-                )
-
-                self.log.info(f"[scanner] Yielded: {rel_path}")
-
-                # Проверяем остановку
-                if self._stop_event.is_set():
-                    self.log.info("[scanner] Stop event in generate(), breaking")
-                    return
-
-        self.log.info("[scanner] generate() COMPLETED naturally")
+        except Exception as e:
+            self.log.error("Scan generation error: %s", e, exc_info=True)
+            raise
 
     async def stop(self) -> None:
         self.log.info("[scanner] stop() called")

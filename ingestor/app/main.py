@@ -140,7 +140,8 @@ async def main() -> None:
     log.info("ingestor.indexer.starting")
     try:
         await indexer.start()
-        await indexer.start_full_scan()
+        await indexer.start_watching()  # Добавляем inotify watch
+        await indexer.start_full_scan()  # Полный скан
         log.info("ingestor.indexer.started")
     except Exception as e:
         log.error("ingestor.indexer.error", error=str(e), exc_info=True)

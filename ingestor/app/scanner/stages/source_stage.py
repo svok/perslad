@@ -23,15 +23,14 @@ class SourceStage:
 
     async def _run(self) -> None:
         self.log.info(f"[{self.name}] SourceStage._run() ENTER")
+        count = 0
         try:
             async for item in self.generate():
-                self.log.info(f"[{self.name}] Got item from generate(): {item}")
+                count += 1
                 if self._stop_event.is_set():
-                    self.log.info(f"[{self.name}] Stop event, breaking")
                     break
-                self.log.info(f"[{self.name}] Putting to queue...")
+                print("PUT")
                 await self.output_queue.put(item)
-                self.log.info(f"[{self.name}] Put done")
         except asyncio.CancelledError:
             self.log.info(f"[{self.name}] CancelledError")
             raise
@@ -39,11 +38,13 @@ class SourceStage:
             self.log.error(f"[{self.name}] Exception: {e}", exc_info=True)
             raise
         finally:
-            self.log.info(f"[{self.name}] SourceStage._run() FINALLY")
+            self.log.info(f"[{self.name}] SourceStage._run() FINALLY, total: {count}")
 
     @abstractmethod
     async def generate(self) -> AsyncGenerator[Any, None]:
-        pass
+        if False:  # Никогда не выполнится, но делает метод генератором
+            yield
+        return
 
     async def stop(self) -> None:
         """Останавливает генерацию"""

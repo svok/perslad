@@ -27,29 +27,44 @@ class ProcessorStage(BaseStage):
 
     async def _worker_loop(self, wid: int) -> None:
         """Просто: взял → обработал → положил. Без батчинга."""
+        self.log.info(f"[{self.name}] Worker {wid} started")
+        count = 0
         while not self._stop_event.is_set():
             try:
+                count += 1
+                # self.log.info(f"[{self.name}] Worker {wid}: get() #{count}")
                 item = await self.input_queue.get()
+                print("GOT ITEM")
 
                 if item is None:
+                    # self.log.info(f"[{self.name}] Worker {wid}: received poison pill")
                     self.input_queue.task_done()
-                    if wid == 0 and self.output_queue:
-                        await self.output_queue.put(None)
                     break
 
-                # Обрабатываем один элемент
-                result = await self.process(item)
+                try:
+                    result = await self.process(item)
+                    if result is not None and self.output_queue:
+                        await self.output_queue.put(result)
 
-                if result is not None and self.output_queue:
-                    await self.output_queue.put(result)
+                    self.input_queue.task_done()
+                except Exception:
+                    self.input_queue.task_done()
+                    self.log.critical(f"[{self.name}] Worker {wid} exception")
+                    raise
+                finally:
+                    print("WORKER EXITED ProcessorStage internal")
 
-                self.input_queue.task_done()
+
+                await asyncio.sleep(0)  # ← ВАЖНО
 
             except asyncio.CancelledError:
+                self.log.info(f"[{self.name}] Worker {wid}: cancelled")
                 break
-            except Exception:
-                self.log.error(f"Worker {wid} error", exc_info=True)
+            except BaseException as e:
+                self.log.critical(f"[{self.name}] Worker {wid} crashed")
                 raise
+            finally:
+                print("WORKER EXITED ProcessorStage")
 
     async def process(self, item: Any) -> Any:
         """

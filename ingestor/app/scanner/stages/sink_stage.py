@@ -22,15 +22,28 @@ class SinkStage(BaseStage):
         ]
 
     async def _worker_loop(self, wid: int) -> None:
+        count = 0
         while not self._stop_event.is_set():
             try:
+                count += 1
+                self.log.debug(f"[{self.name}] Worker {wid}: calling get()...")
                 item = await self.input_queue.get()
+                self.log.info(f"[{self.name}] Worker {wid}: received item #{count}: {type(item).__name__}")
+
                 if item is None:
+                    self.log.info(f"[{self.name}] Worker {wid}: received poison pill, will break")
                     self.input_queue.task_done()
                     break
+
+                self.log.debug(f"[{self.name}] Worker {wid}: calling consume()...")
                 await self.consume(item)
+                self.log.debug(f"[{self.name}] Worker {wid}: consume() completed")
+
                 self.input_queue.task_done()
+                self.log.debug(f"[{self.name}] Worker {wid}: task_done() called")
+
             except asyncio.CancelledError:
+                self.log.debug(f"[{self.name}] Worker {wid}: received CancelledError")
                 break
             except Exception:
                 self.log.error(f"Sink worker {wid} error", exc_info=True)

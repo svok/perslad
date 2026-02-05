@@ -1,23 +1,17 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypeVar, Generic, Callable, Any, List, Optional, Type, Set
+from typing import TypeVar, Callable, Any, List, Optional, Type, Set
 
 from infra.logger import get_logger
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.scanner.file_event import FileEvent
 from ingestor.app.scanner.queues import ThrottledQueue
-from ingestor.app.scanner.stages.embed_stage import EmbedChunksStage
-from ingestor.app.scanner.stages.enrich_chunks_stage import EnrichChunksStage
 from ingestor.app.scanner.stages.enrich_stage import EnrichStage
-from ingestor.app.scanner.stages.file_summary_stage import FileSummaryStage
 from ingestor.app.scanner.stages.indexer_sink import IndexerSinkStage
-from ingestor.app.scanner.stages.parse_stage import ParseProcessorStage
-from ingestor.app.scanner.stages.persist_stage import PersistChunksStage
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
 from ingestor.app.scanner.stages.sink_stage import SinkStage
 from ingestor.app.scanner.stages.source_stage import SourceStage
-from ingestor.app.storage import Chunk
 
 T = TypeVar('T')
 U = TypeVar('U')
@@ -40,7 +34,7 @@ class MultiSourcePipeline:
 
     DEFAULT_CONFIG = {
         'enrich_workers': 2,
-        'parse_workers': 4,
+        'parse_workers': 1,
         'chunk_enrich_workers': 2,
         'embed_workers': 2,
         'persist_workers': 2,
@@ -78,46 +72,46 @@ class MultiSourcePipeline:
                 output_type=FileEvent,
                 factory=lambda p: EnrichStage(p.workspace_path, p.config["enrich_workers"])
             ),
-            StageDef(
-                name="parse",
-                stage_class=ParseProcessorStage,
-                config_key="parse_workers",
-                input_type=FileEvent,
-                output_type=List[Chunk],
-                factory=lambda p: ParseProcessorStage(p.config["parse_workers"])
-            ),
-            StageDef(
-                name="chunk_enrich",
-                stage_class=EnrichChunksStage,
-                config_key="chunk_enrich_workers",
-                input_type=List[Chunk],
-                output_type=List[Chunk],
-                factory=lambda p: EnrichChunksStage(p._llm, p._lock_manager, p.config["chunk_enrich_workers"])
-            ),
-            StageDef(
-                name="embed",
-                stage_class=EmbedChunksStage,
-                config_key="embed_workers",
-                input_type=List[Chunk],
-                output_type=List[Chunk],
-                factory=lambda p: EmbedChunksStage(p._embed_url, p._embed_api_key, p.config["embed_workers"])
-            ),
-            StageDef(
-                name="persist",
-                stage_class=PersistChunksStage,
-                config_key="persist_workers",
-                input_type=List[Chunk],
-                output_type=List[Chunk],
-                factory=lambda p: PersistChunksStage(p.storage, p.config["persist_workers"])
-            ),
-            StageDef(
-                name="file_summary",
-                stage_class=FileSummaryStage,
-                config_key="file_summary_workers",
-                input_type=List[Chunk],
-                output_type=List[Chunk],
-                factory=lambda p: FileSummaryStage(p.storage, p.config["file_summary_workers"])
-            ),
+            # StageDef(
+            #     name="parse",
+            #     stage_class=ParseProcessorStage,
+            #     config_key="parse_workers",
+            #     input_type=FileEvent,
+            #     output_type=List[Chunk],
+            #     factory=lambda p: ParseProcessorStage(p.config["parse_workers"])
+            # ),
+            # StageDef(
+            #     name="chunk_enrich",
+            #     stage_class=EnrichChunksStage,
+            #     config_key="chunk_enrich_workers",
+            #     input_type=List[Chunk],
+            #     output_type=List[Chunk],
+            #     factory=lambda p: EnrichChunksStage(p._llm, p._lock_manager, p.config["chunk_enrich_workers"])
+            # ),
+            # StageDef(
+            #     name="embed",
+            #     stage_class=EmbedChunksStage,
+            #     config_key="embed_workers",
+            #     input_type=List[Chunk],
+            #     output_type=List[Chunk],
+            #     factory=lambda p: EmbedChunksStage(p._embed_url, p._embed_api_key, p.config["embed_workers"])
+            # ),
+            # StageDef(
+            #     name="persist",
+            #     stage_class=PersistChunksStage,
+            #     config_key="persist_workers",
+            #     input_type=List[Chunk],
+            #     output_type=List[Chunk],
+            #     factory=lambda p: PersistChunksStage(p.storage, p.config["persist_workers"])
+            # ),
+            # StageDef(
+            #     name="file_summary",
+            #     stage_class=FileSummaryStage,
+            #     config_key="file_summary_workers",
+            #     input_type=List[Chunk],
+            #     output_type=List[Chunk],
+            #     factory=lambda p: FileSummaryStage(p.storage, p.config["file_summary_workers"])
+            # ),
         ]
 
         # Runtime
