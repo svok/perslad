@@ -3,7 +3,7 @@ Ingestor Main Entry Point
 
 Запускает:
 1. HTTP API (для LLM lock и статистики)
-2. Ingest pipeline (batch)
+2. Indexer Pipeline (scanner + enrich)
 3. LLM reconnect (background)
 """
 
@@ -26,8 +26,7 @@ from ingestor.app.config import runtime, storage as storage_config
 from ingestor.app.dimension_validator import DimensionValidator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
-from ingestor.app.indexer import IndexerOrchestrator
+from ingestor.app.indexer_test import IndexerOrchestrator
 
 _shutdown = asyncio.Event()
 
@@ -62,7 +61,7 @@ async def main() -> None:
     api_port = runtime.INGESTOR_PORT
     log_level = runtime.LOG_LEVEL
 
-    setup_logging(env=env, log_level=log_level)
+    setup_logging(log_level=log_level)
     log = get_logger("ingestor")
 
     log.info(
@@ -80,14 +79,14 @@ async def main() -> None:
     llm = get_llm()
     lock_manager = LLMLockManager()
     storage = get_storage()
-    
+
     # Initialize storage tables immediately (explicitly)
     await storage.initialize()
     log.info("ingestor.storage.initialized")
-    
+
     knowledge_port = KnowledgePort(storage)
 
-    # Validate dimensions - will retry indefinitely
+    # VALIDATE — will retry indefinitely
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
         embed_model=EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY),
@@ -97,17 +96,7 @@ async def main() -> None:
     await dimension_validator.validate_dimensions()
     log.info("dimension_validator.validation.complete")
 
-    # Pipeline orchestrator
-    pipeline = PipelineOrchestrator(
-        workspace_path=workspace,
-        llm=llm,
-        lock_manager=lock_manager,
-        storage=storage,
-        embed_url=runtime.EMBED_URL,
-        embed_api_key=runtime.EMBED_API_KEY,
-    )
-
-    # Indexer orchestrator (incremental)
+    # Indexer orchestrator
     indexer = IndexerOrchestrator(
         workspace_path=workspace,
         llm=llm,
@@ -131,7 +120,7 @@ async def main() -> None:
     api_task = asyncio.create_task(run_api_server(api, api_port))
     log.info("ingestor.api.started", port=api_port)
 
-    # 3. Ждём готовности LLM перед запуском pipeline
+    # 3. Ждём готовности LLM перед запуском indexer
     log.info("ingestor.waiting_llm")
     await llm.wait_ready()
     log.info("ingestor.llm.ready")
@@ -140,8 +129,8 @@ async def main() -> None:
     log.info("ingestor.indexer.starting")
     try:
         await indexer.start()
-        await indexer.start_watching()  # Добавляем inotify watch
         await indexer.start_full_scan()  # Полный скан
+        await indexer.start_watching()  # Добавляем inotify watch
         log.info("ingestor.indexer.started")
     except Exception as e:
         log.error("ingestor.indexer.error", error=str(e), exc_info=True)
