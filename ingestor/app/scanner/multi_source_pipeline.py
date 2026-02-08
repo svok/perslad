@@ -159,11 +159,11 @@ class MultiSourcePipeline:
             raise RuntimeError("Call start() first")
 
         self.log.info(f"Adding source: {source.name}")
-        await source.start(self._queues[0])  # Всегда в первую очередь
         self._sources.add(source)
+        await source.start(self._queues[0])  # Всегда в первую очередь
 
-        if wait and source._task:
-            await source._task
+        if wait and source.is_running():
+            await source.wait()
             self._sources.discard(source)
             self.log.info(f"Source {source.name} completed")
 

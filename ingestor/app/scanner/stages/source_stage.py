@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from typing import Any, AsyncGenerator, Optional
 import asyncio
 
@@ -6,7 +6,7 @@ from infra.logger import get_logger
 from ingestor.app.scanner.queues import ThrottledQueue
 
 
-class SourceStage:
+class SourceStage(ABC):
     """Базовая стадия-источник данных"""
 
     def __init__(self, name: str):
@@ -40,6 +40,16 @@ class SourceStage:
         finally:
             self.log.info(f"[{self.name}] SourceStage._run() FINALLY, total: {count}")
 
+    async def is_running(self) -> bool:
+        return self._task is not None and not self._task.done()
+
+    async def wait(self):
+        if self._task:
+            try:
+                await self._task
+            finally:
+                self._task = None # Теперь is_running вернет False
+
     @abstractmethod
     async def generate(self) -> AsyncGenerator[Any, None]:
         if False:  # Никогда не выполнится, но делает метод генератором
@@ -56,4 +66,5 @@ class SourceStage:
                 await self._task
             except asyncio.CancelledError:
                 pass
+        self._task = None
         self.log.info(f"[{self.name}] Stopped")

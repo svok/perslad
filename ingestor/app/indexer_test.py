@@ -61,8 +61,8 @@ class IndexerOrchestrator:
             self._running = True
 
         # Create queues - TEST VERSION with ThrottledQueue
-        self._source_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sa_queue")
-        self._sink_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sa_queue")
+        self._source_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="source_queue")
+        self._sink_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sink_queue")
 
         # Create Handler with StdoutSink
         self._pipeline = handler.Handler(self._source_queue, self._sink_queue)
