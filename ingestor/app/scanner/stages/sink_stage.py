@@ -32,15 +32,11 @@ class SinkStage(BaseStage):
 
                 if item is None:
                     self.log.info(f"[{self.name}] Worker {wid}: received poison pill, will break")
-                    self.input_queue.task_done()
-                    break
+                    continue
 
                 self.log.debug(f"[{self.name}] Worker {wid}: calling consume()...")
                 await self.consume(item)
                 self.log.debug(f"[{self.name}] Worker {wid}: consume() completed")
-
-                self.input_queue.task_done()
-                self.log.debug(f"[{self.name}] Worker {wid}: task_done() called")
 
             except asyncio.CancelledError:
                 self.log.debug(f"[{self.name}] Worker {wid}: received CancelledError")
@@ -48,6 +44,10 @@ class SinkStage(BaseStage):
             except Exception:
                 self.log.error(f"Sink worker {wid} error", exc_info=True)
                 raise
+            finally:
+                self.input_queue.task_done()
+                self.log.debug(f"[{self.name}] Worker {wid}: task_done() called")
+
 
     @abstractmethod
     async def consume(self, item: Any) -> None:

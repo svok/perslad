@@ -15,6 +15,7 @@ from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.scanner.queues import ThrottledQueue
 from ingestor.app.scanner.file_event import FileEvent
+from ingestor.app.scanner.stages.indexer_sink import IndexerSinkStage
 
 from ingestor.app.test_pipeline import handler
 from ingestor.app.test_pipeline.sa import SourceSA
@@ -50,8 +51,6 @@ class IndexerOrchestrator:
         self._sb_task = None
         self._source_queue: Optional[ThrottledQueue[FileEvent]] = None
         self._sink_queue: Optional[ThrottledQueue[FileEvent]] = None
-        # self._sa_queue: Optional[ThrottledQueue[FileEvent]] = None
-        # self._sb_queue: Optional[ThrottledQueue[FileEvent]] = None
 
     async def start(self) -> None:
         """Запускает пайплайн"""
@@ -69,8 +68,10 @@ class IndexerOrchestrator:
         self.log.info("indexer.pipeline_ready")
         await self._pipeline.start()
 
-        self._sink = Sink(self._sink_queue)
-        await self._sink.start()
+        # self._sink = Sink(self._sink_queue)
+        # await self._sink.start()
+        self._sink = IndexerSinkStage()
+        await self._sink.start(self._sink_queue)
 
     async def start_full_scan(self) -> None:
         """Полный скан - запускаем SA и ЖДЕМ завершения"""
