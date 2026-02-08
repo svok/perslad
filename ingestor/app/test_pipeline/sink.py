@@ -4,5 +4,5 @@ from ..scanner.file_event import FileEvent
 
 class ISink(ABC):
     @abstractmethod
-    async def process(self, file_event: FileEvent) -> None:
+    async def process(self) -> None:
         pass

@@ -17,9 +17,9 @@ from ingestor.app.scanner.queues import ThrottledQueue
 from ingestor.app.scanner.file_event import FileEvent
 
 from ingestor.app.test_pipeline import handler
-from ingestor.app.test_pipeline.main import StdoutSink
 from ingestor.app.test_pipeline.sa import SourceSA
 from ingestor.app.test_pipeline.sb import SourceSB
+from ingestor.app.test_pipeline.sink_implementation import Sink
 
 
 class IndexerOrchestrator:
@@ -33,6 +33,7 @@ class IndexerOrchestrator:
             embed_url: str = "http://emb:8001/v1",
             embed_api_key: str = "sk-dummy",
     ) -> None:
+        self._sink = None
         self.workspace_path = Path(workspace_path).resolve()
         self.log = get_logger("ingestor.indexer")
         self.llm = llm
@@ -47,8 +48,10 @@ class IndexerOrchestrator:
         self._lock = asyncio.Lock()
         self._sa_task = None
         self._sb_task = None
-        self._sa_queue: Optional[ThrottledQueue[FileEvent]] = None
-        self._sb_queue: Optional[ThrottledQueue[FileEvent]] = None
+        self._source_queue: Optional[ThrottledQueue[FileEvent]] = None
+        self._sink_queue: Optional[ThrottledQueue[FileEvent]] = None
+        # self._sa_queue: Optional[ThrottledQueue[FileEvent]] = None
+        # self._sb_queue: Optional[ThrottledQueue[FileEvent]] = None
 
     async def start(self) -> None:
         """Запускает пайплайн"""
@@ -58,25 +61,27 @@ class IndexerOrchestrator:
             self._running = True
 
         # Create queues - TEST VERSION with ThrottledQueue
-        self._sa_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sa_queue")
-        self._sb_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sb_queue")
+        self._source_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sa_queue")
+        self._sink_queue = ThrottledQueue(maxsize=2000, throttle_delay=0, name="sa_queue")
 
         # Create Handler with StdoutSink
-        self._pipeline = handler.Handler(StdoutSink())
-        await self._pipeline.set_queues(self._sa_queue, self._sb_queue)
-
+        self._pipeline = handler.Handler(self._source_queue, self._sink_queue)
         self.log.info("indexer.pipeline_ready")
+        await self._pipeline.start()
+
+        self._sink = Sink(self._sink_queue)
+        await self._sink.start()
 
     async def start_full_scan(self) -> None:
         """Полный скан - запускаем SA и ЖДЕМ завершения"""
-        if not self._sa_queue:
+        if not self._source_queue:
             raise RuntimeError("Call start() first")
 
         self.log.info("indexer.full_scan.starting")
 
         # Запускаем SA и БЛОКИРУЕМся пока он завершится
         self._sa_task = asyncio.create_task(
-            SourceSA(self._sa_queue, name="SA", message_template="msg-a").start()
+            SourceSA(self._source_queue, name="SA", message_template="msg-a").start()
         )
         await self._sa_task
         self.log.info("indexer.full_scan.completed")
@@ -90,7 +95,7 @@ class IndexerOrchestrator:
 
         # Запускаем SB
         self._sb_task = asyncio.create_task(
-            SourceSB(self._sb_queue, name="SB", message_template="msg-b").start()
+            SourceSB(self._source_queue, name="SB", message_template="msg-b").start()
         )
 
         self.log.info("indexer.watching.started")
