@@ -16,11 +16,12 @@ from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.scanner.queues import ThrottledQueue
 from ingestor.app.scanner.file_event import FileEvent
 from ingestor.app.scanner.stages.indexer_sink import IndexerSinkStage
+from ingestor.app.scanner.stages.inotify_source import InotifySourceStage
+from ingestor.app.scanner.stages.scanner_source_stage import ScannerSourceStage
 
 from ingestor.app.test_pipeline import handler
 from ingestor.app.test_pipeline.sa import SourceSA
 from ingestor.app.test_pipeline.sb import SourceSB
-from ingestor.app.test_pipeline.sink_implementation import Sink
 
 
 class IndexerOrchestrator:
@@ -81,10 +82,9 @@ class IndexerOrchestrator:
         self.log.info("indexer.full_scan.starting")
 
         # Запускаем SA и БЛОКИРУЕМся пока он завершится
-        self._sa_task = asyncio.create_task(
-            SourceSA(self._source_queue, name="SA", message_template="msg-a").start()
-        )
-        await self._sa_task
+        self._sa_task = ScannerSourceStage(workspace_path=self.workspace_path)
+        await self._sa_task.start(self._source_queue)
+        await self._sa_task.wait()
         self.log.info("indexer.full_scan.completed")
 
     async def start_watching(self) -> None:
@@ -94,10 +94,12 @@ class IndexerOrchestrator:
 
         self.log.info("indexer.watching.starting")
 
-        # Запускаем SB
-        self._sb_task = asyncio.create_task(
-            SourceSB(self._source_queue, name="SB", message_template="msg-b").start()
-        )
+        # Запускаем SB без блокировки, чтоб работал вечно
+        # self._sb_task = asyncio.create_task(
+        #     SourceSB(self._source_queue, name="SB", message_template="msg-b").start()
+        # )
+        self._sa_task = InotifySourceStage(workspace_path=self.workspace_path)
+        await self._sa_task.start(self._source_queue)
 
         self.log.info("indexer.watching.started")
 

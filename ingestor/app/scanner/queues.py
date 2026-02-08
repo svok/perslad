@@ -33,17 +33,13 @@ class ThrottledQueue(Generic[T]):
     async def put(self, item: Optional[T]) -> None:
         """Добавляет элемент с обратным давлением"""
         start = time.time()
-        loop_id = id(asyncio.get_running_loop())
-        # self.log.info(f"[{self.name}] PUT queue_id={id(self.queue)} loop_id={loop_id} thread={threading.get_ident()} loop_thread={self.queue._loop}")
 
         # Обратное давление при заполнении очереди
         if self.qsize > self.maxsize * 0.8:
             await asyncio.sleep(self.throttle_delay)
             self.metrics['last_throttle'] = time.time()
 
-        print("PUT queue_id =", id(self.queue), loop_id)
         await self.queue.put(item)
-        print("PUT-x")
         self.metrics['put_count'] += 1
         self.metrics['max_wait_time'] = max(
             self.metrics['max_wait_time'],
@@ -52,12 +48,8 @@ class ThrottledQueue(Generic[T]):
 
     async def get(self) -> Optional[T]:
         """Берет элемент из очереди"""
-        # self.log.info(f"[{self.name}] get() thread={threading.get_ident()} loop_thread={self.queue._loop}")
-        loop_id = id(asyncio.get_running_loop())
         self.metrics['get_start_time'] = time.time()
-        print("GET queue_id =", id(self.queue), loop_id)
         item = await self.queue.get()
-        print("GET-x")
 
 
         self.metrics['get_count'] += 1

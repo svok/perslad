@@ -5,8 +5,7 @@ from typing import AsyncGenerator, Optional
 import inotify_simple
 from inotify_simple import flags
 
-from infra.logger import get_logger
-from ingestor.app.scanner.file_event import FileEvent
+from ingestor.app.scanner.file_event import FileEvent, EventTypes
 from ingestor.app.scanner.gitignore_checker import GitignoreChecker
 from ingestor.app.scanner.stages.source_stage import SourceStage
 
@@ -15,7 +14,7 @@ class InotifySourceStage(SourceStage):
     """Inotify с inline фильтрацией"""
 
     # Маппинг флагов
-    FLAG_MAP = {
+    FLAG_MAP: dict[int, EventTypes] = {
         flags.CREATE: "create",
         flags.DELETE: "delete",
         flags.MODIFY: "modify",
@@ -30,96 +29,70 @@ class InotifySourceStage(SourceStage):
 
         self.IS = inotify_simple.INotify()
         self._watch_descriptor: int = 0
-        self._task: Optional[asyncio.Task] = None
 
         # Checker
         self.checker = GitignoreChecker(self.workspace_path)
         self.checker.load()
 
+    async def start(self, output_queue) -> None:
+        self.log.info("[inotify] start() called")
+        await super().start(output_queue)
+        self.log.info("[inotify] super().start() completed")
+
     async def _read_loop(self) -> AsyncGenerator[FileEvent, None]:
-        """Читает события и сразу их генерирует"""
-        try:
-            self.log.info(f"[inotify] _read_loop STARTED")
+        self.log.info(f"[inotify] _read_loop STARTED")
 
-            while not self._stop_event.is_set():
-                try:
-                    # Non-blocking read - read() returns generator, not coroutine
-                    events = self.IS.read(timeout=0)
+        while not self._stop_event.is_set():
+            # Используем небольшой таймаут в самом inotify или sleep
+            # inotify_simple.read блокирует поток, если timeout не 0.
+            # Поэтому используем 0 и asyncio.sleep
+            events = self.IS.read(timeout=0)
 
-                    for event in events:
-                        # Игнорируем события для директорий
-                        if event.mask & flags.ISDIR:
-                            continue
+            if not events:
+                await asyncio.sleep(1.0) # Важно! Освобождает Event Loop
+                continue
 
-                        # event.name содержит только имя файла
-                        # Аbsolute path = workspace_path + event.name
-                        abs_path = self.workspace_path / event.name
+            for event in events:
+                if event.mask & flags.ISDIR:
+                    continue
 
-                        # Получаем относительный путь
-                        rel_path = abs_path.relative_to(self.workspace_path)
+                abs_path = self.workspace_path / event.name
+                rel_path = abs_path.relative_to(self.workspace_path)
 
-                        # Проверяем .gitignore
-                        if self.checker.should_ignore(abs_path):
-                            continue
+                if self.checker.should_ignore(abs_path):
+                    continue
 
-                        # Маппинг событий
-                        event_type: str = self._map_mask(event.mask)
-
-                        self.log.info(f"[inotify] event: {rel_path} -> {event_type}")
-
-                        # Генерируем событие сразу
-                        yield FileEvent(
-                            path=rel_path,
-                            event_type=event_type,
-                            abs_path=abs_path
-                        )
-
-                except Exception as e:
-                    if not self._stop_event.is_set():
-                        self.log.error(f"Read error: {e}")
-                    break
-
-            self.log.info(f"[inotify] _read_loop stopped")
-
-        except asyncio.CancelledError:
-            self.log.info(f"[inotify] _read_loop cancelled")
-            raise
-        except Exception as e:
-            self.log.error(f"Read loop error: {e}")
-            raise
+                event_type = self._map_mask(event.mask)
+                if event_type:
+                    self.log.info(f"[inotify] yielding event: {rel_path}")
+                    yield FileEvent(
+                        path=rel_path,
+                        event_type=event_type,
+                        abs_path=abs_path
+                    )
 
     async def generate(self) -> AsyncGenerator[FileEvent, None]:
-        """Обертка для асинхронного генератора"""
-        self.log.info(f"[{self.name}] Starting inotify: {self.workspace_path}")
+        self.log.info(f"[{self.name}] Starting inotify on: {self.workspace_path}")
 
-        # Устанавливаем watch
         try:
             self._watch_descriptor = self.IS.add_watch(
                 self.workspace_path,
-                mask=(
-                        flags.CREATE | flags.DELETE | flags.MODIFY |
-                        flags.MOVED_FROM | flags.MOVED_TO | flags.CLOSE_WRITE
-                )
+                mask=(flags.CREATE | flags.DELETE | flags.MODIFY |
+                      flags.MOVED_FROM | flags.MOVED_TO | flags.CLOSE_WRITE)
             )
-        except Exception as e:
-            self.log.error(f"Failed to add watch: {e}")
-            raise
 
-        try:
             async for event in self._read_loop():
                 yield event
-        finally:
-            print("INOTIFY EXCEPTION")
 
-            if self._watch_descriptor:
+        finally:
+            if self._watch_descriptor is not None:
                 try:
                     self.IS.rm_watch(self._watch_descriptor)
-                except Exception:
-                    print("INOTIFY EXCEPTION")
-                    pass
+                except Exception as e:
+                    self.log.debug(f"Error removing watch: {e}")
 
-    def _map_mask(self, mask: int) -> str:
+    def _map_mask(self, mask: int) -> Optional[EventTypes]:
         for flag, name in self.FLAG_MAP.items():
             if mask & flag:
                 return name
-        return "unknown"
+        return None

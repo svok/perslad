@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from .sink import ISink
 import asyncio
 import logging
 

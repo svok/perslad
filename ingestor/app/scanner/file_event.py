@@ -2,11 +2,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Optional, get_args
 
+EventTypes = Literal["create", "modify", "delete", "scan", "rename"]
 
 @dataclass
 class FileEvent:
     """Унифицированное событие файла"""
-    EventTypes = Literal["create", "modify", "delete", "scan", "rename"]
     path: Path                    # Относительный путь к файлу
     event_type: EventTypes
     abs_path: Optional[Path] = None  # Абсолютный путь (для удобства)
