@@ -5,7 +5,7 @@
 import asyncio
 import tempfile
 from pathlib import Path
-from ingestor.app.pipeline.scan import ScanStage
+from ingestor.pipeline.impl.scan import ScanStage
 
 
 async def test_gitignore_scan():

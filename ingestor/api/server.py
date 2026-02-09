@@ -15,8 +15,8 @@ from fastapi import FastAPI
 from infra.logger import get_logger
 from ingestor.api.requests.llm_lock_request import LLMLockRequest
 from ingestor.api.requests.search_request import SearchRequest
-from ingestor.app.knowledge_port import KnowledgePort
-from ingestor.app.llm_lock import LLMLockManager
+from ingestor.services.knowledge import KnowledgePort
+from ingestor.services.lock import LLMLockManager
 from ingestor.core.ports.storage import BaseStorage
 
 log = get_logger("ingestor.api")

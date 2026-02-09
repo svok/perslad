@@ -93,7 +93,7 @@ export POSTGRES_PORT=5432
 export POSTGRES_DB=rag
 export POSTGRES_USER=rag
 export POSTGRES_PASSWORD=rag
-python -m ingestor.app.main
+python -m ingestor.main
 ```
 
 ### Docker

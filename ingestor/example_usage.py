@@ -12,10 +12,12 @@ from pathlib import Path
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters.memory.storage import MemoryStorage as InMemoryStorage
 from infra.llm import get_llm
-from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.knowledge_port import KnowledgePort
-from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
+from ingestor.services.lock import LLMLockManager
+from ingestor.services.knowledge import KnowledgePort
+from ingestor.pipeline.impl.orchestrator import PipelineOrchestrator
 
+
+log = get_logger('example_usage')
 
 async def example_basic_pipeline():
     """
