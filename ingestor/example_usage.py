@@ -10,13 +10,14 @@ import os
 from pathlib import Path
 
 from infra.logger import setup_logging, get_logger
-from ingestor.app.storage import InMemoryStorage
+from ingestor.adapters.memory.storage import MemoryStorage as InMemoryStorage
 from infra.llm import get_llm
-from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.storage import InMemoryStorage
-from ingestor.app.knowledge_port import KnowledgePort
-from ingestor.app.pipeline.orchestrator import PipelineOrchestrator
+from ingestor.services.lock import LLMLockManager
+from ingestor.services.knowledge import KnowledgePort
+from ingestor.pipeline.impl.orchestrator import PipelineOrchestrator
 
+
+log = get_logger('example_usage')
 
 async def example_basic_pipeline():
     """
@@ -38,7 +39,8 @@ async def example_basic_pipeline():
         llm=llm,
         lock_manager=lock_manager,
         storage=storage,
-        embed_model=None,  # Без embeddings для простоты
+        embed_url="http://emb:8001/v1",
+        embed_api_key="sk-dummy",
     )
     
     # Запускаем LLM reconnect

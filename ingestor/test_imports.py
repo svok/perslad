@@ -3,7 +3,6 @@ Simple import test to verify all modules load correctly.
 """
 
 import sys
-import logging
 
 from infra.logger import setup_logging, get_logger
 
@@ -19,38 +18,38 @@ def test_imports():
     
     try:
         # Core modules
-        from ingestor.app import config
-        log.info("test_imports.success", module="config")
+        from ingestor.config import runtime
+        log.info("test_imports.success", module="runtime")
         
-        from ingestor.app import storage
+        from ingestor.adapters.postgres import storage
         log.info("test_imports.success", module="storage")
         
-        from ingestor.app import llm_lock
-        log.info("test_imports.success", module="llm_lock")
+        from ingestor.services import lock
+        log.info("test_imports.success", module="lock")
         
-        from ingestor.app import knowledge_port
-        log.info("test_imports.success", module="knowledge_port")
+        from ingestor.services import knowledge
+        log.info("test_imports.success", module="knowledge")
         
-        from ingestor.app import api
+        from ingestor.api.requests import llm_lock_request
         log.info("test_imports.success", module="api")
         
         # Pipeline stages
-        from ingestor.app.pipeline import scan
+        from ingestor.pipeline.impl import scan
         log.info("test_imports.success", module="pipeline.scan")
         
-        from ingestor.app.pipeline import parse
+        from ingestor.pipeline.impl import parse
         log.info("test_imports.success", module="pipeline.parse")
         
-        from ingestor.app.pipeline import enrich
+        from ingestor.pipeline.impl import enrich
         log.info("test_imports.success", module="pipeline.enrich")
         
-        from ingestor.app.pipeline import embed
+        from ingestor.pipeline.impl import embed
         log.info("test_imports.success", module="pipeline.embed")
         
-        from ingestor.app.pipeline import persist
+        from ingestor.pipeline.impl import persist
         log.info("test_imports.success", module="pipeline.persist")
         
-        from ingestor.app.pipeline import orchestrator
+        from ingestor.pipeline.impl import orchestrator
         log.info("test_imports.success", module="pipeline.orchestrator")
         
         # Adapters

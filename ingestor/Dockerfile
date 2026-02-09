@@ -18,4 +18,4 @@ COPY ingestor/ ./ingestor/
 RUN pip install --no-cache-dir -r ./ingestor/requirements.txt
 
 # default entrypoint
-CMD ["python", "-m", "ingestor.app.main"]
+CMD ["python", "-m", "ingestor.main"]

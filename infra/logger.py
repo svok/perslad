@@ -20,6 +20,7 @@ def setup_logging(env: str = "dev", log_level: str = None) -> None:
 
     structlog.configure(
         processors=[
+            structlog.processors.format_exc_info,
             structlog.processors.add_log_level,
             structlog.processors.TimeStamper(fmt="iso"),
             structlog.processors.JSONRenderer(),
