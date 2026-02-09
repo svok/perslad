@@ -9,7 +9,7 @@ from pgvector.asyncpg import register_vector
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from infra.logger import get_logger
-from ingestor.app.config.storage import storage as storage_config
+from ingestor.config.storage import storage as storage_config
 
 log = get_logger("ingestor.storage.postgres.connection")
 

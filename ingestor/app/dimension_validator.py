@@ -4,15 +4,13 @@ Dimension Validator
 Validates that embedding dimensions match between model and database.
 """
 
-import asyncio
-from typing import Any, Callable, Awaitable
+from typing import Any
 
-from ingestor.app.config import runtime
-from ingestor.adapters.embedding_model import EmbeddingModel
-from ingestor.app.llm_lock import LLMLockManager
 from infra.exceptions import FatalValidationError, InfraConnectionError
 from infra.logger import get_logger
 from infra.reconnect import retry_forever
+from ingestor.adapters.embedding_model import EmbeddingModel
+from ingestor.app.llm_lock import LLMLockManager
 
 log = get_logger("ingestor.dimension_validator")
 

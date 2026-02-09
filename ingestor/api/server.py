@@ -8,29 +8,18 @@ Ingestor HTTP API
 - /knowledge/* - Knowledge Port endpoints для агента
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from fastapi import FastAPI
-from pydantic import BaseModel
 
 from infra.logger import get_logger
-from ingestor.adapters import BaseStorage
+from ingestor.api.requests.llm_lock_request import LLMLockRequest
+from ingestor.api.requests.search_request import SearchRequest
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
+from ingestor.core.ports.storage import BaseStorage
 
 log = get_logger("ingestor.api")
-
-
-class LLMLockRequest(BaseModel):
-    """Запрос на блокировку/разблокировку LLM."""
-    locked: bool
-    ttl_seconds: float = 300
-
-
-class SearchRequest(BaseModel):
-    """Запрос на поиск по embedding."""
-    query_embedding: List[float]
-    top_k: int = 5
 
 
 class IngestorAPI:

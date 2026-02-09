@@ -6,7 +6,7 @@ from typing import List, Optional
 from ingestor.core.models.chunk import Chunk
 from ingestor.adapters.postgres.connection import PostgresConnection
 from ingestor.adapters.postgres.mappers import PostgresMapper
-from ingestor.app.config.storage import storage as storage_config
+from ingestor.config.storage import storage as storage_config
 from infra.logger import get_logger
 
 log = get_logger("ingestor.storage.postgres.chunks")

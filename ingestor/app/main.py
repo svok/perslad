@@ -23,8 +23,8 @@ from infra.llm import get_llm
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters import get_storage
 from ingestor.adapters.embedding_model import EmbeddingModel
-from ingestor.app.api import IngestorAPI
-from ingestor.app.config import runtime, storage as storage_config
+from ingestor.api.server import IngestorAPI
+from ingestor.config import runtime, storage as storage_config
 from ingestor.app.dimension_validator import DimensionValidator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
