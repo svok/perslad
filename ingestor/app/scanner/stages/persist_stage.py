@@ -1,11 +1,12 @@
 from typing import List
 
+from ingestor.adapters import BaseStorage
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
 from ingestor.app.storage import Chunk
 
 
 class PersistChunksStage(ProcessorStage):
-    def __init__(self, storage, max_workers: int = 2):
+    def __init__(self, storage: BaseStorage, max_workers: int = 2):
         super().__init__("persist", max_workers)
         self.storage = storage
 

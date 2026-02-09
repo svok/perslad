@@ -53,69 +53,50 @@ class EnrichStage:
         """
         Обогащает чанки summaries с параллелизмом.
         """
+        if not chunks:
+            return []
+
         log.info("enrich.start", chunks_count=len(chunks))
-        
-        enriched = 0
-        skipped = 0
-        
-        # Process chunks in batches to respect LLM lock
-        batch_size = 10
-        for i in range(0, len(chunks), batch_size):
-            batch = chunks[i:i + batch_size]
-            batch_num = i // batch_size + 1
-            total_batches = (len(chunks) + batch_size - 1) // batch_size
-            
-            log.info("enrich.batch.start", batch_num=batch_num, total_batches=total_batches, batch_size=len(batch))
-            
-            # Check lock once per batch
-            if await self.lock_manager.is_locked():
-                log.info("enrich.llm_locked.waiting")
-                await self.lock_manager.wait_unlocked()
-            
-            tasks = [self._enrich_chunk(chunk) for chunk in batch]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for chunk, result in zip(batch, results):
-                if isinstance(result, Exception):
-                    log.error(
-                        "enrich.chunk.failed",
-                        chunk_id=chunk.id,
-                        error=str(result),
-                        file_path=chunk.file_path[:50] if chunk.file_path else None
-                    )
-                    skipped += 1
-                else:
-                    enriched += 1
-            
-            log.info("enrich.batch.complete", batch_num=batch_num, enriched_in_batch=len(batch) - skipped)
-        
-        log.info(
-            "enrich.complete",
-            enriched=enriched,
-            skipped=skipped,
-        )
-        
+
+        # Проверка лока раз в файл/группу файлов
+        if await self.lock_manager.is_locked():
+            log.info("enrich.llm_locked.waiting")
+            await self.lock_manager.wait_unlocked()
+
+        # Запускаем все чанки из этого сообщения параллельно
+        tasks = [self._enrich_chunk(chunk) for chunk in chunks]
+
+        # Обязательно добавляем timeout, чтобы LLM не вешала пайплайн навсегда
+        try:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        except Exception as e:
+            log.error(f"Critical error in gather: {e}")
+
         return chunks
 
     async def _enrich_chunk(self, chunk: Chunk) -> None:
-        """
-        Обогащает один чанк.
-        """
-        # Формируем prompt
         prompt = ENRICHMENT_PROMPT_TEMPLATE.format(
             file_path=chunk.file_path,
             chunk_type=chunk.chunk_type,
-            content=chunk.content[:1000],  # Ограничиваем для локальной LLM
+            content=chunk.content[:1000],
         )
-        
-        # Вызываем LLM
+
         async def _call(model):
+            # Если используете LangChain или OpenAI SDK:
+            # response.content — это уже готовая Unicode строка.
             response = await model.ainvoke(prompt)
             return response.content
-        
+
+        # ВАЖНО: Проверьте, что call_raw возвращает чистую строку
         result = await self.llm.call_raw(_call)
 
-        log.info("enrich.chunk.raw_response", chunk_id=chunk.id, response=result[:500])
+        # Если result пришел как байты, декодируем их ОДИН раз
+        if isinstance(result, bytes):
+            result = result.decode('utf-8')
+
+        # УБИРАЕМ любые .encode().decode('unicode-escape'),
+        # если данные уже в нормальном UTF-8.
+        log.info("enrich.chunk.raw_response", chunk_id=chunk.id, response=result[:200])
 
         # Парсим результат
         lines = result.strip().split("\n")

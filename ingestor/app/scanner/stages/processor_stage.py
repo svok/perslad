@@ -1,5 +1,4 @@
 import asyncio
-from abc import abstractmethod
 from typing import Optional, Any
 
 from ingestor.app.scanner.queues import ThrottledQueue
@@ -27,20 +26,25 @@ class ProcessorStage(BaseStage):
 
     async def _worker_loop(self, wid: int) -> None:
         """Просто: взял → обработал → положил. Без батчинга."""
-        self.log.info(f"[{self.name}] Worker {wid} started")
+        self.log.info(f"[{self.name}] Worker {wid} waiting for item in {self.input_queue.name}...")
         count = 0
         while not self._stop_event.is_set():
             try:
                 count += 1
                 item = await self.input_queue.get()
-                print("GOT ITEM")
+                self.log.info(f"[{self.name}] Worker {wid} GOT ITEM from {self.input_queue.name}")
+
+                if item is None:
+                    self.log.debug(f"[{self.name}] Ignoring poison pill")
+                    self.input_queue.task_done()
+                    continue
 
                 try:
                     result = await self.process(item)
                     if result is not None and self.output_queue:
                         await self.output_queue.put(result)
                 except Exception:
-                    self.log.critical(f"[{self.name}] Worker {wid} exception")
+                    self.log.exception(f"[{self.name}] Worker {wid} failed during process")
                     raise
                 finally:
                     self.input_queue.task_done()

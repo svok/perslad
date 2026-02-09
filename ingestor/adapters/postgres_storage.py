@@ -4,11 +4,8 @@ PostgreSQL storage adapter.
 Persistent storage with asyncpg driver. Supports pgvector for embeddings.
 """
 
-from typing import List, Optional, Dict
-
 import asyncio
 import json
-import logging
 from typing import List, Optional, Dict, Any
 
 import asyncpg
@@ -170,13 +167,6 @@ class PostgreSQLStorage(BaseStorage):
             log.error("postgres.query_error", error=str(e), query=query[:50])
             raise
                         
-        except asyncio.TimeoutError:
-            log.error("postgres.timeout", query=query[:50])
-            raise TimeoutError(f"Database operation timed out (pool acquisition)")
-        except Exception as e:
-            log.error("postgres.query_error", error=str(e), query=query[:50])
-            raise
-
     # === Chunks ===
 
     async def save_chunk(self, chunk: Chunk) -> None:
@@ -203,34 +193,50 @@ class PostgreSQLStorage(BaseStorage):
     async def save_chunks(self, chunks: List[Chunk]) -> None:
         if not chunks:
             return
-            
+
         await self._init_db()
         log.info("postgres.save_chunks.start", count=len(chunks))
 
-        async with self._pool.acquire() as conn:
-            async with conn.transaction():
-                for chunk in chunks:
-                    await conn.execute(
-                        """
-                        INSERT INTO chunks (
-                            id, file_path, content, start_line, end_line, chunk_type,
-                            summary, purpose, embedding
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-                        ON CONFLICT (id) DO UPDATE SET
-                            file_path = EXCLUDED.file_path,
-                            content = EXCLUDED.content,
-                            start_line = EXCLUDED.start_line,
-                            end_line = EXCLUDED.end_line,
-                            chunk_type = EXCLUDED.chunk_type,
-                            summary = EXCLUDED.summary,
-                            purpose = EXCLUDED.purpose,
-                            embedding = EXCLUDED.embedding
-                        """,
-                        chunk.id, chunk.file_path, chunk.content, chunk.start_line,
-                        chunk.end_line, chunk.chunk_type, chunk.summary, chunk.purpose, chunk.embedding
-                    )
-        
-        log.info("postgres.save_chunks.complete", count=len(chunks))
+        # Подготовка данных для массовой вставки
+        data = [
+            (
+                c.id, c.file_path, c.content, c.start_line,
+                c.end_line, c.chunk_type, c.summary, c.purpose,
+                c.embedding  # Убедитесь, что это List[float] или None
+            )
+            for c in chunks
+        ]
+
+        query = """
+                INSERT INTO chunks (
+                    id, file_path, content, start_line, end_line, chunk_type,
+                    summary, purpose, embedding
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    ON CONFLICT (id) DO UPDATE SET
+                    file_path = EXCLUDED.file_path,
+                                            content = EXCLUDED.content,
+                                            start_line = EXCLUDED.start_line,
+                                            end_line = EXCLUDED.end_line,
+                                            chunk_type = EXCLUDED.chunk_type,
+                                            summary = EXCLUDED.summary,
+                                            purpose = EXCLUDED.purpose,
+                                            embedding = EXCLUDED.embedding \
+                """
+
+        try:
+            async with self._pool.acquire() as conn:
+                # ВАЖНО: Если используете pgvector, регистрация должна быть здесь,
+                # если она не прошла успешно глобально
+                if storage.USE_PGVECTOR:
+                    from pgvector.asyncpg import register_vector
+                    await register_vector(conn)
+
+                await conn.executemany(query, data)
+
+            log.info("postgres.save_chunks.complete", count=len(chunks))
+        except Exception as e:
+            log.error("postgres.save_chunks.failed", error=str(e), exc_info=True)
+            raise
 
     async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
         row = await self._execute_query(
@@ -274,26 +280,30 @@ class PostgreSQLStorage(BaseStorage):
     # === File Summaries ===
 
     async def save_file_summary(self, summary: FileSummary) -> None:
-        mtime = summary.metadata.get("mtime", 0)
-        checksum = summary.metadata.get("checksum", "")
-        
+        metadata = summary.metadata
+
+        # Явно упаковываем параметры в кортеж, чтобы они не перекрывали fetch/timeout
+        query = """
+                INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (file_path) DO UPDATE SET
+                    summary = EXCLUDED.summary,
+                    chunk_ids = EXCLUDED.chunk_ids,
+                    metadata = EXCLUDED.metadata,
+                    mtime = EXCLUDED.mtime,
+                    checksum = EXCLUDED.checksum
+                """
+
+        # Передаем аргументы через *args, а fetch/timeout — как именованные
         await self._execute_query(
-            """
-            INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (file_path) DO UPDATE SET
-                summary = EXCLUDED.summary,
-                chunk_ids = EXCLUDED.chunk_ids,
-                metadata = EXCLUDED.metadata,
-                mtime = EXCLUDED.mtime,
-                checksum = EXCLUDED.checksum
-            """,
-            summary.file_path,
-            summary.summary,
-            summary.chunk_ids,
-            json.dumps(summary.metadata),
-            mtime,
-            checksum
+            query,
+            summary.file_path,        # $1
+            summary.summary,          # $2
+            summary.chunk_ids,        # $3
+            json.dumps(summary.metadata),                 # $4
+            metadata.get("mtime", 0), # $5
+            metadata.get("checksum", ""), # $6
+            fetch=None                # Явно указываем, что это не результат fetch
         )
 
     async def get_file_summary(self, file_path: str) -> Optional[FileSummary]:

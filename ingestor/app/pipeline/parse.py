@@ -9,15 +9,13 @@ NO LLM.
 
 import hashlib
 from typing import List
-from pathlib import Path
 
-from llama_index.core import SimpleDirectoryReader
 from llama_index.core.node_parser import CodeSplitter, MarkdownNodeParser, SentenceSplitter
 from llama_index.core.schema import Document
 
 from infra.logger import get_logger
-from ingestor.app.storage import Chunk
 from ingestor.app.pipeline.scan import ScannedFile
+from ingestor.app.storage import Chunk
 
 log = get_logger("ingestor.pipeline.parse")
 
@@ -113,7 +111,8 @@ class ParseStage:
             chunk = Chunk(
                 id=chunk_id,
                 file_path=file.relative_path,
-                content=node.get_content(),
+                # ИСПОЛЬЗУЕМ .text вместо .get_content()
+                content=node.text,
                 start_line=node.metadata.get("start_line", 0),
                 end_line=node.metadata.get("end_line", 0),
                 chunk_type=chunk_type,

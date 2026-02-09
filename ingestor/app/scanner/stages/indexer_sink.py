@@ -1,7 +1,6 @@
-from typing import List, Any
+from typing import Any
 
 from ingestor.app.scanner.stages.sink_stage import SinkStage
-from ingestor.app.storage import Chunk
 
 
 class IndexerSinkStage(SinkStage):
@@ -11,12 +10,18 @@ class IndexerSinkStage(SinkStage):
     async def consume(self, item: Any) -> None:
         try:
             item_str = str(item)
-            if len(item_str) > 200:
-                item_str = item_str[:200] + "..."
-        except:
-            item_str = "<cannot convert to string>"
-        
-        self.log.info(f"IndexerSink.consume(): called with item type: {type(item).__name__}, content: {item_str}")
+
+            # Обрезаем, если текст слишком длинный
+            if len(item_str) > 300:
+                item_str = item_str[:300] + "..."
+        except Exception as e:
+            # На случай совсем странных объектов (например, с бинарными данными)
+            item_str = f"<serialization error: {e}>"
+
+        self.log.info(
+            f"IndexerSink.consume(): type={type(item).__name__}, "
+            f"content={item_str}"
+        )
         
         # # Try to get length if it's a list/tuple/set
         # if isinstance(item, (list, tuple)):  # Fixed: only list and tuple are indexable
