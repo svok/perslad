@@ -10,7 +10,7 @@ from pathlib import Path
 from gitignore_parser import parse_gitignore
 
 from infra.logger import get_logger
-from ingestor.app.storage import FileSummary
+from ingestor.core.models.file_summary import FileSummary
 
 
 class BaseFileSource(ABC):

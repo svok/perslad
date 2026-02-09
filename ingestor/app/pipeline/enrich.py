@@ -12,7 +12,7 @@ import asyncio
 
 from infra.logger import get_logger
 from infra.llm import LLMClient
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 from ingestor.app.llm_lock import LLMLockManager
 
 log = get_logger("ingestor.pipeline.enrich")

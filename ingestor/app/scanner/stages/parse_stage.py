@@ -4,7 +4,7 @@ from typing import List
 
 from ingestor.app.pipeline.parse import ParseStage as ParseStageImpl
 from ingestor.app.pipeline.scan import ScannedFile
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 
 class ParseProcessorStage(ProcessorStage):

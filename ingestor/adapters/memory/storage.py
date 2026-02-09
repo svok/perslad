@@ -1,67 +1,23 @@
 """
-Storage layer для ingestor.
+Memory storage adapter.
 
-MVP: in-memory хранилище.
-Будущее: Postgres, vector DB, etc.
-
-ВАЖНО: storage — внутренняя деталь ingestor.
-Agent НИЧЕГО об этом не знает.
+In-process in-memory storage. Fast and simple for development.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Optional
 import asyncio
 
-from infra.logger import get_logger
-
-log = get_logger("ingestor.storage")
-
-
-@dataclass
-class Chunk:
-    """Базовый чанк кода/документации."""
-    id: str
-    file_path: str
-    content: str
-    start_line: int
-    end_line: int
-    chunk_type: str  # "code", "doc", "config"
-    
-    # Enrichment (from local LLM)
-    summary: Optional[str] = None
-    purpose: Optional[str] = None
-    
-    # Embeddings
-    embedding: Optional[List[float]] = None
-    
-    # Metadata
-    metadata: Dict = field(default_factory=dict)
+from ingestor.core.ports.storage import BaseStorage
+from ingestor.core.models.chunk import Chunk
+from ingestor.core.models.file_summary import FileSummary
+from ingestor.core.models.module_summary import ModuleSummary
 
 
 @dataclass
-class FileSummary:
-    """Суммаризация на уровне файла."""
-    file_path: str
-    summary: str
-    chunk_ids: List[str]
-    metadata: Dict = field(default_factory=dict)
-
-
-@dataclass
-class ModuleSummary:
-    """Суммаризация на уровне модуля/пакета."""
-    module_path: str
-    summary: str
-    file_paths: List[str]
-    metadata: Dict = field(default_factory=dict)
-
-
-class InMemoryStorage:
+class MemoryStorage(BaseStorage):
     """
-    In-memory хранилище для MVP.
-    
-    Позже можно заменить на Postgres/vector DB
-    без изменения интерфейса.
+    In-process in-memory storage implementation.
     """
 
     def __init__(self) -> None:
@@ -70,20 +26,20 @@ class InMemoryStorage:
         self._module_summaries: Dict[str, ModuleSummary] = {}
         self._lock = asyncio.Lock()
 
+    async def initialize(self) -> None:
+        """Explicitly initialize the storage (no-op for memory)."""
+        pass
+
     # === Chunks ===
 
     async def save_chunk(self, chunk: Chunk) -> None:
         async with self._lock:
             self._chunks[chunk.id] = chunk
-            log.debug("storage.chunk.saved", chunk_id=chunk.id)
 
     async def save_chunks(self, chunks: List[Chunk]) -> None:
         async with self._lock:
-            log.debug("storage.save_chunks.before", count=len(chunks))
             for chunk in chunks:
                 self._chunks[chunk.id] = chunk
-                log.debug("storage.chunk.saved", chunk_id=chunk.id, file_path=chunk.file_path[:50] if chunk.file_path else None)
-            log.info("storage.chunks.saved", count=len(chunks), total_in_storage=len(self._chunks))
 
     async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
         async with self._lock:
@@ -105,7 +61,6 @@ class InMemoryStorage:
     async def save_file_summary(self, summary: FileSummary) -> None:
         async with self._lock:
             self._file_summaries[summary.file_path] = summary
-            log.debug("storage.file_summary.saved", file=summary.file_path)
 
     async def get_file_summary(self, file_path: str) -> Optional[FileSummary]:
         async with self._lock:
@@ -120,7 +75,6 @@ class InMemoryStorage:
     async def save_module_summary(self, summary: ModuleSummary) -> None:
         async with self._lock:
             self._module_summaries[summary.module_path] = summary
-            log.debug("storage.module_summary.saved", module=summary.module_path)
 
     async def get_module_summary(self, module_path: str) -> Optional[ModuleSummary]:
         async with self._lock:
@@ -129,6 +83,46 @@ class InMemoryStorage:
     async def get_all_module_summaries(self) -> List[ModuleSummary]:
         async with self._lock:
             return list(self._module_summaries.values())
+
+    # === File Management ===
+
+    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        async with self._lock:
+            ids_to_remove = [
+                cid for cid, c in self._chunks.items()
+                if c.file_path in file_paths
+            ]
+            for cid in ids_to_remove:
+                del self._chunks[cid]
+
+    async def delete_file_summaries(self, file_paths: List[str]) -> None:
+        async with self._lock:
+            for path in file_paths:
+                self._file_summaries.pop(path, None)
+
+    async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
+        async with self._lock:
+            summary = self._file_summaries.get(file_path)
+            if not summary:
+                return None
+            return {
+                "file_path": file_path,
+                "mtime": summary.metadata.get("mtime", 0),
+                "checksum": summary.metadata.get("checksum", ""),
+                "size": 0,
+            }
+
+    async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
+        # In-memory implementation of metadata update
+        # For memory storage, we usually update metadata via save_file_summary
+        # This is a stub if called directly
+        async with self._lock:
+            summary = self._file_summaries.get(file_path)
+            if summary:
+                summary.metadata["mtime"] = mtime
+                summary.metadata["checksum"] = checksum
+            # Note: if summary doesn't exist, we don't create it here for memory storage
+            # as it requires other fields. In real flow, save_file_summary is used.
 
     # === Stats ===
 
@@ -147,9 +141,7 @@ class InMemoryStorage:
             }
 
     async def clear(self) -> None:
-        """Очистка хранилища (для тестов/перезапуска)."""
         async with self._lock:
             self._chunks.clear()
             self._file_summaries.clear()
             self._module_summaries.clear()
-            log.info("storage.cleared")

@@ -3,7 +3,7 @@ from typing import List
 
 from ingestor.app.scanner.queues import ThrottledQueue
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 
 class BatchCollectorStage(ProcessorStage):

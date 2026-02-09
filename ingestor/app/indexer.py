@@ -12,7 +12,7 @@ from typing import Dict, Callable
 
 from infra.llm import LLMClient
 from infra.logger import get_logger
-from ingestor.adapters.base_storage import BaseStorage
+from ingestor.core.ports.storage import BaseStorage
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
 from ingestor.app.scanner.multi_source_pipeline import MultiSourcePipeline

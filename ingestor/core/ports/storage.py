@@ -5,10 +5,11 @@ All storage implementations (memory, postgres, etc.) must implement this interfa
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from ingestor.app.storage import Chunk, FileSummary, ModuleSummary
+from ingestor.core.models.chunk import Chunk
+from ingestor.core.models.file_summary import FileSummary
+from ingestor.core.models.module_summary import ModuleSummary
 
 
 class BaseStorage(ABC):
@@ -104,6 +105,11 @@ class BaseStorage(ABC):
     @abstractmethod
     async def get_stats(self) -> Dict:
         """Get storage statistics."""
+        pass
+    
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Explicitly initialize the storage (create tables, etc)."""
         pass
 
     @abstractmethod

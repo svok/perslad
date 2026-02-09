@@ -2,7 +2,7 @@ from typing import List
 
 from ingestor.adapters import BaseStorage
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 
 class PersistChunksStage(ProcessorStage):

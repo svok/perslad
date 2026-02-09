@@ -10,7 +10,7 @@ from typing import List
 import httpx
 
 from infra.logger import get_logger
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 log = get_logger("ingestor.pipeline.embed")
 

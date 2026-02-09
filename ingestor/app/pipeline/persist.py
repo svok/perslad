@@ -9,7 +9,8 @@ from typing import List
 
 from infra.logger import get_logger
 from ingestor.adapters import BaseStorage
-from ingestor.app.storage import Chunk, InMemoryStorage
+from ingestor.core.models.chunk import Chunk
+from ingestor.adapters.memory.storage import MemoryStorage as InMemoryStorage
 
 log = get_logger("ingestor.pipeline.persist")
 

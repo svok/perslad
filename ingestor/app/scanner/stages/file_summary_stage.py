@@ -5,7 +5,8 @@ from typing import List, Set
 
 from ingestor.adapters import BaseStorage
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
-from ingestor.app.storage import Chunk, FileSummary
+from ingestor.core.models.chunk import Chunk
+from ingestor.core.models.file_summary import FileSummary
 
 
 class FileSummaryStage(ProcessorStage):

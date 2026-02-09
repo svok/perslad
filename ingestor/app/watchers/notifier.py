@@ -12,7 +12,7 @@ import inotify_simple
 from inotify_simple import flags
 
 from infra.logger import get_logger
-from ingestor.adapters.base_storage import BaseStorage
+from ingestor.core.ports.storage import BaseStorage
 from ingestor.app.watchers.base import BaseFileSource
 
 class FileNotifierSource(BaseFileSource):

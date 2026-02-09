@@ -2,7 +2,7 @@ from typing import List
 
 from ingestor.app.pipeline.enrich import EnrichStage as EnrichStageImpl
 from ingestor.app.scanner.stages.processor_stage import ProcessorStage
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 
 class EnrichChunksStage(ProcessorStage):

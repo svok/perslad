@@ -7,12 +7,12 @@ Supports memory and PostgreSQL storage backends.
 from typing import Optional
 
 from infra.logger import get_logger
-from ingestor.adapters.base_storage import BaseStorage
-from ingestor.adapters.memory_storage import MemoryStorage
-from ingestor.adapters.postgres_storage import PostgreSQLStorage
+from ingestor.core.ports.storage import BaseStorage
+from ingestor.adapters.memory.storage import MemoryStorage
+from ingestor.adapters.postgres.storage import PostgreSQLStorage
 from ingestor.app.config.storage import storage as storage_config
 
-log = get_logger("ingestor.llm_lock")
+log = get_logger("ingestor.storage.factory")
 
 class StorageFactory:
     """Factory for creating storage instances."""

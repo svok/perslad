@@ -10,8 +10,8 @@ from pathlib import Path
 from typing import List, Optional, Callable, Awaitable
 
 from infra.logger import get_logger
-from ingestor.adapters.base_storage import BaseStorage
-from ingestor.app.storage import FileSummary
+from ingestor.core.ports.storage import BaseStorage
+from ingestor.core.models.file_summary import FileSummary
 from ingestor.app.pipeline.scan import ScanStage
 from ingestor.app.watchers.base import BaseFileSource
 

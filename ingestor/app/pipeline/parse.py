@@ -15,7 +15,7 @@ from llama_index.core.schema import Document
 
 from infra.logger import get_logger
 from ingestor.app.pipeline.scan import ScannedFile
-from ingestor.app.storage import Chunk
+from ingestor.core.models.chunk import Chunk
 
 log = get_logger("ingestor.pipeline.parse")
 
