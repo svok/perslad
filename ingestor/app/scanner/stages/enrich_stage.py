@@ -15,6 +15,8 @@ class EnrichStage(ProcessorStage):
         if not event.abs_path or not event.abs_path.exists():
             return None
 
+        self.log.info(f"[enrich_stage] enriching file ({event.event_type}) {event.path}")
+
         try:
             stat = await asyncio.to_thread(event.abs_path.stat)
         except Exception as e:

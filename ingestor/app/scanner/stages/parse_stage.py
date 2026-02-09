@@ -31,6 +31,7 @@ class ParseProcessorStage(ProcessorStage):
             elif isinstance(result, Exception):
                 self.log.error(f"Parse error: {result}")
 
+        self.log.info(f"[parse_stage] parsing file ({event.event_type}) {event.path} into chunks: {all_chunks}")
         return all_chunks
 
     async def _parse_one(self, event: FileEvent) -> List[Chunk]:

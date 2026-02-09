@@ -9,7 +9,7 @@ from ingestor.app.storage import Chunk, FileSummary
 
 class FileSummaryStage(ProcessorStage):
     def __init__(self, storage, workspace_path: Path, max_workers: int = 2):
-        super().__init__("file_summary", max_workers, batch_size=1, output_is_batch=True)
+        super().__init__("file_summary", max_workers)
         self.storage = storage
         self.workspace_path = workspace_path
         self._processed: Set[str] = set()

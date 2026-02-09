@@ -14,6 +14,8 @@ import sys
 import uvicorn
 from dotenv import load_dotenv
 
+from ingestor.app.indexer import IndexerOrchestrator
+
 # Load env vars BEFORE config imports
 load_dotenv(dotenv_path="../.env", override=False)
 
@@ -26,7 +28,7 @@ from ingestor.app.config import runtime, storage as storage_config
 from ingestor.app.dimension_validator import DimensionValidator
 from ingestor.app.knowledge_port import KnowledgePort
 from ingestor.app.llm_lock import LLMLockManager
-from ingestor.app.indexer_test import IndexerOrchestrator
+# from ingestor.app.indexer_test import IndexerOrchestrator
 
 _shutdown = asyncio.Event()
 

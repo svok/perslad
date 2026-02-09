@@ -32,27 +32,19 @@ class ProcessorStage(BaseStage):
         while not self._stop_event.is_set():
             try:
                 count += 1
-                # self.log.info(f"[{self.name}] Worker {wid}: get() #{count}")
                 item = await self.input_queue.get()
                 print("GOT ITEM")
-
-                if item is None:
-                    # self.log.info(f"[{self.name}] Worker {wid}: received poison pill")
-                    self.input_queue.task_done()
-                    break
 
                 try:
                     result = await self.process(item)
                     if result is not None and self.output_queue:
                         await self.output_queue.put(result)
-
-                    self.input_queue.task_done()
                 except Exception:
-                    self.input_queue.task_done()
                     self.log.critical(f"[{self.name}] Worker {wid} exception")
                     raise
                 finally:
-                    print("WORKER EXITED ProcessorStage internal")
+                    self.input_queue.task_done()
+                    self.log.debug(f"[{self.name}] Worker {wid} finished handling")
 
 
                 await asyncio.sleep(0)  # ← ВАЖНО
@@ -63,8 +55,6 @@ class ProcessorStage(BaseStage):
             except BaseException as e:
                 self.log.critical(f"[{self.name}] Worker {wid} crashed")
                 raise
-            finally:
-                print("WORKER EXITED ProcessorStage")
 
     async def process(self, item: Any) -> Any:
         """

@@ -23,24 +23,6 @@ class ScannerSourceStage(SourceStage):
         await super().start(output_queue)
         self.log.info("[scanner] super().start() completed")
 
-    # async def _run(self) -> None:
-    #     self.log.info("[scanner] _run() ENTER")
-    #     try:
-    #         async for item in self.generate():
-    #             self.log.info(f"[scanner] Generated item: {item.path}")
-    #             if self._stop_event.is_set():
-    #                 self.log.info("[scanner] Stop event, breaking")
-    #                 break
-    #             await self.output_queue.put(item)
-    #     except asyncio.CancelledError:
-    #         self.log.info("[scanner] CancelledError")
-    #         raise
-    #     except Exception as e:
-    #         self.log.error(f"[scanner] Exception: {e}", exc_info=True)
-    #         raise
-    #     finally:
-    #         self.log.info("[scanner] _run() FINALLY")
-
     async def generate(self) -> AsyncGenerator[FileEvent, None]:
         try:
             if not self.workspace_path.exists():
@@ -69,6 +51,7 @@ class ScannerSourceStage(SourceStage):
                     except ValueError:
                         continue
 
+                    self.log.info(f"[scanner] File detected {rel_path}")
                     yield FileEvent(
                         path=rel_path,
                         event_type="scan",
