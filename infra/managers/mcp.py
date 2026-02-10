@@ -1,43 +1,29 @@
-import os
-import asyncio
 from typing import Dict, List, Any, Set
+
 from fastmcp import Client
-from .base import BaseManager
 
 from infra.logger import get_logger
+from .base import BaseManager
 
-log = get_logger("agents.mcp")
+log = get_logger("infra.mcp")
 
 class MCPManager(BaseManager):
     """Менеджер MCP с множественными необязательными соединениями."""
 
-    def __init__(self):
+    def __init__(self, servers_config: List[Dict[str, Any]]):
+        """
+        Args:
+            servers_config: List of dicts with keys: name, url, enabled (optional)
+        """
         super().__init__("mcp")
         self.clients: Dict[str, Client] = {}
         self.tools: List[Dict[str, Any]] = []
-        self._configs = self._load_configs()
+        self._configs = servers_config
 
         # Инициализируем соединения для всех серверов
         for config in self._configs:
             if config.get("enabled", True):
                 self._connections[config["name"]] = False
-
-    def _load_configs(self) -> List[Dict[str, Any]]:
-        """Загрузка конфигурации из переменных окружения."""
-        return [
-            {
-                "name": "bash",
-                "url": os.getenv("MCP_BASH_URL", "http://mcp-bash:8081/mcp"),
-                "enabled": True,
-                "required": False
-            },
-            {
-                "name": "project",
-                "url": os.getenv("MCP_PROJECT_URL", "http://mcp-project:8083/mcp"),
-                "enabled": True,
-                "required": False
-            }
-        ]
 
     async def _connect_all(self) -> Set[str]:
         """Попытка подключения ко всем MCP серверам."""

@@ -3,29 +3,33 @@ import logging
 from typing import Optional, Set
 
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from .base import BaseManager
-from ..config import Config
 
-logger = logging.getLogger("agentnet.llm")
+logger = logging.getLogger("infra.llm")
 
 class LLMManager(BaseManager):
     """Менеджер LLM с нативной поддержкой Qwen."""
 
-    def __init__(self):
+    def __init__(self, api_base: str, api_key: SecretStr, model_name: str = "default-model"):
         super().__init__("llm")
         self.model: Optional[ChatOpenAI] = None
         self._connections["llm-server"] = False
+        
+        self.api_base = api_base
+        self.api_key = api_key
+        self.model_name = model_name
 
     async def _connect_all(self) -> Set[str]:
         try:
-            self.logger.info(f"Connecting to {Config.LLM_API_BASE}")
+            self.logger.info(f"Connecting to {self.api_base}")
 
             # Используем ChatOpenAI с нативной поддержкой tool calling
             self.model = ChatOpenAI(
-                base_url=Config.LLM_API_BASE,
-                api_key=Config.LLM_API_KEY,
-                model="default-model",  # vLLM/SGLang served name
+                base_url=self.api_base,
+                api_key=self.api_key,
+                model=self.model_name,
                 temperature=0.1,
                 timeout=30.0,
                 max_retries=2,

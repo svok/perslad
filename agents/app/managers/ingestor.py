@@ -3,7 +3,7 @@ import logging
 from typing import Optional, Set, List, Dict, Any
 import httpx
 
-from .base import BaseManager
+from infra.managers.base import BaseManager
 from ..config import Config
 
 logger = logging.getLogger("agentnet.ingestor")

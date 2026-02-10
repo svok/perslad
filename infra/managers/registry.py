@@ -3,7 +3,7 @@ from typing import List, Dict, Any
 
 from infra.logger import get_logger
 
-log = get_logger("agents.registry")
+log = get_logger("infra.registry")
 
 class ToolRegistry:
     """Реестр инструментов для работы с MCP."""
