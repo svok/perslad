@@ -29,6 +29,35 @@ class SystemManager:
         self.mcp = MCPManager(mcp_configs)
         self.tools = ToolRegistry(self.mcp)
         self.ingestor = IngestorManager()
+
+        # Register Ingestor tools
+        self.tools.register_local_tool(
+            "search_codebase",
+            "Search for code snippets or documentation in the project codebase using semantic search.",
+            {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"},
+                    "top_k": {"type": "integer", "description": "Number of results to return", "default": 5}
+                },
+                "required": ["query"]
+            },
+            self.ingestor.search_by_query
+        )
+
+        self.tools.register_local_tool(
+            "read_file_context",
+            "Get full context and summary of a specific file from the knowledge base.",
+            {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "Relative path to the file"}
+                },
+                "required": ["file_path"]
+            },
+            self.ingestor.get_file_context
+        )
+
         self._start_time = time.time()
 
     async def initialize(self):

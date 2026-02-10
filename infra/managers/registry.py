@@ -1,71 +1,69 @@
 import asyncio
-from typing import List, Dict, Any
-
+from typing import List, Dict, Any, Callable
 from infra.logger import get_logger
 
 log = get_logger("infra.registry")
 
 class ToolRegistry:
-    """Реестр инструментов для работы с MCP."""
-
     def __init__(self, mcp):
         self.mcp = mcp
-        self._tools: List[Dict[str, Any]] = []
+        self._mcp_tools = []
+        self._local_tools = {}
+
+    def register_local_tool(self, name: str, description: str, schema: Dict, handler: Callable):
+        self._local_tools[name] = {
+            "handler": handler,
+            "description": description,
+            "inputSchema": schema
+        }
+        log.info(f"Registered local tool: {name}")
 
     async def initialize(self) -> bool:
-        """Инициализация реестра инструментов."""
         try:
-            await asyncio.sleep(2)
-            self._tools = await self.mcp.get_all_tools()
-
-            if self._tools:
-                log.info("registry.tools.loaded", count=len(self._tools))
-            else:
-                log.warning("registry.tools.no_tools")
-
+            await asyncio.sleep(1) # Give MCP some time
+            try:
+                self._mcp_tools = await self.mcp.get_all_tools()
+            except Exception:
+                pass
             return True
         except Exception as e:
-            log.error("registry.tools.error", error=str(e))
+            log.error(f"Error initializing registry: {e}")
             return False
 
     async def get_tools(self) -> List[Dict[str, Any]]:
-        """Получить все инструменты."""
-        if not self._tools:
-            try:
-                self._tools = await self.mcp.get_all_tools()
-            except:
-                pass
-        return self._tools.copy()
+        try:
+            self._mcp_tools = await self.mcp.get_all_tools()
+        except Exception:
+            pass
+
+        all_tools = []
+        for name, data in self._local_tools.items():
+            all_tools.append({
+                "name": name,
+                "description": data["description"],
+                "inputSchema": data["inputSchema"]
+            })
+        all_tools.extend(self._mcp_tools)
+        return all_tools
 
     async def execute_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
-        """Выполнить инструмент через MCP менеджер."""
-        try:
-            result = await self.mcp.call_tool(name, args)
-            return {
-                "success": True,
-                "result": result,
-                "tool": name
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "tool": name
-            }
-
-    async def list_tools(self) -> Dict[str, Any]:
-        """Список всех инструментов."""
-        tools = await self.get_tools()
-        return {
-            "tools": tools,
-            "count": len(tools),
-            "sources": list(self.mcp.clients.keys()) if hasattr(self.mcp, 'clients') else []
-        }
+        if name in self._local_tools:
+            try:
+                handler = self._local_tools[name]["handler"]
+                if asyncio.iscoroutinefunction(handler):
+                    result = await handler(**args)
+                else:
+                    result = handler(**args)
+                return result
+            except Exception as e:
+                log.error(f"Local tool {name} failed: {e}")
+                raise e
+        
+        return await self.mcp.call_tool(name, args)
 
     def get_count(self) -> int:
-        """Количество инструментов."""
-        return len(self._tools)
+        return len(self._local_tools) + len(self._mcp_tools)
 
     async def close(self):
-        """Закрытие реестра."""
-        self._tools.clear()
+        self._local_tools.clear()
+        self._mcp_tools.clear()

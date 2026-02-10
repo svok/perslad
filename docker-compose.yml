@@ -127,6 +127,7 @@ services:
     ports:
       - "8123:8123"
     volumes:
+      - ./infra:/app/infra:ro
       - ./agents:/app/agents:ro
     depends_on:
       - llm
