@@ -82,19 +82,19 @@ class IngestorManager(BaseManager):
             return []
         
         try:
-            # Сначала получаем embedding для запроса через LLM
-            # Используем простой подход - отправляем запрос напрямую
-            # В production можно использовать отдельный embedding endpoint
-            
-            # Для MVP используем overview если embedding недоступен
-            response = await self.client.get("/knowledge/overview")
+            # Отправляем запрос на поиск (сервер сам сделает embedding)
+            response = await self.client.post(
+                "/knowledge/search",
+                json={"query": query, "top_k": top_k}
+            )
             
             if response.status_code == 200:
                 data = response.json()
-                self.logger.info(f"Retrieved project overview: {len(data.get('modules', []))} modules")
-                return self._format_overview_as_context(data)
+                results = data.get("results", [])
+                self.logger.info(f"Retrieved {len(results)} chunks for query: {query}")
+                return self._format_results_as_context(results)
             else:
-                self.logger.warning(f"Failed to get overview: {response.status_code}")
+                self.logger.warning(f"Search failed: {response.status_code}")
                 return []
                 
         except Exception as e:
@@ -184,25 +184,25 @@ class IngestorManager(BaseManager):
             self.logger.error(f"Set lock failed: {e}")
             return False
 
-    def _format_overview_as_context(self, overview: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def _format_results_as_context(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Форматирует overview в список контекстных элементов.
+        Форматирует результаты поиска в список контекстных элементов.
         
         Args:
-            overview: Данные overview от Ingestor
+            results: Результаты поиска от Ingestor API
             
         Returns:
             Список контекстных элементов
         """
         context = []
         
-        # Добавляем информацию о модулях
-        for module in overview.get("modules", []):
+        for res in results:
             context.append({
-                "type": "module",
-                "module_path": module.get("module_path", ""),
-                "summary": module.get("summary", ""),
-                "files_count": module.get("files_count", 0),
+                "chunk_id": res.get("chunk_id"),
+                "file_path": res.get("file_path"),
+                "content": res.get("content"),
+                "summary": res.get("summary"),
+                "similarity": res.get("similarity"),
             })
         
         return context

@@ -18,6 +18,7 @@ from ingestor.api.requests.search_request import SearchRequest
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
 from ingestor.core.ports.storage import BaseStorage
+from ingestor.adapters.embedding_model import EmbeddingModel
 
 log = get_logger("ingestor.api")
 
@@ -32,10 +33,12 @@ class IngestorAPI:
         lock_manager: LLMLockManager,
         storage: BaseStorage,
         knowledge_port: KnowledgePort,
+        embedding_model: EmbeddingModel,
     ) -> None:
         self.lock_manager = lock_manager
         self.storage = storage
         self.knowledge_port = knowledge_port
+        self.embedding_model = embedding_model
         self.app = FastAPI(title="Ingestor API")
         
         self._setup_routes()
@@ -120,9 +123,21 @@ class IngestorAPI:
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
             Поиск по embedding (для агента).
+            Поддерживает text query (с авто-эмбеддингом) или raw embedding.
             """
+            if request.query:
+                try:
+                    embedding = await self.embedding_model.get_embedding(request.query)
+                except Exception as e:
+                    log.error(f"Embedding failed: {e}")
+                    return {"results": [], "error": f"Embedding failed: {str(e)}"}
+            elif request.query_embedding:
+                embedding = request.query_embedding
+            else:
+                return {"results": [], "error": "query or query_embedding required"}
+
             results = await self.knowledge_port.search_by_embedding(
-                query_embedding=request.query_embedding,
+                query_embedding=embedding,
                 top_k=request.top_k,
             )
             return {"results": results}

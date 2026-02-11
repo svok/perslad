@@ -7,7 +7,7 @@ Indexer Orchestrator
 import asyncio
 from pathlib import Path
 
-from infra.llm import LLMClient
+from infra.managers.llm import LLMManager
 from infra.logger import get_logger
 from ingestor.core.ports.storage import BaseStorage
 from ingestor.pipeline.multisource.multi_source_pipeline import MultiSourcePipeline
@@ -21,7 +21,7 @@ class IndexerOrchestrator:
     def __init__(
             self,
             workspace_path: str,
-            llm: LLMClient,
+            llm: LLMManager,
             lock_manager: LLMLockManager,
             storage: BaseStorage,
             knowledge_port: KnowledgePort,

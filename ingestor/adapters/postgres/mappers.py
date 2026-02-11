@@ -12,6 +12,26 @@ from ingestor.core.models.module_summary import ModuleSummary
 class PostgresMapper:
     @staticmethod
     def map_chunk(row: Any) -> Chunk:
+        embedding = row["embedding"]
+        if embedding is not None:
+            # Handle string representation (e.g. from asyncpg without register_vector)
+            if isinstance(embedding, str):
+                # pgvector string format: "[1.0,2.0,3.0]"
+                cleaned = embedding.strip("[]")
+                if not cleaned:
+                    embedding = []
+                else:
+                    embedding = [float(x) for x in cleaned.split(",")]
+            
+            # Convert numpy array or other iterables to list of standard floats
+            elif hasattr(embedding, "tolist"):
+                embedding = embedding.tolist()
+            else:
+                embedding = list(embedding)
+            
+            # Ensure elements are float, not numpy.float32
+            embedding = [float(x) for x in embedding]
+
         return Chunk(
             id=row["id"],
             file_path=row["file_path"],
@@ -21,7 +41,7 @@ class PostgresMapper:
             chunk_type=row["chunk_type"],
             summary=row["summary"],
             purpose=row["purpose"],
-            embedding=row["embedding"],
+            embedding=embedding,
             metadata={},
         )
 

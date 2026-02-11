@@ -11,7 +11,7 @@ from typing import List
 import asyncio
 
 from infra.logger import get_logger
-from infra.llm import LLMClient
+from infra.managers.llm import LLMManager
 from ingestor.core.models.chunk import Chunk
 from ingestor.services.lock import LLMLockManager
 
@@ -43,7 +43,7 @@ class EnrichStage:
 
     def __init__(
         self,
-        llm: LLMClient,
+        llm: LLMManager,
         lock_manager: LLMLockManager,
     ) -> None:
         self.llm = llm
@@ -81,20 +81,23 @@ class EnrichStage:
             content=chunk.content[:1000],
         )
 
-        async def _call(model):
-            # Если используете LangChain или OpenAI SDK:
-            # response.content — это уже готовая Unicode строка.
-            response = await model.ainvoke(prompt)
-            return response.content
+        model = self.llm.get_model()
+        if not model:
+            log.warning("enrich.llm_not_ready", chunk_id=chunk.id)
+            return
 
-        # ВАЖНО: Проверьте, что call_raw возвращает чистую строку
-        result = await self.llm.call_raw(_call)
+        try:
+            response = await model.ainvoke(prompt)
+            result = response.content
+        except Exception as e:
+            log.error(f"Enrichment LLM call failed: {e}")
+            return
 
         # Если result пришел как байты, декодируем их ОДИН раз
         if isinstance(result, bytes):
             result = result.decode('utf-8')
 
-        # УБИРАЕМ любые .encode().decode('unicode-escape'),
+        # УБИРАЕМ любые .encode().decode(unicode-escape),
         # если данные уже в нормальном UTF-8.
         log.info("enrich.chunk.raw_response", chunk_id=chunk.id, response=result[:200])
 

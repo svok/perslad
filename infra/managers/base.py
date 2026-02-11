@@ -103,6 +103,11 @@ class BaseManager(ABC):
     def is_ready(self) -> bool:
         return all(self._connections.values())
 
+    async def wait_ready(self) -> None:
+        """Wait until manager is ready."""
+        while not self.is_ready():
+            await asyncio.sleep(0.5)
+
     def get_status(self) -> Dict[str, Any]:
         return {
             "name": self.name,

@@ -10,6 +10,7 @@ Ingestor Main Entry Point
 import asyncio
 import signal
 import sys
+import os
 
 import uvicorn
 from dotenv import load_dotenv
@@ -21,7 +22,7 @@ from ingestor.services.indexer import IndexerOrchestrator
 # Load env vars BEFORE config imports
 load_dotenv(dotenv_path="../.env", override=False)
 
-from infra.llm import get_llm
+from infra.managers.llm import LLMManager
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters import get_storage
 from ingestor.adapters.embedding_model import EmbeddingModel
@@ -78,7 +79,11 @@ async def main() -> None:
 
     # === Инициализация компонентов ===
 
-    llm = get_llm()
+    llm = LLMManager(
+        api_base=os.getenv("OPENAI_API_BASE", "http://llm:8000/v1"),
+        api_key=os.getenv("OPENAI_API_KEY", "sk-dummy"),
+        model_name=os.getenv("MODEL_NAME", "default-model")
+    )
     lock_manager = LLMLockManager()
     storage = get_storage()
 
@@ -87,11 +92,14 @@ async def main() -> None:
     log.info("ingestor.storage.initialized")
 
     knowledge_port = KnowledgePort(storage)
+    
+    # Shared embedding model
+    embed_model = EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY)
 
     # VALIDATE — will retry indefinitely
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
-        embed_model=EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY),
+        embed_model=embed_model,
         storage=storage,
         lock_manager=lock_manager
     )
@@ -110,13 +118,13 @@ async def main() -> None:
     )
 
     # HTTP API
-    api = IngestorAPI(lock_manager, storage, knowledge_port)
+    api = IngestorAPI(lock_manager, storage, knowledge_port, embed_model)
 
     # === Запуск фоновых задач ===
 
-    # 1. LLM reconnect (бесконечный)
-    asyncio.create_task(llm.ensure_ready())
-    log.info("ingestor.llm.reconnect.started")
+    # 1. LLM reconnect (background loop started by initialize)
+    await llm.initialize()
+    log.info("ingestor.llm.started")
 
     # 2. HTTP API server
     api_task = asyncio.create_task(run_api_server(api, api_port))
@@ -146,7 +154,7 @@ async def main() -> None:
     await _shutdown.wait()
 
     # Останавливаем indexer
-    if 'indexer' in locals():
+    if "indexer" in locals():
         log.info("ingestor.indexer.stopping")
         try:
             await indexer.stop()
@@ -159,6 +167,8 @@ async def main() -> None:
         await api_task
     except asyncio.CancelledError:
         pass
+        
+    await llm.close()
 
     log.info("ingestor.shutdown.complete")
 

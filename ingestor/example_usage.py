@@ -11,13 +11,13 @@ from pathlib import Path
 
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters.memory.storage import MemoryStorage as InMemoryStorage
-from infra.llm import get_llm
+from infra.managers.llm import LLMManager
 from ingestor.services.lock import LLMLockManager
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.pipeline.impl.orchestrator import PipelineOrchestrator
 
 
-log = get_logger('example_usage')
+log = get_logger("example_usage")
 
 async def example_basic_pipeline():
     """
@@ -29,7 +29,11 @@ async def example_basic_pipeline():
     log.info("example.basic_pipeline.start", workspace=str(Path(__file__).parent.parent))
     
     # Компоненты
-    llm = get_llm()
+    llm = LLMManager(
+        api_base=os.environ.get("OPENAI_API_BASE", "http://localhost:8000/v1"),
+        api_key=os.environ.get("OPENAI_API_KEY", "dummy"),
+        model_name="default-model"
+    )
     lock_manager = LLMLockManager()
     storage = InMemoryStorage()
     
@@ -44,7 +48,7 @@ async def example_basic_pipeline():
     )
     
     # Запускаем LLM reconnect
-    asyncio.create_task(llm.ensure_ready())
+    await llm.initialize()
     
     # Ждём готовности
     log.info("example.basic_pipeline.waiting_for_llm")

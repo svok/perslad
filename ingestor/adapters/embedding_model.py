@@ -22,7 +22,7 @@ class EmbeddingModel:
     """
 
     def __init__(self, embed_url: str, api_key: str) -> None:
-        self.embed_url = embed_url
+        self.embed_url = embed_url.rstrip("/")
         self.api_key = api_key
 
     @staticmethod
@@ -34,7 +34,7 @@ class EmbeddingModel:
         
         embedding_obj = embeddings[0]
         if "embedding" not in embedding_obj:
-            raise FatalValidationError("Missing 'embedding' key")
+            raise FatalValidationError("Missing embedding key")
         
         vector = embedding_obj["embedding"]
         if not isinstance(vector, list) or len(vector) == 0:
@@ -45,14 +45,6 @@ class EmbeddingModel:
     async def get_embedding_dimension(self) -> int:
         """
         Get the dimension of embeddings produced by the model.
-        
-        Makes a minimal request to the model to determine the dimension.
-        
-        Returns:
-            int: Dimension of the embedding vectors
-            
-        Raises:
-            RuntimeError: If the model returns invalid data or connection fails
         """
         try:
             log.info("embedding_model.get_dimension.request_start")
@@ -62,7 +54,7 @@ class EmbeddingModel:
                     f"{self.embed_url}/embeddings",
                     json={
                         "model": "embed-model",
-                        "input": ["test"]  # Minimal input to get dimension info
+                        "input": ["test"]
                     },
                     headers={"Authorization": f"Bearer {self.api_key}"}
                 )
@@ -70,7 +62,6 @@ class EmbeddingModel:
                 
                 result = response.json()
                 
-                # Validate and parse response
                 embedding_obj = self._parse_embedding_response(result)
                 embedding_vector = embedding_obj["embedding"]
                 
@@ -86,46 +77,45 @@ class EmbeddingModel:
             log.error("embedding_model.get_dimension.error", error=str(e))
             raise FatalValidationError(f"Failed to get embedding dimension: {str(e)}") from e
 
-    async def embed_text(self, texts: List[str]) -> List[List[float]]:
+    async def get_embedding(self, text: str) -> List[float]:
         """
-        Generate embeddings for multiple texts.
-        
-        Args:
-            texts: List of text strings to embed
-            
-        Returns:
-            List of embedding vectors (lists of floats)
-            
-        Raises:
-            RuntimeError: If the model returns invalid data or connection fails
+        Get embedding for a single text.
         """
+        if not text or not text.strip():
+             raise FatalValidationError("Empty text for embedding")
+
+        # Truncate to avoid context limit errors (safe limit)
+        MAX_CHARS = 8000
+        if len(text) > MAX_CHARS:
+            log.warning("embedding_model.truncate", original_len=len(text), new_len=MAX_CHARS)
+            text = text[:MAX_CHARS]
+
         try:
-            log.debug("embedding_model.embed.batch_start", count=len(texts))
-            
-            async with httpx.AsyncClient(timeout=60.0) as client:
+            async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.embed_url}/embeddings",
                     json={
                         "model": "embed-model",
-                        "input": texts
+                        "input": [text]
                     },
                     headers={"Authorization": f"Bearer {self.api_key}"}
                 )
                 response.raise_for_status()
-                
                 result = response.json()
+                return self._parse_embedding_response(result)["embedding"]
                 
-                # Validate response structure
-                embedding_obj = self._parse_embedding_response(result)
-                embedding = embedding_obj["embedding"]
-                
-                log.debug("embedding_model.embed.batch_complete", count=len(embedding))
-                return embedding
-
         except httpx.HTTPError as e:
-            log.error("embedding_model.embed.http_error", error=str(e))
+            log.error("embedding_model.get_embedding.http_error", error=str(e), url=str(e.request.url) if e.request else None)
             raise map_httpx_error_to_exception(e, "Embedding model")
-
         except Exception as e:
-            log.error("embedding_model.embed.error", error=str(e))
-            raise FatalValidationError(f"Failed to generate embeddings: {str(e)}") from e
+            log.error("embedding_model.get_embedding.error", error=str(e))
+            raise
+
+    async def embed_text(self, texts: List[str]) -> List[float]:
+        """
+        Legacy method. Returns single vector of first text.
+        """
+        # Re-implement using get_embedding for first item
+        if not texts:
+            raise ValueError("Empty input")
+        return await self.get_embedding(texts[0])
