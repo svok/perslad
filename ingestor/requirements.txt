@@ -7,7 +7,7 @@ python-dotenv>=1.2.1
 anyio>=4.12.1
 
 # web framework
-fastapi>=0.128.0
+fastapi>=0.128.8
 uvicorn>=0.40.0
 
 # logging
@@ -25,14 +25,14 @@ tree-sitter>=0.25.2
 tree-sitter-language-pack>=0.13.0
 
 # langchain (for infra.llm compatibility)
-langchain==1.2.6
-langchain-openai==1.1.7
-langchain-core==1.2.7
+langchain==1.2.10
+langchain-openai==1.1.9
+langchain-core==1.2.11
 
 # storage (optional - postgres support)
 asyncpg>=0.29.0
 sqlalchemy>=2.0.20
 sqlalchemy[asyncio]>=2.0.20
-pgvector>=0.3.1
+pgvector>=0.4.2
 
 pathspec>=1.0.4

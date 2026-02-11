@@ -7,7 +7,7 @@ import inotify_simple
 from inotify_simple import flags
 
 from ingestor.pipeline.models.file_event import FileEvent, EventTypes
-from ingestor.pipeline.indexation.gitignore_checker import GitignoreChecker
+from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 
 

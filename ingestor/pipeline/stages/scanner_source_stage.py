@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 
 from infra.logger import get_logger
 from ingestor.pipeline.models.file_event import FileEvent
-from ingestor.pipeline.indexation.gitignore_checker import GitignoreChecker
+from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 
 class ScannerSourceStage(SourceStage):

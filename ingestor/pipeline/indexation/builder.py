@@ -1,21 +1,14 @@
-from dataclasses import dataclass
-from typing import List, Callable, Type
+from typing import List
 
-from .indexer_pipeline_context import IndexationPipelineContext
+from ingestor.pipeline.models.stage_def import StageDef
 from ingestor.pipeline.stages.embed_stage import EmbedChunksStage
 from ingestor.pipeline.stages.enrich_chunks_stage import EnrichChunksStage
 from ingestor.pipeline.stages.enrich_stage import EnrichStage
 from ingestor.pipeline.stages.file_summary_stage import FileSummaryStage
 from ingestor.pipeline.stages.parse_stage import ParseProcessorStage
 from ingestor.pipeline.stages.persist_stage import PersistChunksStage
-from ingestor.pipeline.base.processor_stage import ProcessorStage
+from ingestor.pipeline.stages.incremental_filter_stage import IncrementalFilterStage
 
-
-@dataclass
-class StageDef:
-    name: str
-    stage_class: Type[ProcessorStage]
-    factory: Callable[[IndexationPipelineContext], ProcessorStage]
 
 class IndexationPipelineBuilder:
     """Отвечает за описание структуры пайплайна"""
@@ -23,6 +16,11 @@ class IndexationPipelineBuilder:
     @staticmethod
     def get_default_definitions() -> List[StageDef]:
         return [
+            StageDef(
+                name="filter",
+                stage_class=IncrementalFilterStage,
+                factory=lambda ctx: IncrementalFilterStage(ctx.storage, batch_size=100, max_wait=3.0)
+            ),
             StageDef(
                 name="enrich",
                 stage_class=EnrichStage,
@@ -44,7 +42,12 @@ class IndexationPipelineBuilder:
             StageDef(
                 name="embed",
                 stage_class=EmbedChunksStage,
-                factory=lambda ctx: EmbedChunksStage(ctx.embed_url, ctx.embed_api_key, ctx.config["embed_workers"])
+                factory=lambda ctx: EmbedChunksStage(
+                    ctx.embed_url, 
+                    ctx.embed_api_key, 
+                    max_workers=ctx.config.get("embed_workers", 2),
+                    embed_model=ctx.embed_model
+                )
             ),
             StageDef(
                 name="persist",

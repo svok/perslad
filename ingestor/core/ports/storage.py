@@ -44,6 +44,16 @@ class BaseStorage(ABC):
         """Get all chunks."""
         pass
 
+    @abstractmethod
+    async def search_vector(
+        self, 
+        vector: List[float], 
+        top_k: int = 10,
+        filter_by_file: Optional[str] = None
+    ) -> List[Chunk]:
+        """Vector similarity search."""
+        pass
+
     # === File Summaries ===
 
     @abstractmethod
@@ -76,6 +86,11 @@ class BaseStorage(ABC):
     @abstractmethod
     async def get_all_module_summaries(self) -> List[ModuleSummary]:
         """Get all module summaries."""
+        pass
+
+    @abstractmethod
+    async def get_files_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
+        """Get metadata for multiple files in batch."""
         pass
 
     # === File Management ===

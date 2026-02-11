@@ -1,18 +1,18 @@
 # Web Framework
-fastapi==0.121.1
+fastapi==0.128.8
 
 # LangGraph & LangChain
-langgraph==1.0.6
-langchain==1.2.6
-langchain-openai==1.1.7
-langchain-core==1.2.7
-langgraph-cli==0.4.11
+langgraph==1.0.8
+langchain==1.2.10
+langchain-openai==1.1.9
+langchain-core==1.2.11
+langgraph-cli==0.4.12
 
 # MCP Client (для общения с нашими инструментами)
-mcp==1.25.0
-fastmcp>=2.14.3
+mcp==1.26.0
+fastmcp>=2.14.5
 httpx==0.28.1
-sse-starlette==3.1.2
+sse-starlette==3.2.0
 
 # Utils
 pydantic==2.12.4

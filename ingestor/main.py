@@ -14,9 +14,12 @@ import os
 
 import uvicorn
 from dotenv import load_dotenv
+from pydantic import SecretStr
 
 from ingestor.config.runtime import runtime
 from ingestor.config.storage import storage as storage_config
+from ingestor.pipeline.models.pipeline_context import PipelineContext
+from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.services.indexer import IndexerOrchestrator
 
 # Load env vars BEFORE config imports
@@ -81,7 +84,7 @@ async def main() -> None:
 
     llm = LLMManager(
         api_base=os.getenv("OPENAI_API_BASE", "http://llm:8000/v1"),
-        api_key=os.getenv("OPENAI_API_KEY", "sk-dummy"),
+        api_key=SecretStr(os.getenv("OPENAI_API_KEY", "sk-dummy")),
         model_name=os.getenv("MODEL_NAME", "default-model")
     )
     lock_manager = LLMLockManager()
@@ -91,8 +94,6 @@ async def main() -> None:
     await storage.initialize()
     log.info("ingestor.storage.initialized")
 
-    knowledge_port = KnowledgePort(storage)
-    
     # Shared embedding model
     embed_model = EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY)
 
@@ -106,16 +107,21 @@ async def main() -> None:
     await dimension_validator.validate_dimensions()
     log.info("dimension_validator.validation.complete")
 
-    # Indexer orchestrator
-    indexer = IndexerOrchestrator(
+    pipeline_context = PipelineContext(
         workspace_path=workspace,
         llm=llm,
         lock_manager=lock_manager,
         storage=storage,
-        knowledge_port=knowledge_port,
         embed_url=runtime.EMBED_URL,
         embed_api_key=runtime.EMBED_API_KEY,
+        text_splitter_helper=TextSplitterHelper(),
+        config={}
     )
+
+    knowledge_port = KnowledgePort(pipeline_context)
+
+    # Indexer orchestrator
+    indexer = IndexerOrchestrator(pipeline_context)
 
     # HTTP API
     api = IngestorAPI(lock_manager, storage, knowledge_port, embed_model)

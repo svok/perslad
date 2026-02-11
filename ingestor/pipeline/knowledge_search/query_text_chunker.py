@@ -7,7 +7,7 @@ including sentence-based splitting and metadata handling.
 
 from typing import List, Dict, Any
 
-from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 
 
 class QueryTextChunker:

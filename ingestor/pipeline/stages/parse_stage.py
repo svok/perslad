@@ -1,6 +1,6 @@
 from typing import List
 from ingestor.core.models.chunk import Chunk
-from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.pipeline.models.file_event import FileEvent
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 

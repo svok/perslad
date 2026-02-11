@@ -9,16 +9,22 @@ import asyncio
 import sys
 from pathlib import Path
 
+import pytest
+from pydantic import SecretStr
+
+from ingestor.pipeline.models.pipeline_context import PipelineContext
+
 # Add the project root to the path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
+@pytest.mark.asyncio
 async def test_text_splitter_helper():
     """Test basic TextSplitterHelper functionality."""
     print("=== Testing TextSplitterHelper ===")
     
-    from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+    from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
     
     helper = TextSplitterHelper()
     
@@ -63,11 +69,12 @@ def goodbye():
     print("\n✅ TextSplitterHelper tests passed!\n")
 
 
+@pytest.mark.asyncio
 async def test_query_text_chunker():
     """Test QueryTextChunker functionality."""
     print("=== Testing QueryTextChunker ===")
     
-    from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+    from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
     from ingestor.pipeline.knowledge_search.query_text_chunker import QueryTextChunker
     
     helper = TextSplitterHelper()
@@ -96,12 +103,13 @@ async def test_query_text_chunker():
     print("\n✅ QueryTextChunker tests passed!\n")
 
 
+@pytest.mark.asyncio
 async def test_search_pipeline():
     """Test KnowledgeSearchPipeline functionality."""
     print("=== Testing KnowledgeSearchPipeline ===")
     
     from ingestor.adapters.memory.storage import MemoryStorage as InMemoryStorage
-    from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+    from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
     from ingestor.pipeline.knowledge_search.pipeline import KnowledgeSearchPipeline
     
     # Create storage
@@ -166,15 +174,41 @@ async def test_search_pipeline():
         async def get_embedding(self, text: str):
             import numpy as np
             # Return random embedding for testing
-            return list(np.random.rand(1536))
+            return [0.1, 0.2, 0.3] if "simple" in text else [0.4, 0.5, 0.6]
+        
+        async def run(self, chunks):
+            for c in chunks:
+                c.embedding = await self.get_embedding(c.content)
+            return chunks
+        
+        async def close(self):
+            pass
     
-    embed_model = MockEmbeddingModel()
-    search_pipeline = KnowledgeSearchPipeline(
+    mock_embedder = MockEmbeddingModel()
+    pipeline_context = PipelineContext(
+        workspace_path=Path("/tmp"),
         storage=storage,
-        text_splitter_helper=helper,
-        embedding_model=embed_model,
-        query_chunk_size=2000,
-        top_k_per_query=2
+        llm=None,
+        lock_manager=None,
+        embed_url="http://localhost:8000",
+        embed_api_key=SecretStr("sk-test"),
+        config={'embed_workers': 1},
+        text_splitter_helper=TextSplitterHelper(),
+    )
+    search_pipeline = KnowledgeSearchPipeline(pipeline_context)
+    # Patch the embed stage to use our mock
+    # In a real scenario, ctx.embed_model would be used if we fix EmbedChunksStage
+    # For this test, we can patch the stage factory or the stage itself
+    search_pipeline._ctx = search_pipeline._ctx.__class__(
+        workspace_path=search_pipeline._ctx.workspace_path,
+        storage=search_pipeline._ctx.storage,
+        llm=search_pipeline._ctx.llm,
+        lock_manager=search_pipeline._ctx.lock_manager,
+        embed_url=search_pipeline._ctx.embed_url,
+        embed_api_key=search_pipeline._ctx.embed_api_key,
+        config=search_pipeline._ctx.config,
+        text_splitter_helper=search_pipeline._ctx.text_splitter_helper,
+        embed_model=mock_embedder
     )
     
     # Test search with a query

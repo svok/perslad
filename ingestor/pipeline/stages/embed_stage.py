@@ -1,6 +1,7 @@
 from typing import List
 
 import httpx
+from pydantic import SecretStr
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.core.models.chunk import Chunk
@@ -10,24 +11,31 @@ class EmbedChunksStage(ProcessorStage):
     """
     Класс-обертка для интеграции в пайплайн.
     """
-    def __init__(self, embed_url: str, embed_api_key: str, max_workers: int = 2):
+    def __init__(self, embed_url: str, embed_api_key: SecretStr, max_workers: int = 2, embed_model = None):
         super().__init__("embed", max_workers)
-        # self.embedder = EmbedStage(embed_url, embed_api_key)
+        self.embed_model = embed_model
         self.embed_url = embed_url.rstrip('/')
         self.api_key = embed_api_key
-        # Создаем клиент один раз для повторного использования соединений (Keep-Alive)
-        self._client = httpx.AsyncClient(
-            timeout=60.0,
-            headers={"Authorization": f"Bearer {self.api_key}"}
-        )
+        # Создаем клиент только если нет готовой модели
+        self._client = None
+        if not self.embed_model:
+            self._client = httpx.AsyncClient(
+                timeout=60.0,
+                headers={"Authorization": f"Bearer {self.api_key}"}
+            )
 
     async def process(self, chunks: List[Chunk]) -> List[Chunk]:
+        # Если передана модель (например, Mock или EmbeddingModel адаптер), используем её
+        if self.embed_model:
+            return await self.embed_model.run(chunks)
+        
         # Воркер вызывает этот метод для каждого сообщения из очереди
         return await self.run(chunks)
 
     async def stop(self) -> None:
         # Переопределяем stop, чтобы закрыть соединения
-        await self._client.aclose()
+        if self._client:
+            await self._client.aclose()
         await super().stop()
 
     async def run(self, chunks: List[Chunk]) -> List[Chunk]:

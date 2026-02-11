@@ -122,25 +122,32 @@ class IngestorAPI:
         @self.app.post("/knowledge/search")
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
-            Поиск по embedding (для агента).
-            Поддерживает text query (с авто-эмбеддингом) или raw embedding.
+            Поиск по текстовому запросу или embedding.
+            Использует KnowledgeSearchPipeline для полного цикла обработки:
+            query -> chunking -> embedding -> DB search -> ranking.
             """
             if request.query:
-                try:
-                    embedding = await self.embedding_model.get_embedding(request.query)
-                except Exception as e:
-                    log.error(f"Embedding failed: {e}")
-                    return {"results": [], "error": f"Embedding failed: {str(e)}"}
+                # Обрезаем очень длинные запросы до разумного лимита для embedding модели (512 токенов ~ 500 символов)
+                query_text = request.query
+                if len(query_text) > 500:
+                    query_text = query_text[:500] + "..."
+                    log.info(f"Truncated query to 500 chars for embedding")
+                
+                # Пайплайн сам разобьет запрос на чанки и вычислит embeddings
+                results = await self.knowledge_port.search(
+                    query=query_text,
+                    top_k=request.top_k
+                )
+                return results
             elif request.query_embedding:
-                embedding = request.query_embedding
+                # Если готовый embedding — используем прямой поиск (для совместимости)
+                results = await self.knowledge_port.search_by_embedding(
+                    query_embedding=request.query_embedding,
+                    top_k=request.top_k,
+                )
+                return {"results": results}
             else:
                 return {"results": [], "error": "query or query_embedding required"}
-
-            results = await self.knowledge_port.search_by_embedding(
-                query_embedding=embedding,
-                top_k=request.top_k,
-            )
-            return {"results": results}
         
         @self.app.get("/knowledge/file/{file_path:path}")
         async def get_file_context(file_path: str) -> Dict[str, Any]:
