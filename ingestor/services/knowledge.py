@@ -14,6 +14,8 @@ from typing import List, Dict, Any
 
 from infra.logger import get_logger
 from ingestor.adapters import BaseStorage
+from ingestor.pipeline.impl.text_splitter_helper import TextSplitterHelper
+from ingestor.pipeline.knowledge_search.pipeline import KnowledgeSearchPipeline
 
 log = get_logger("ingestor.knowledge_port")
 
@@ -24,10 +26,27 @@ class KnowledgePort:
     
     Гарантирует, что агент НИКОГДА не получает всю базу.
     Типичные payloads: 10-50 KB.
+    
+    Использует KnowledgeSearchPipeline для оптимизированного поиска.
     """
 
-    def __init__(self, storage: BaseStorage) -> None:
+    def __init__(
+        self,
+        storage: BaseStorage,
+        embed_model=None
+    ) -> None:
         self.storage = storage
+        self.embed_model = embed_model
+        
+        # Создаем вспомогательные компоненты
+        text_splitter_helper = TextSplitterHelper()
+        self.search_pipeline = KnowledgeSearchPipeline(
+            storage=storage,
+            text_splitter_helper=text_splitter_helper,
+            embedding_model=embed_model,
+            query_chunk_size=2000,
+            top_k_per_query=5
+        )
 
     async def search_by_embedding(
         self,
@@ -38,6 +57,9 @@ class KnowledgePort:
         Поиск по embedding (cosine similarity).
         
         Возвращает top_k наиболее релевантных чанков.
+        
+        NOTE: Это метод для backward compatibility.
+        В production, use search() which handles query chunking automatically.
         """
         log.info("knowledge_port.search.embedding", top_k=top_k)
         
@@ -77,6 +99,46 @@ class KnowledgePort:
         
         log.info("knowledge_port.search.complete", results_count=len(results))
         return results
+
+    async def search(self, query: str, top_k: int = 5) -> Dict[str, Any]:
+        """
+        Поиск по текстовому запросу (с авто-эмбеддингом и чанкованием).
+        
+        Args:
+            query: Текстовый запрос пользователя
+            top_k: Количество результатов для возврата
+        
+        Returns:
+            Dictionary с результатами поиска и метаданными
+        """
+        if not query or not query.strip():
+            return {"results": [], "error": "Empty query"}
+
+        # Если есть embed_model - используем его, иначе считаем самим
+        embedding = await self.embed_model.get_embedding(query)
+
+        # Используем KnowledgeSearchPipeline
+        results = await self.search_pipeline.search(top_k=top_k, query=embedding)
+        
+        # Форматируем результат для API
+        formatted_results = [
+            {
+                "chunk_id": r["chunk_id"],
+                "file_path": r["file_path"],
+                "content": r["content"],
+                "summary": r["summary"],
+                "purpose": r["purpose"],
+                "similarity": r["similarity"],
+                "metadata": r["metadata"],
+            }
+            for r in results["results"]
+        ]
+        
+        return {
+            "results": formatted_results,
+            "chunks_analyzed": results["chunks_analyzed"],
+            "embeddings_generated": results["embeddings_generated"],
+        }
 
     async def get_file_context(
         self,

@@ -10,9 +10,9 @@ from pathlib import Path
 from infra.managers.llm import LLMManager
 from infra.logger import get_logger
 from ingestor.core.ports.storage import BaseStorage
-from ingestor.pipeline.multisource.multi_source_pipeline import MultiSourcePipeline
-from ingestor.pipeline.multisource.stages.inotify_source import InotifySourceStage
-from ingestor.pipeline.multisource.stages.scanner_source_stage import ScannerSourceStage
+from ingestor.pipeline.indexation.indexer_pipeline import IndexationPipeline
+from ingestor.pipeline.stages.inotify_source import InotifySourceStage
+from ingestor.pipeline.stages.scanner_source_stage import ScannerSourceStage
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
 
@@ -38,7 +38,7 @@ class IndexerOrchestrator:
         self.embed_api_key = embed_api_key
 
         # self.gitignore_matchers: Dict[Path, Callable] = {}
-        self._pipeline: MultiSourcePipeline | None = None
+        self._pipeline: IndexationPipeline | None = None
         self._running = False
         self._lock = asyncio.Lock()
 
@@ -53,7 +53,7 @@ class IndexerOrchestrator:
 
         # Ленивый импорт чтобы избежать circular dependency
 
-        self._pipeline = MultiSourcePipeline(
+        self._pipeline = IndexationPipeline(
             workspace_path=self.workspace_path,
             storage=self.storage,
             llm = self.llm,
