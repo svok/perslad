@@ -1,0 +1,321 @@
+# OpenCode Skills Configuration for Perslad Project
+# AI-powered autonomous development system
+
+project:
+  name: "perslad"
+  description: "Personal Local Assistant for Developer - AI-powered autonomous development system"
+  version: "1.0"
+  status: "active_development"
+
+environment:
+  type: "docker_compose"
+  docker_compose_file: "docker-compose.yml"
+  workspace_root: "/workspace"
+  services:
+    - name: "llm-engine"
+      port: 8000
+      description: "vLLM/SGLang LLM inference"
+    - name: "emb-engine"
+      port: 8001
+      description: "Embedding model engine"
+    - name: "langgraph-agent"
+      port: 8123
+      description: "LangGraph orchestration agent"
+    - name: "ingestor"
+      port: 8124
+      description: "RAG engine with indexing"
+    - name: "mcp-bash"
+      port: 8081
+      description: "Shell command execution tool"
+    - name: "mcp-sql"
+      port: 8082
+      description: "SQL database tool"
+    - name: "mcp-project"
+      port: 8083
+      description: "Project navigation tool"
+    - name: "postgres"
+      port: 5432
+      description: "PostgreSQL with pgvector for RAG"
+
+workspace:
+  root: "/workspace"
+  ignore_patterns:
+    - ".git"
+    - ".volumes"
+    - "__pycache__"
+    - "*.pyc"
+    - ".env"
+    - "node_modules"
+    - ".idea"
+    - "*.log"
+  allowed_languages:
+    - "python"
+    - "markdown"
+    - "json"
+    - "yaml"
+    - "dockerfile"
+    - "shell"
+
+security:
+  local_models_only: true
+  sandbox_external_tools: true
+  validate_commands: true
+  resource_limits:
+    memory: "2GB"
+    cpu: "50%"
+    duration: "300s"
+  audit_logging: true
+
+skills:
+  # Core Development Skills
+  - name: "perslad_core"
+    path: "skills/perslad/core.py"
+    description: "Core Perslad development patterns and conventions"
+    category: "core"
+    priority: 1
+    capabilities:
+      - "architectural_analysis"
+      - "code_generation"
+      - "refactoring"
+      - "code_review"
+    dependencies: []
+
+  # Priority 1: Current Tasks (INotify, Unification, External Tools)
+  - name: "ingestor_inotify"
+    path: "skills/ingestor/inotify.py"
+    description: "INotify incremental indexing for file system events"
+    category: "ingestor"
+    priority: 1
+    capabilities:
+      - "file_system_monitoring"
+      - "incremental_indexing"
+      - "event_handling"
+      - "batch_processing"
+    dependencies: ["ingestor_core"]
+    tests: "skills/ingestor/tests/test_inotify.py"
+
+  - name: "infra_unification"
+    path: "skills/infra/unification.py"
+    description: "Infrastructure unification between agents and ingestor"
+    category: "infrastructure"
+    priority: 1
+    capabilities:
+      - "component_analysis"
+      - "shared_pattern_identification"
+      - "migration_planning"
+      - "unification_implementation"
+    dependencies: ["perslad_core"]
+    tests: "skills/infra/tests/test_unification.py"
+
+  - name: "agents_external_tools"
+    path: "skills/agents/external_tools.py"
+    description: "Integration with opencode and Continue via MCP"
+    category: "agents"
+    priority: 1
+    capabilities:
+      - "opencode_integration"
+      - "continue_extension_integration"
+      - "mcp_tool_configuration"
+      - "external_api_integration"
+    dependencies: ["perslad_core", "infra_unification"]
+    tests: "skills/agents/tests/test_external_tools.py"
+
+  # Priority 2: Future Development Tasks
+  - name: "ingestor_graph_builder"
+    path: "skills/ingestor/graph_builder.py"
+    description: "Fact graph building using RDF/OWL ontology"
+    category: "ingestor"
+    priority: 2
+    capabilities:
+      - "rdf_ontology_setup"
+      - "fact_extraction"
+      - "graph_construction"
+      - "graph_query"
+      - "graph_visualization"
+    dependencies: ["ingestor_core", "database_multi_storage"]
+    tests: "skills/ingestor/tests/test_graph_builder.py"
+
+  - name: "ingestor_db_filling"
+    path: "skills/ingestor/db_filling.py"
+    description: "Complete table filling for ingestor database"
+    category: "database"
+    priority: 2
+    capabilities:
+      - "schema_management"
+      - "etl_processes"
+      - "data_validation"
+      - "index_optimization"
+    dependencies: ["database_multi_storage"]
+    tests: "skills/database/tests/test_db_filling.py"
+
+  - name: "database_multi_storage"
+    path: "skills/database/multi_storage.py"
+    description: "Multi-database storage adaptation (PG, StarRocks, NebulaGraph)"
+    category: "database"
+    priority: 2
+    capabilities:
+      - "postgresql_adapter"
+      - "starrocks_adapter"
+      - "nebulagraph_adapter"
+      - "schema_migration"
+      - "data_synchronization"
+    dependencies: ["perslad_core"]
+    tests: "skills/database/tests/test_multi_storage.py"
+
+  # Supporting Skills
+  - name: "devops_docker"
+    path: "skills/devops/docker.py"
+    description: "Docker Compose management and deployment"
+    category: "devops"
+    priority: 3
+    capabilities:
+      - "service_management"
+      - "log_monitoring"
+      - "environment_setup"
+      - "health_checks"
+    dependencies: []
+    tests: "skills/devops/tests/test_docker.py"
+
+  - name: "testing_integration"
+    path: "skills/testing/integration.py"
+    description: "Integration testing for all components"
+    category: "testing"
+    priority: 2
+    capabilities:
+      - "unit_testing"
+      - "integration_testing"
+      - "performance_testing"
+      - "security_testing"
+    dependencies: ["perslad_core", "devops_docker"]
+    tests: "skills/testing/tests/test_integration.py"
+
+  - name: "docs_generator"
+    path: "skills/docs/generator.py"
+    description: "Documentation generation and management"
+    category: "documentation"
+    priority: 3
+    capabilities:
+      - "api_documentation"
+      - "architecture_diagrams"
+      - "example_generation"
+      - "docstring_enforcement"
+    dependencies: ["perslad_core"]
+    tests: "skills/docs/tests/test_generator.py"
+
+test_configuration:
+  framework: "pytest"
+  coverage_threshold: 80
+  test_locations:
+    - "skills/*/tests/"
+    - "skills/*/tests/integration/"
+  mock_llm: true
+  test_data: "skills/test_data/"
+  performance_thresholds:
+    response_time: 30  # seconds
+    memory_usage: "2GB"
+    concurrent_requests: 10
+
+documentation:
+  format: "markdown"
+  structure:
+    - "README.md"  # Project overview
+    - "AGENTS.md"  # Development rules
+    - "skills/README.md"  # Skills overview
+    - "skills/*/README.md"  # Skill-specific docs
+    - "docs/API.md"  # API documentation
+    - "docs/architecture.md"  # Architecture diagrams
+  examples:
+    location: "docs/examples/"
+    languages: ["python", "shell", "json"]
+
+integration:
+  opencode:
+    endpoint: "http://localhost:8123"
+    mcp_tools: ["bash", "project", "sql"]
+    capabilities: ["code_analysis", "file_operations", "shell_commands", "database_queries"]
+    security: "local_sandbox"
+  
+  continue:
+    endpoint: "http://localhost:8123"
+    model_provider: "openai-compatible"
+    capabilities: ["autocomplete", "code_suggestions", "documentation_lookup", "refactoring"]
+    configuration_file: ".continue/config.json"
+  
+  mcp_servers:
+    bash:
+      endpoint: "http://localhost:8081/mcp"
+      capabilities: ["execute_shell", "file_operations", "process_management"]
+    
+    sql:
+      endpoint: "http://localhost:8082/mcp"
+      capabilities: ["query_database", "schema_inspection", "data_manipulation"]
+    
+    project:
+      endpoint: "http://localhost:8083/mcp"
+      capabilities: ["navigate_structure", "analyze_dependencies", "find_definitions"]
+
+workflow:
+  current_phase: "priority_1_tasks"
+  completed_tasks: []
+  in_progress_tasks:
+    - "ingestor_inotify"
+    - "infra_unification"
+    - "agents_external_tools"
+  planned_tasks:
+    - "ingestor_graph_builder"
+    - "ingestor_db_filling"
+    - "database_multi_storage"
+  
+  development_environment: "docker_compose_only"
+  ci_cd: "none"  # No CI/CD at current stage
+  single_developer: true
+
+quality_gates:
+  code_style:
+    max_lines_per_file: 150
+    type_hints_required: true
+    docstrings_required: true
+    naming_conventions: "strict"
+  
+  architecture:
+    solid_principles: true
+    separation_of_concerns: true
+    single_responsibility: true
+  
+  security:
+    no_secrets_in_code: true
+    sandbox_external_tools: true
+    validate_all_inputs: true
+    audit_logging: true
+  
+  testing:
+    minimum_coverage: 80
+    unit_tests_required: true
+    integration_tests_required: true
+    performance_tests: "recommended"
+
+version_control:
+  branch_strategy: "feature_branches"
+  main_branch: "main"
+  commit_message_format: "type: description"
+  allowed_types:
+    - "feat"
+    - "fix"
+    - "refactor"
+    - "docs"
+    - "test"
+    - "devops"
+    - "security"
+
+contact:
+  github: "https://github.com/svok/perslad/issues"
+  discussions: "https://github.com/svok/perslad/discussions"
+  documentation: "Check project README.md"
+
+# Configuration metadata
+metadata:
+  created: "2026-02-12"
+  updated: "2026-02-12"
+  version: "1.0"
+  maintainer: "Single Developer"
+  status: "Active"
