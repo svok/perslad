@@ -140,7 +140,7 @@ def test_performance():
         # Test 6: Graph traversal
         print("\n📝 Test 6: Graph traversal (3 hops)")
         start = time.time()
-        result = session.execute('FETCH PROP ON person "user_0" 3 STEPS;")
+        result = session.execute('FETCH PROP ON person "user_0" 3 STEPS;')
         duration = time.time() - start
         if result.is_succeed():
             print(f"✓ Traversal executed in {duration:.3f}s")

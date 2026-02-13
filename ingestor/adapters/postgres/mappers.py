@@ -2,7 +2,7 @@
 Mappers for PostgreSQL rows to domain models.
 """
 
-from typing import Any, Dict
+from typing import Any
 import json
 from ingestor.core.models.chunk import Chunk
 from ingestor.core.models.file_summary import FileSummary
@@ -22,13 +22,13 @@ class PostgresMapper:
                     embedding = []
                 else:
                     embedding = [float(x) for x in cleaned.split(",")]
-            
+
             # Convert numpy array or other iterables to list of standard floats
             elif hasattr(embedding, "tolist"):
                 embedding = embedding.tolist()
             else:
                 embedding = list(embedding)
-            
+
             # Ensure elements are float, not numpy.float32
             embedding = [float(x) for x in embedding]
 
@@ -55,13 +55,13 @@ class PostgresMapper:
                 meta = {}
         elif meta is None:
             meta = {}
-            
+
         # Ensure mtime/checksum are in metadata if present in columns
         if "mtime" in row:
             meta["mtime"] = row["mtime"]
         if "checksum" in row:
             meta["checksum"] = row["checksum"]
-            
+
         return FileSummary(
             file_path=row["file_path"],
             summary=row["summary"],
@@ -75,5 +75,5 @@ class PostgresMapper:
             module_path=row["module_path"],
             summary=row["summary"],
             file_paths=list(row["file_paths"]) if row["file_paths"] else [],
-            metadata={}
+            metadata={},
         )

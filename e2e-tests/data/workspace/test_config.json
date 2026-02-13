@@ -1,0 +1,9 @@
+{
+  "test": true,
+  "version": "1.0.0",
+  "features": ["testing", "e2e"],
+  "settings": {
+    "debug": true,
+    "timeout": 30
+  }
+}

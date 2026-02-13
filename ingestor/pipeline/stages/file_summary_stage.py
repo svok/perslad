@@ -10,7 +10,9 @@ from ingestor.core.models.file_summary import FileSummary
 
 
 class FileSummaryStage(ProcessorStage):
-    def __init__(self, storage: BaseStorage, workspace_path: Path, max_workers: int = 2):
+    def __init__(
+        self, storage: BaseStorage, workspace_path: Path, max_workers: int = 2
+    ):
         super().__init__("file_summary", max_workers)
         self.storage = storage
         self.workspace_path = workspace_path
@@ -26,7 +28,7 @@ class FileSummaryStage(ProcessorStage):
 
         # Берем данные первого чанка для идентификации файла
         file_path = chunks[0].file_path
-        abs_path = self.workspace_path / file_path
+        abs_path = Path(self.workspace_path) / file_path
 
         # Если файла нет, просто пробрасываем чанки дальше
         if not abs_path.exists():
@@ -54,8 +56,8 @@ class FileSummaryStage(ProcessorStage):
                 metadata={
                     "mtime": stat.st_mtime,
                     "checksum": new_checksum,
-                    "size": stat.st_size
-                }
+                    "size": stat.st_size,
+                },
             )
 
             # Если здесь будет ошибка (например, из-за $1..$6),
@@ -74,7 +76,7 @@ class FileSummaryStage(ProcessorStage):
 
     def _sync_hash(self, path: Path) -> str:
         h = hashlib.md5()
-        with open(path, 'rb') as f:
-            for chunk in iter(lambda: f.read(8192), b''):
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(8192), b""):
                 h.update(chunk)
         return h.hexdigest()

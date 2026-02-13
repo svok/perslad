@@ -11,6 +11,7 @@ import asyncio
 import signal
 import sys
 import os
+from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
@@ -85,7 +86,7 @@ async def main() -> None:
     llm = LLMManager(
         api_base=os.getenv("OPENAI_API_BASE", "http://llm:8000/v1"),
         api_key=SecretStr(os.getenv("OPENAI_API_KEY", "sk-dummy")),
-        model_name=os.getenv("MODEL_NAME", "default-model")
+        model_name=os.getenv("MODEL_NAME", "default-model"),
     )
     lock_manager = LLMLockManager()
     storage = get_storage()
@@ -100,22 +101,20 @@ async def main() -> None:
     # VALIDATE — will retry indefinitely
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
-        embed_model=embed_model,
-        storage=storage,
-        lock_manager=lock_manager
+        embed_model=embed_model, storage=storage, lock_manager=lock_manager
     )
     await dimension_validator.validate_dimensions()
     log.info("dimension_validator.validation.complete")
 
     pipeline_context = PipelineContext(
-        workspace_path=workspace,
+        workspace_path=Path(workspace),
         llm=llm,
         lock_manager=lock_manager,
         storage=storage,
         embed_url=runtime.EMBED_URL,
         embed_api_key=runtime.EMBED_API_KEY,
         text_splitter_helper=TextSplitterHelper(),
-        config={}
+        config={},
     )
 
     knowledge_port = KnowledgePort(pipeline_context)
@@ -173,7 +172,7 @@ async def main() -> None:
         await api_task
     except asyncio.CancelledError:
         pass
-        
+
     await llm.close()
 
     log.info("ingestor.shutdown.complete")

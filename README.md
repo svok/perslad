@@ -260,6 +260,40 @@ Connectable components:
 - [Ingestor README](ingestor/README.md) - detailed component documentation
 - [Implementations](ingestor/IMPLEMENTATION.md) - technical details
 - [API Documentation](docs/api.md) - complete endpoint list
+- [E2E Tests](e2e-tests/README.md) - end-to-end testing framework
+
+## 🧪 Testing
+
+### End-to-End Tests
+
+A comprehensive test suite is available for testing the entire system:
+
+```bash
+# Run E2E tests from project root
+./run_e2e_tests.sh
+
+# Or directly from e2e-tests directory
+cd e2e-tests
+./scripts/run_e2e_tests.sh
+
+# Using make
+cd e2e-tests
+make test          # Run all tests
+make test-component # Component tests only
+make test-e2e      # E2E tests only
+make test-coverage # With coverage report
+```
+
+### Test Features
+
+- **Isolated test environment** with Docker Compose
+- **Component testing** - individual service validation
+- **Integration testing** - component interactions
+- **End-to-end workflows** - complete user scenarios
+- **Performance benchmarks** - system performance metrics
+- **Coverage reporting** - HTML and XML reports
+
+For detailed documentation, see [e2e-tests/README.md](e2e-tests/README.md)
 
 ## 🤝 Contributing
 
