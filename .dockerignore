@@ -1,0 +1,10 @@
+.git
+.volumes
+model_cache
+.pytest_cache
+__pycache__
+*.pyc
+reports
+data/postgres
+**/data/postgres
+**/postgres

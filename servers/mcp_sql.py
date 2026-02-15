@@ -18,7 +18,9 @@ from starlette.routing import Route
 from starlette.requests import Request
 from starlette.responses import JSONResponse, StreamingResponse
 import uvicorn
-import aiomysql
+
+from infra.config.endpoints.mcp import MCP
+from infra.config.endpoints.langgraph import LangGraph
 
 # Настройка логирования с JSON форматом
 structlog.configure(
@@ -55,7 +57,7 @@ DB_CONFIG = {
 async def get_connection():
     """Создает асинхронное подключение к базе данных."""
     try:
-        return await aiomysql.connect(**DB_CONFIG)
+        return await aiopg.connect(**DB_CONFIG)
     except Exception as e:
         raise Exception(f"Ошибка подключения к БД: {str(e)}")
 
@@ -279,7 +281,7 @@ async def handle_sse_get(request: Request) -> StreamingResponse:
         try:
             # 1. Отправляем обязательное endpoint событие
             endpoint_data = {
-                "uri": f"http://127.0.0.1:8082/mcp",
+                "uri": f"http://127.0.0.1:8082{MCP.MCP}",
                 "sessionId": session_id
             }
             yield f"event: endpoint\ndata: {json.dumps(endpoint_data)}\n\n"
@@ -378,9 +380,9 @@ async def handle_post(request: Request) -> JSONResponse:
 starlette_app = Starlette(
     debug=False,
     routes=[
-        Route("/mcp", endpoint=handle_sse_get, methods=["GET"]),
-        Route("/mcp", endpoint=handle_post, methods=["POST"]),
-        Route("/health", endpoint=lambda r: JSONResponse({
+        Route(MCP.MCP, endpoint=handle_sse_get, methods=["GET"]),
+        Route(MCP.MCP, endpoint=handle_post, methods=["POST"]),
+        Route(LangGraph.HEALTH, endpoint=lambda r: JSONResponse({
             "status": "ok",
             "service": "mcp-sql",
             "db_config": {k: "***" if k == "password" else v for k, v in DB_CONFIG.items()}

@@ -60,6 +60,14 @@ class PostgreSQLStorage(BaseStorage):
     async def get_all_chunks(self) -> List[Chunk]:
         return await self._chunks.get_all()
 
+    async def search_vector(
+        self, 
+        vector: List[float], 
+        top_k: int = 10,
+        filter_by_file: Optional[str] = None
+    ) -> List[Chunk]:
+        return await self._chunks.search_vector(vector, top_k, filter_by_file)
+
     # === File Summaries ===
 
     async def save_file_summary(self, summary: FileSummary) -> None:
@@ -95,6 +103,9 @@ class PostgreSQLStorage(BaseStorage):
 
     async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
         await self._file_summaries.update_metadata(file_path, mtime, checksum)
+
+    async def get_files_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
+        return await self._file_summaries.get_batch_metadata(file_paths)
         
     async def get_embedding_dimension(self) -> int:
         return await self._chunks.get_embedding_dimension()

@@ -116,17 +116,14 @@ services:
       dockerfile: agents/Dockerfile
     env_file: .env
     environment:
-      - OPENAI_API_BASE=http://llm:8000/v1
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE=${LLMS_URL}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
       - MODEL_NAME=${MODEL_NAME}
-      - MCP_BASH_URL=http://mcp-bash:8081/mcp
-      - MCP_PROJECT_URL=http://mcp-project:8083/mcp
-      - INGESTOR_URL=http://ingestor:8124
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
     ports:
       - "8123:8123"
     volumes:
+      - ./infra:/app/infra:ro
       - ./agents:/app/agents:ro
     depends_on:
       - llm
@@ -141,12 +138,8 @@ services:
       dockerfile: ingestor/Dockerfile
     env_file: .env
     environment:
-      - OPENAI_API_BASE=http://llm:8000/v1
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_BASE=${LLMS_URL}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
-      - MODEL_NAME=${MODEL_NAME}
-      - MCP_BASH_URL=http://mcp-bash:8081/mcp
-      - MCP_PROJECT_URL=http://mcp-project:8083/mcp
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
       - LOG_LEVEL=DEBUG
     ports:
@@ -171,7 +164,7 @@ services:
       - "8080:8080"
     environment:
       # Указываем на наш LangGraph сервер
-      - OPENAI_API_BASE=http://langgraph-agent:8123/v1
+      - OPENAI_API_BASE=${LANGGRAPH_AGENT_URL}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY:-your-secret-key-change-me}
       - WEBUI_NAME="LangGraph Agent System"

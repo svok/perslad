@@ -13,11 +13,13 @@ from typing import Dict, Any
 from fastapi import FastAPI
 
 from infra.logger import get_logger
+from infra.config.endpoints.ingestor import Ingestor
 from ingestor.api.requests.llm_lock_request import LLMLockRequest
 from ingestor.api.requests.search_request import SearchRequest
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
 from ingestor.core.ports.storage import BaseStorage
+from ingestor.adapters.embedding_model import EmbeddingModel
 
 log = get_logger("ingestor.api")
 
@@ -32,10 +34,12 @@ class IngestorAPI:
         lock_manager: LLMLockManager,
         storage: BaseStorage,
         knowledge_port: KnowledgePort,
+        embedding_model: EmbeddingModel,
     ) -> None:
         self.lock_manager = lock_manager
         self.storage = storage
         self.knowledge_port = knowledge_port
+        self.embedding_model = embedding_model
         self.app = FastAPI(title="Ingestor API")
         
         self._setup_routes()
@@ -43,14 +47,14 @@ class IngestorAPI:
     def _setup_routes(self) -> None:
         """Настраивает маршруты."""
         
-        @self.app.get("/")
+        @self.app.get(Ingestor.ROOT)
         async def root() -> Dict[str, Any]:
             return {
                 "service": "Ingestor",
                 "status": "running",
             }
         
-        @self.app.get("/health")
+        @self.app.get(Ingestor.HEALTH)
         async def health() -> Dict[str, Any]:
             stats = await self.storage.get_stats()
             return {
@@ -116,16 +120,35 @@ class IngestorAPI:
         
         # === Knowledge Port Endpoints ===
         
-        @self.app.post("/knowledge/search")
+        @self.app.post(Ingestor.SEARCH)
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
-            Поиск по embedding (для агента).
+            Поиск по текстовому запросу или embedding.
+            Использует KnowledgeSearchPipeline для полного цикла обработки:
+            query -> chunking -> embedding -> DB search -> ranking.
             """
-            results = await self.knowledge_port.search_by_embedding(
-                query_embedding=request.query_embedding,
-                top_k=request.top_k,
-            )
-            return {"results": results}
+            if request.query:
+                # Обрезаем очень длинные запросы до разумного лимита для embedding модели (512 токенов ~ 500 символов)
+                query_text = request.query
+                if len(query_text) > 500:
+                    query_text = query_text[:500] + "..."
+                    log.info(f"Truncated query to 500 chars for embedding")
+                
+                # Пайплайн сам разобьет запрос на чанки и вычислит embeddings
+                results = await self.knowledge_port.search(
+                    query=query_text,
+                    top_k=request.top_k
+                )
+                return results
+            elif request.query_embedding:
+                # Если готовый embedding — используем прямой поиск (для совместимости)
+                results = await self.knowledge_port.search_by_embedding(
+                    query_embedding=request.query_embedding,
+                    top_k=request.top_k,
+                )
+                return {"results": results}
+            else:
+                return {"results": [], "error": "query or query_embedding required"}
         
         @self.app.get("/knowledge/file/{file_path:path}")
         async def get_file_context(file_path: str) -> Dict[str, Any]:

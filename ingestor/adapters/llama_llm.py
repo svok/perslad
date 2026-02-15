@@ -8,17 +8,17 @@ from llama_index.core.llms import (
 from llama_index.core.llms.callbacks import llm_completion_callback
 from llama_index.core.base.llms.types import LLMMetadata
 
-from infra.llm import LLMClient
+from infra.managers.llm import LLMManager
 
 
 class InfraLLMAdapter(LLM):
     """
-    LlamaIndex LLM adapter over infra.llm (ChatOpenAI).
+    LlamaIndex LLM adapter over infra.managers.llm (ChatOpenAI).
     """
 
     def __init__(
             self,
-            llm: LLMClient,
+            llm: LLMManager,
             context_window: int,
             model_name: str,
             /,
@@ -46,11 +46,12 @@ class InfraLLMAdapter(LLM):
             prompt: str,
             **kwargs: Any,
     ) -> CompletionResponse:
-        async def _request(model):
-            resp = await model.ainvoke(prompt)
-            return resp.content
+        model = self._llm.get_model()
+        if not model:
+            raise RuntimeError("LLM not ready")
 
-        text = await self._llm.call_raw(_request)
+        resp = await model.ainvoke(prompt)
+        text = resp.content
 
         return CompletionResponse(
             text=text,

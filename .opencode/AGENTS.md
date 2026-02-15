@@ -32,6 +32,28 @@ autonomous development system based on local LLMs.
 - Use `dataclasses` for data structures
 - Use `Enum` for enumerations
 
+#### Constants
+
+- **Use dataclasses with class attributes** for constants
+- **PROHIBITED**: Using dictionaries for constants (e.g., `ENDPOINTS = {"key": "value"}`)
+- **CORRECT**:
+  ```python
+  from dataclasses import dataclass
+  
+  @dataclass
+  class LLM:
+      MODELS: str = "/v1/models"
+      CHAT_COMPLETIONS: str = "/v1/chat/completions"
+  ```
+- **WRONG**:
+  ```python
+  # PROHIBITED
+  ENDPOINTS = {
+      "models": "/v1/models",
+      "chat_completions": "/v1/chat/completions",
+  }
+  ```
+
 #### Naming Conventions
 
 - **snake_case** for variables and functions

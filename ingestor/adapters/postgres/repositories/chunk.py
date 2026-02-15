@@ -6,7 +6,6 @@ from typing import List, Optional
 from ingestor.core.models.chunk import Chunk
 from ingestor.adapters.postgres.connection import PostgresConnection
 from ingestor.adapters.postgres.mappers import PostgresMapper
-from ingestor.config.storage import storage as storage_config
 from infra.logger import get_logger
 
 log = get_logger("ingestor.storage.postgres.chunks")
@@ -33,8 +32,15 @@ class ChunkRepository:
                 purpose = EXCLUDED.purpose,
                 embedding = EXCLUDED.embedding
             """,
-            chunk.id, chunk.file_path, chunk.content, chunk.start_line, 
-            chunk.end_line, chunk.chunk_type, chunk.summary, chunk.purpose, chunk.embedding
+            chunk.id,
+            chunk.file_path,
+            chunk.content,
+            chunk.start_line,
+            chunk.end_line,
+            chunk.chunk_type,
+            chunk.summary,
+            chunk.purpose,
+            chunk.embedding,
         )
 
     async def save_batch(self, chunks: List[Chunk]) -> None:
@@ -46,9 +52,15 @@ class ChunkRepository:
 
         data = [
             (
-                c.id, c.file_path, c.content, c.start_line,
-                c.end_line, c.chunk_type, c.summary, c.purpose,
-                c.embedding
+                c.id,
+                c.file_path,
+                c.content,
+                c.start_line,
+                c.end_line,
+                c.chunk_type,
+                c.summary,
+                c.purpose,
+                c.embedding,
             )
             for c in chunks
         ]
@@ -71,10 +83,6 @@ class ChunkRepository:
 
         try:
             async with self._conn.pool.acquire() as conn:
-                if storage_config.USE_PGVECTOR:
-                    from pgvector.asyncpg import register_vector
-                    await register_vector(conn)
-
                 await conn.executemany(query, data)
 
             log.info("postgres.save_chunks.complete", count=len(chunks))
@@ -84,9 +92,7 @@ class ChunkRepository:
 
     async def get(self, chunk_id: str) -> Optional[Chunk]:
         row = await self._conn.execute_query(
-            "SELECT * FROM chunks WHERE id = $1", 
-            chunk_id, 
-            fetch='row'
+            "SELECT * FROM chunks WHERE id = $1", chunk_id, fetch="row"
         )
         if not row:
             return None
@@ -96,30 +102,76 @@ class ChunkRepository:
         rows = await self._conn.execute_query(
             "SELECT * FROM chunks WHERE file_path = $1 ORDER BY start_line",
             file_path,
-            fetch='all'
+            fetch="all",
         )
         return [PostgresMapper.map_chunk(row) for row in rows]
 
     async def get_all(self) -> List[Chunk]:
         rows = await self._conn.execute_query(
-            "SELECT * FROM chunks ORDER BY file_path, start_line",
-            fetch='all'
+            "SELECT * FROM chunks ORDER BY file_path, start_line", fetch="all"
         )
         return [PostgresMapper.map_chunk(row) for row in rows]
 
     async def delete_by_files(self, file_paths: List[str]) -> None:
         await self._conn.execute_query(
-            "DELETE FROM chunks WHERE file_path = ANY($1)",
-            file_paths
+            "DELETE FROM chunks WHERE file_path = ANY($1)", file_paths
         )
 
+    async def search_vector(
+        self, vector: List[float], top_k: int = 10, filter_by_file: Optional[str] = None
+    ) -> List[Chunk]:
+        """
+        Vector similarity search using pgvector.
+        """
+        if filter_by_file:
+            rows = await self._conn.execute_query(
+                """
+                SELECT * FROM chunks 
+                WHERE file_path = $3 
+                ORDER BY embedding <=> $1::vector 
+                LIMIT $2
+                """,
+                vector,
+                top_k,
+                filter_by_file,
+                fetch="all",
+            )
+        else:
+            rows = await self._conn.execute_query(
+                "SELECT * FROM chunks ORDER BY embedding <=> $1::vector LIMIT $2",
+                vector,
+                top_k,
+                fetch="all",
+            )
+        return [PostgresMapper.map_chunk(row) for row in rows]
+
     async def get_embedding_dimension(self) -> int:
-        return await self._conn.execute_query(
+        """
+        Get the dimension of embeddings from the database.
+        """
+        # Try to get dimension from existing data first
+        row = await self._conn.execute_query(
+            "SELECT vector_dims(embedding) FROM chunks WHERE embedding IS NOT NULL LIMIT 1",
+            fetch="row",
+        )
+        if row and row[0]:
+            return row[0]
+
+        # If no data, get dimension from table schema
+        # This query returns the dimension for vector columns
+        row = await self._conn.execute_query(
             """
-            SELECT atttypmod
-            FROM pg_attribute pa
-            JOIN pg_class pc ON pa.attrelid = pc.oid
-            WHERE pc.relname = 'chunks' AND pa.attname = 'embedding'
+            SELECT a.atttypmod 
+            FROM pg_attribute a 
+            JOIN pg_class t ON a.attrelid = t.oid 
+            WHERE t.relname = 'chunks' 
+            AND a.attname = 'embedding'
+            AND a.atttypid = (SELECT oid FROM pg_type WHERE typname = 'vector')
             """,
-            fetch='val'
-        ) or 0
+            fetch="row",
+        )
+        if row and row[0]:
+            # atttypmod stores dimension for vector type
+            return row[0]
+
+        return 0

@@ -127,6 +127,26 @@ class FileSummaryRepository:
             "size": 0,
         }
 
+    async def get_batch_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
+        if not file_paths:
+            return {}
+        
+        rows = await self._conn.execute_query(
+            "SELECT file_path, mtime, checksum FROM file_summaries WHERE file_path = ANY($1)",
+            file_paths,
+            fetch='all'
+        )
+        
+        return {
+            row["file_path"]: {
+                "file_path": row["file_path"],
+                "mtime": row.get("mtime", 0),
+                "checksum": row.get("checksum", ""),
+                "size": 0,
+            }
+            for row in rows
+        }
+
 
 class ModuleSummaryRepository:
     def __init__(self, connection: PostgresConnection):

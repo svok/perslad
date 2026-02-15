@@ -5,40 +5,29 @@ Indexer Orchestrator
 """
 
 import asyncio
-from pathlib import Path
+from dataclasses import replace
 
-from infra.llm import LLMClient
 from infra.logger import get_logger
-from ingestor.core.ports.storage import BaseStorage
-from ingestor.pipeline.multisource.multi_source_pipeline import MultiSourcePipeline
-from ingestor.pipeline.multisource.stages.inotify_source import InotifySourceStage
-from ingestor.pipeline.multisource.stages.scanner_source_stage import ScannerSourceStage
-from ingestor.services.knowledge import KnowledgePort
-from ingestor.services.lock import LLMLockManager
+from ingestor.pipeline.indexation.pipeline import IndexationPipeline
+from ingestor.pipeline.models.pipeline_context import PipelineContext
+from ingestor.pipeline.stages.inotify_source import InotifySourceStage
+from ingestor.pipeline.stages.scanner_source_stage import ScannerSourceStage
 
 
 class IndexerOrchestrator:
-    def __init__(
-            self,
-            workspace_path: str,
-            llm: LLMClient,
-            lock_manager: LLMLockManager,
-            storage: BaseStorage,
-            knowledge_port: KnowledgePort,
-            embed_url: str = "http://emb:8001/v1",
-            embed_api_key: str = "sk-dummy",
-    ) -> None:
-        self.workspace_path = Path(workspace_path).resolve()
+    def __init__(self, pipeline_context: PipelineContext) -> None:
+        self.pipeline_context = replace(
+            pipeline_context,
+            config={**pipeline_context.config,
+                    'filter_workers': 2,
+                    'enrich_workers': 4,
+                    'queue_size': 2000,
+                    }
+        )
         self.log = get_logger("ingestor.indexer")
-        self.llm = llm
-        self.lock_manager = lock_manager
-        self.storage = storage
-        self.knowledge_port = knowledge_port
-        self.embed_url = embed_url
-        self.embed_api_key = embed_api_key
 
-        # self.gitignore_matchers: Dict[Path, Callable] = {}
-        self._pipeline: MultiSourcePipeline | None = None
+        self._pipeline: IndexationPipeline = IndexationPipeline(self.pipeline_context)
+        self.workspace_path = self.pipeline_context.workspace_path
         self._running = False
         self._lock = asyncio.Lock()
 
@@ -48,24 +37,6 @@ class IndexerOrchestrator:
             if self._running:
                 return
             self._running = True
-
-        # self._load_gitignores()
-
-        # Ленивый импорт чтобы избежать circular dependency
-
-        self._pipeline = MultiSourcePipeline(
-            workspace_path=self.workspace_path,
-            storage=self.storage,
-            llm = self.llm,
-            lock_manager = self.lock_manager,
-            embed_url = self.embed_url,
-            embed_api_key = self.embed_api_key,
-            config={
-                'filter_workers': 2,
-                'enrich_workers': 4,
-                'queue_size': 2000,
-            }
-        )
 
         await self._pipeline.start()
         self.log.info("indexer.pipeline_ready")

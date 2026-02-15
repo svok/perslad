@@ -1,0 +1,74 @@
+x-common-file: &base_path "../docker-compose.yml"
+
+services:
+  llm:
+    extends:
+      file: *base_path
+      service: llm
+    container_name: llm-engine
+
+  emb:
+    extends:
+      file: *base_path
+      service: emb
+    container_name: emb-engine
+
+  postgres:
+    extends:
+      file: *base_path
+      service: postgres
+
+  mcp-bash:
+    extends:
+      file: *base_path
+      service: mcp-bash
+    container_name: mcp-bash
+
+  mcp-project:
+    extends:
+      file: *base_path
+      service: mcp-project
+    container_name: mcp-project
+
+  langgraph-agent:
+    extends:
+      file: *base_path
+      service: langgraph-agent
+    container_name: langgraph-agent
+
+  ingestor:
+    extends:
+      file: *base_path
+      service: ingestor
+    container_name: ingestor-test
+
+  test-runner:
+    build:
+      context: ..
+      dockerfile: e2e-tests/Dockerfile
+    container_name: test-runner
+    working_dir: /app/e2e-tests
+    env_file: .env
+    environment:
+      - TEST_MODE=true
+    command: >
+      sh -c "
+        pytest --tb=short -v --strict-markers --junitxml=reports/junit.xml
+      "
+    volumes:
+      - ..:/app
+      - ./reports:/app/e2e-tests/reports
+      - ./data:/app/e2e-tests/data
+    depends_on:
+      llm:
+        condition: service_healthy
+      emb:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+
+networks:
+  agent-network:
+    driver: bridge

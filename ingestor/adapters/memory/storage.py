@@ -124,6 +124,53 @@ class MemoryStorage(BaseStorage):
             # Note: if summary doesn't exist, we don't create it here for memory storage
             # as it requires other fields. In real flow, save_file_summary is used.
 
+    async def get_files_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
+        async with self._lock:
+            results = {}
+            for path in file_paths:
+                summary = self._file_summaries.get(path)
+                if summary:
+                    results[path] = {
+                        "file_path": path,
+                        "mtime": summary.metadata.get("mtime", 0),
+                        "checksum": summary.metadata.get("checksum", ""),
+                        "size": 0,
+                    }
+            return results
+
+    async def search_vector(
+        self, 
+        vector: List[float], 
+        top_k: int = 10,
+        filter_by_file: Optional[str] = None
+    ) -> List[Chunk]:
+        """
+        In-memory vector similarity search.
+        """
+        async with self._lock:
+            # Filtering
+            chunks_with_emb = [
+                c for c in self._chunks.values() 
+                if c.embedding is not None and (filter_by_file is None or c.file_path == filter_by_file)
+            ]
+            
+            if not chunks_with_emb:
+                return []
+                
+            # Brute force cosine similarity for memory storage
+            import math
+            scored_chunks = []
+            for chunk in chunks_with_emb:
+                # Basic cosine similarity
+                dot_product = sum(a * b for a, b in zip(vector, chunk.embedding))
+                norm1 = math.sqrt(sum(a * a for a in vector))
+                norm2 = math.sqrt(sum(b * b for b in chunk.embedding))
+                similarity = dot_product / (norm1 * norm2) if norm1 > 0 and norm2 > 0 else 0
+                scored_chunks.append((similarity, chunk))
+                
+            scored_chunks.sort(key=lambda x: x[0], reverse=True)
+            return [c for s, c in scored_chunks[:top_k]]
+
     # === Stats ===
 
     async def get_stats(self) -> Dict:
@@ -139,6 +186,16 @@ class MemoryStorage(BaseStorage):
                     1 for c in self._chunks.values() if c.summary is not None
                 ),
             }
+
+    async def get_embedding_dimension(self) -> int:
+        """
+        Get the dimension of embeddings from memory storage.
+        """
+        async with self._lock:
+            for chunk in self._chunks.values():
+                if chunk.embedding:
+                    return len(chunk.embedding)
+        return 0
 
     async def clear(self) -> None:
         async with self._lock:
