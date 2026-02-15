@@ -1,7 +1,7 @@
 import pytest
-import httpx
-import json
-from typing import Dict, Any
+
+from infra.config import LLM, Embedding
+
 
 @pytest.mark.component
 @pytest.mark.llm
@@ -13,7 +13,7 @@ class TestLLMComponent:
     @pytest.mark.asyncio
     async def test_llm_model_availability(self, llm_client):
         """Test that LLM model is available and responding"""
-        response = await llm_client.get("/v1/models")
+        response = await llm_client.get(LLM.MODELS)
         assert response.status_code == 200
         
         data = response.json()
@@ -35,13 +35,13 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "messages": messages,
             "max_tokens": 50,
             "temperature": 0.1
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -80,13 +80,13 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "messages": messages,
             "tools": tools,
             "max_tokens": 200
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -109,7 +109,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "messages": messages,
             "max_tokens": 100,
             "stream": True
@@ -117,7 +117,7 @@ class TestLLMComponent:
         
         # For streaming in httpx, we need to use the stream context manager
         # But first, let's make a regular request to test the test infrastructure
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         # TODO: Implement proper streaming test with httpx stream context manager
@@ -130,11 +130,11 @@ class TestLLMComponent:
     async def test_embeddings_basic(self, emb_client):
         """Test basic embedding generation"""
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "input": ["Hello world", "Test embedding"]
         }
         
-        response = await emb_client.post("/v1/embeddings", json=payload)
+        response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -152,17 +152,17 @@ class TestLLMComponent:
         test_text = "This is a test sentence for embedding consistency"
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "input": [test_text]
         }
         
         # First request
-        response1 = await emb_client.post("/v1/embeddings", json=payload)
+        response1 = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         data1 = response1.json()
         embedding1 = data1["data"][0]["embedding"]
         
         # Second request
-        response2 = await emb_client.post("/v1/embeddings", json=payload)
+        response2 = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         data2 = response2.json()
         embedding2 = data2["data"][0]["embedding"]
         
@@ -181,11 +181,11 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "input": texts
         }
         
-        response = await emb_client.post("/v1/embeddings", json=payload)
+        response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -205,12 +205,12 @@ class TestLLMComponent:
         """Test error handling for invalid requests"""
         # Missing required field
         payload = {
-            "model": "default",
+            "model": "embed-model",
             # Missing "messages"
             "max_tokens": 50
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 400
         
         # Invalid model
@@ -219,7 +219,7 @@ class TestLLMComponent:
             "messages": [{"role": "user", "content": "test"}]
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code in [400, 404]
     
     @pytest.mark.asyncio
@@ -230,13 +230,13 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "messages": messages,
             "max_tokens": 100,
             "stream": False
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -260,12 +260,12 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "default",
+            "model": "embed-model",
             "messages": messages,
             "max_tokens": 100
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code in [200, 400]  # Should handle gracefully
         
         if response.status_code == 200:

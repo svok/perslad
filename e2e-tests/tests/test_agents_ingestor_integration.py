@@ -5,11 +5,14 @@ Tests for LangGraph Agent and Ingestor integration.
 Covers: Agents-Ingestor interactions, Indexation workflows
 """
 
-import pytest
 import asyncio
 import os
-from typing import Dict, Any
 
+import pytest
+
+from infra.config import LangGraph, Ingestor
+
+print(f"TEST_CONFIG")
 
 @pytest.mark.integration
 @pytest.mark.agent_ingestor
@@ -31,7 +34,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "agent_test", "category": "ai"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # Wait for processing
@@ -43,7 +46,7 @@ class TestAgentsIngestorIntegration:
             "limit": 3
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -69,7 +72,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "agent_test", "type": "documentation"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # Wait for processing
@@ -81,7 +84,7 @@ class TestAgentsIngestorIntegration:
             "limit": 3
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -103,7 +106,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 200
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -133,7 +136,7 @@ class TestAgentsIngestorIntegration:
                 "metadata": {"source": "agent_test", "topic": filename.split("_")[0]}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             assert ingest_response.status_code == 200
         
         await asyncio.sleep(5)
@@ -147,7 +150,7 @@ class TestAgentsIngestorIntegration:
             "limit": 2
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -165,7 +168,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 300
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -191,7 +194,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "tool_test", "type": "data"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -202,7 +205,7 @@ class TestAgentsIngestorIntegration:
             "limit": 2
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -241,7 +244,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 200
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -266,7 +269,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "conversation_test", "type": "documentation"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -277,7 +280,7 @@ class TestAgentsIngestorIntegration:
             "limit": 2
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -299,7 +302,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 200
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -328,7 +331,7 @@ class TestAgentsIngestorIntegration:
                 "metadata": {"source": "performance_test", "index": str(i)}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             if ingest_response.status_code == 200:
                 docs_created.append(filepath)
         
@@ -344,7 +347,7 @@ class TestAgentsIngestorIntegration:
                 "limit": 5
             }
             
-            search_response = await ingestor_client.post("/search", json=search_payload)
+            search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
             search_end = time.time()
             
             if search_response.status_code == 200:
@@ -372,7 +375,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 50
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         
         # Agent should still work without ingestor
         assert chat_response.status_code == 200
@@ -395,7 +398,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "limit_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -409,7 +412,7 @@ class TestAgentsIngestorIntegration:
                 "limit": limit
             }
             
-            search_response = await ingestor_client.post("/search", json=search_payload)
+            search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
             assert search_response.status_code == 200
             
             search_data = search_response.json()
@@ -438,7 +441,7 @@ class TestAgentsIngestorIntegration:
                 "metadata": {"source": "metadata_test", **metadata}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             assert ingest_response.status_code == 200
         
         await asyncio.sleep(5)
@@ -450,7 +453,7 @@ class TestAgentsIngestorIntegration:
             "filters": {"category": "ai"}
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         
         # If metadata filtering is supported, response should be 200
         # If not, it might be 400
@@ -483,7 +486,7 @@ class TestAgentsIngestorIntegration:
                 "metadata": {"source": "semantic_test"}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             assert ingest_response.status_code == 200
         
         await asyncio.sleep(5)
@@ -494,7 +497,7 @@ class TestAgentsIngestorIntegration:
             "limit": 3
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -516,7 +519,7 @@ class TestAgentsIngestorIntegration:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         # Should handle empty query gracefully
         assert search_response.status_code in [200, 400]
         
@@ -527,7 +530,7 @@ class TestAgentsIngestorIntegration:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         # Should handle long query gracefully
         assert search_response.status_code in [200, 400]
     
@@ -549,7 +552,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "complex_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -560,7 +563,7 @@ class TestAgentsIngestorIntegration:
             "limit": 2
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -586,7 +589,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "history_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -597,7 +600,7 @@ class TestAgentsIngestorIntegration:
             "limit": 2
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -619,7 +622,7 @@ class TestAgentsIngestorIntegration:
             "max_tokens": 100
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -650,7 +653,7 @@ class TestAgentsIngestorIntegration:
                 "metadata": {"source": "file_type_test"}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             assert ingest_response.status_code == 200
         
         await asyncio.sleep(5)
@@ -661,7 +664,7 @@ class TestAgentsIngestorIntegration:
             "limit": 10
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -691,7 +694,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "concurrent_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -702,7 +705,7 @@ class TestAgentsIngestorIntegration:
                 "query": query,
                 "limit": 3
             }
-            return await ingestor_client.post("/search", json=search_payload)
+            return await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         
         queries = ["concurrent test", "chunk", "test", "concurrent", "chunk test"]
         tasks = [make_search(q) for q in queries]
@@ -726,7 +729,7 @@ class TestAgentsIngestorIntegration:
             "metadata": {"source": "cancellation_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -737,7 +740,7 @@ class TestAgentsIngestorIntegration:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         # If cancellation is supported, we could test it here

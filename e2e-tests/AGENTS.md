@@ -124,17 +124,9 @@ Use pytest markers to categorize tests:
 - Files created: `test_document.md`, `test_code.py`, `test_config.json`
 - Cleanup: Automatic after each test (via `test_workspace` fixture)
 
-## Service URLs (Test Environment)
+## Service URLs
 
-| Service | URL | Port |
-|---------|-----|------|
-| LLM Engine | http://llm-test:8000 | 8002 |
-| Embedding Engine | http://emb-test:8001 | 8003 |
-| Ingestor | http://ingestor-test:8124 | 8125 |
-| LangGraph Agent | http://langgraph-agent-test:8123 | 8126 |
-| MCP Bash | http://mcp-bash-test:8081/mcp | 8082 |
-| MCP Project | http://mcp-project-test:8083/mcp | 8084 |
-| PostgreSQL | postgres-test:5432 | 5433 |
+All service URL are set in throught .env variables. Agents can see its content in `.env.example`.
 
 ## Common Test Patterns
 

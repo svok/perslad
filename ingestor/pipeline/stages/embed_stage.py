@@ -5,6 +5,7 @@ from pydantic import SecretStr
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.core.models.chunk import Chunk
+from infra.config.endpoints.embedding import Embedding
 
 
 class EmbedChunksStage(ProcessorStage):
@@ -44,34 +45,13 @@ class EmbedChunksStage(ProcessorStage):
         """
         # Фильтруем чанки: если нет ни саммари, ни контента, эмбеддинг невозможен
         valid_chunks = [c for c in chunks if (c.summary or c.content or "").strip()]
-
+        
         if not valid_chunks:
-            self.log.warning("embed.skip", reason="No valid content in chunks")
-            return chunks
-
-        self.log.info("embed.start", total=len(chunks), valid=len(valid_chunks))
-
-        # Разбиваем на батчи для эффективности API
-        batch_size = 10
-        for i in range(0, len(valid_chunks), batch_size):
-            batch = valid_chunks[i:i + batch_size]
-            try:
-                await self._embed_batch(batch)
-            except Exception as e:
-                self.log.error("embed.batch.failed", batch_start=i, error=str(e), exc_info=True)
-                # Мы не бросаем исключение выше, чтобы остальные батчи могли обработаться
-                continue
-
-        self.log.info("embed.complete", chunks_count=len(chunks))
-        return chunks
-
-    async def _embed_batch(self, chunks: List[Chunk]) -> None:
-        """
-        Отправляет батч текстов в API и записывает результаты обратно в объекты Chunk.
-        """
-        # Подготовка текстов: приоритет у summary, т.к. он лучше отражает суть для поиска
+            return chunks  # Нечего эмбеддить
+            
+        # Подготавливаем тексты для эмбеддинга
         texts = []
-        for c in chunks:
+        for c in valid_chunks:
             # Обрезаем слишком длинные тексты, чтобы не превысить контекст модели
             text = (c.summary or c.content or "")[:1000].strip()
             # Если после обрезки стало пусто (маловероятно из-за фильтрации выше),
@@ -80,7 +60,7 @@ class EmbedChunksStage(ProcessorStage):
 
         # Отправка запроса
         response = await self._client.post(
-            f"{self.embed_url}/embeddings",
+            Embedding.EMBEDDINGS,
             json={
                 "model": "embed-model",
                 "input": texts,
@@ -91,11 +71,11 @@ class EmbedChunksStage(ProcessorStage):
 
         embeddings_data = result.get("data", [])
 
-        if len(embeddings_data) != len(chunks):
-            raise ValueError(f"API returned {len(embeddings_data)} embeddings, but we sent {len(chunks)} texts")
+        if len(embeddings_data) != len(valid_chunks):
+            raise ValueError(f"API returned {len(embeddings_data)} embeddings, but we sent {len(valid_chunks)} texts")
 
         # Записываем эмбеддинги в объекты
-        for i, chunk in enumerate(chunks):
+        for i, chunk in enumerate(valid_chunks):
             # В зависимости от API, структура может быть: data[i]['embedding'] или просто список
             emb_item = embeddings_data[i]
             if isinstance(emb_item, dict) and "embedding" in emb_item:
@@ -105,3 +85,5 @@ class EmbedChunksStage(ProcessorStage):
             else:
                 self.log.error("embed.format_error", chunk_id=chunk.id, data=str(emb_item)[:100])
                 continue
+
+        return chunks

@@ -4,6 +4,7 @@ from typing import Optional, Set, List, Dict, Any
 import httpx
 
 from infra.managers.base import BaseManager
+from infra.config.endpoints.ingestor import Ingestor
 from ..config import Config
 
 logger = logging.getLogger("agentnet.ingestor")
@@ -31,7 +32,7 @@ class IngestorManager(BaseManager):
             # Проверяем доступность через health endpoint
             try:
                 response = await asyncio.wait_for(
-                    self.client.get("/health"),
+                    self.client.get(Ingestor.HEALTH),
                     timeout=10.0
                 )
                 
@@ -84,7 +85,7 @@ class IngestorManager(BaseManager):
         try:
             # Отправляем запрос на поиск (сервер сам сделает embedding)
             response = await self.client.post(
-                "/knowledge/search",
+                Ingestor.SEARCH,
                 json={"query": query, "top_k": top_k}
             )
             
@@ -116,7 +117,7 @@ class IngestorManager(BaseManager):
             return None
         
         try:
-            response = await self.client.get(f"/knowledge/file/{file_path}")
+            response = await self.client.get(Ingestor.FILE.format(file_path=file_path))
             
             if response.status_code == 200:
                 return response.json()
@@ -140,7 +141,7 @@ class IngestorManager(BaseManager):
             return None
         
         try:
-            response = await self.client.get("/knowledge/overview")
+            response = await self.client.get(Ingestor.OVERVIEW)
             
             if response.status_code == 200:
                 return response.json()
@@ -169,7 +170,7 @@ class IngestorManager(BaseManager):
         
         try:
             response = await self.client.post(
-                "/system/llm_lock",
+                Ingestor.LLM_LOCK,
                 json={"locked": locked, "ttl_seconds": ttl_seconds}
             )
             

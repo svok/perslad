@@ -5,11 +5,12 @@ Tests for API interactions and response validation.
 Covers: User requests-responses, API validation
 """
 
-import pytest
 import asyncio
-import json
 import os
-from typing import Dict, Any
+
+import pytest
+
+from infra.config import LLM, Ingestor, LangGraph, MCP, Embedding
 
 
 @pytest.mark.integration
@@ -22,20 +23,20 @@ class TestUserRequestsResponses:
     async def test_api_health_endpoints(self, ingestor_client, langgraph_client, llm_client):
         """Test health endpoints across all services"""
         # Ingestor health
-        response = await ingestor_client.get("/")
+        response = await ingestor_client.get(Ingestor.ROOT)
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
         assert data["status"] == "ready"
         
         # LangGraph health
-        response = await langgraph_client.get("/health")
+        response = await langgraph_client.get(LangGraph.HEALTH)
         if response.status_code == 404:
-            response = await langgraph_client.get("/")
+            response = await langgraph_client.get(LangGraph.ROOT)
         assert response.status_code == 200
         
         # LLM health
-        response = await llm_client.get("/v1/models")
+        response = await llm_client.get(LLM.MODELS)
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
@@ -54,7 +55,7 @@ class TestUserRequestsResponses:
             "metadata": {"source": "api_test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -68,7 +69,7 @@ class TestUserRequestsResponses:
             # Missing file_path
         }
         
-        response = await ingestor_client.post("/ingest", json=invalid_payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=invalid_payload)
         assert response.status_code in [400, 422]
         
         # Test with non-existent file
@@ -77,7 +78,7 @@ class TestUserRequestsResponses:
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=nonexistent_payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=nonexistent_payload)
         assert response.status_code in [400, 404, 422]
     
     @pytest.mark.asyncio
@@ -94,7 +95,7 @@ class TestUserRequestsResponses:
             "metadata": {"source": "test", "category": "tutorial"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # Wait for processing
@@ -106,7 +107,7 @@ class TestUserRequestsResponses:
             "limit": 5
         }
         
-        response = await ingestor_client.post("/search", json=search_payload)
+        response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -119,7 +120,7 @@ class TestUserRequestsResponses:
             "limit": 5
         }
         
-        response = await ingestor_client.post("/search", json=empty_query_payload)
+        response = await ingestor_client.post(Ingestor.SEARCH, json=empty_query_payload)
         # Should handle gracefully
         assert response.status_code in [200, 400]
     
@@ -136,7 +137,7 @@ class TestUserRequestsResponses:
             "temperature": 0.1
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -152,7 +153,7 @@ class TestUserRequestsResponses:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=invalid_payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=invalid_payload)
         assert response.status_code in [400, 422]
     
     @pytest.mark.asyncio
@@ -167,7 +168,7 @@ class TestUserRequestsResponses:
             "max_tokens": 50
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         # TODO: Implement proper streaming test with httpx stream context manager
         assert response.status_code == 200
         
@@ -182,13 +183,13 @@ class TestUserRequestsResponses:
         assert response.status_code in [404, 400]
         
         # Test invalid method
-        response = await langgraph_client.post("/health", json={})
+        response = await langgraph_client.post(LangGraph.HEALTH, json={})
         # Some endpoints might accept POST, others might not
         assert response.status_code in [200, 400, 404, 405]
         
         # Test malformed JSON
         response = await langgraph_client.post(
-            "/v1/chat/completions",
+            LLM.CHAT_COMPLETIONS,
             content="invalid json",
             headers={"Content-Type": "application/json"}
         )
@@ -205,7 +206,7 @@ class TestUserRequestsResponses:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -246,7 +247,7 @@ class TestUserRequestsResponses:
         }
         
         response = await langgraph_client.post(
-            "/v1/chat/completions",
+            LLM.CHAT_COMPLETIONS,
             json=payload,
             headers=headers
         )
@@ -260,7 +261,7 @@ class TestUserRequestsResponses:
         }
         
         response = await langgraph_client.post(
-            "/v1/chat/completions",
+            LLM.CHAT_COMPLETIONS,
             json=payload,
             headers=headers_without_ct
         )
@@ -271,7 +272,6 @@ class TestUserRequestsResponses:
     @pytest.mark.asyncio
     async def test_response_timeouts(self, langgraph_client):
         """Test timeout handling"""
-        import asyncio
         import httpx
         
         # Test with very short timeout
@@ -287,7 +287,7 @@ class TestUserRequestsResponses:
                     "stream": False
                 }
                 
-                response = await short_client.post("/v1/chat/completions", json=payload)
+                response = await short_client.post(LLM.CHAT_COMPLETIONS, json=payload)
                 # Should handle or timeout
                 assert response.status_code in [200, 408, 504]
             except Exception as e:
@@ -309,7 +309,7 @@ class TestUserRequestsResponses:
                 "max_tokens": 10
             }
             
-            response = await langgraph_client.post("/v1/chat/completions", json=payload)
+            response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
             return response.status_code
         
         # Make concurrent requests
@@ -335,7 +335,7 @@ class TestUserRequestsResponses:
             "max_tokens": 100
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         
         # Should handle or reject with appropriate error
         assert response.status_code in [200, 400, 413]  # 413 for payload too large
@@ -356,7 +356,7 @@ class TestUserRequestsResponses:
                 "max_tokens": 10
             }
             
-            task = langgraph_client.post("/v1/chat/completions", json=payload)
+            task = langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
             tasks.append(task)
         
         responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -385,7 +385,7 @@ class TestUserRequestsResponses:
         # Test status endpoint if it exists
         # This would depend on the actual API implementation
         # For now, just test that the service is responsive
-        response = await ingestor_client.get("/")
+        response = await ingestor_client.get(Ingestor.ROOT)
         assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -402,7 +402,7 @@ class TestUserRequestsResponses:
             "metadata": {"source": "test", "type": "knowledge"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
@@ -413,7 +413,7 @@ class TestUserRequestsResponses:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         # Test file context endpoint (if exists)
@@ -434,7 +434,7 @@ class TestUserRequestsResponses:
             "temperature": 0.1
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -455,7 +455,7 @@ class TestUserRequestsResponses:
             "max_tokens": 50
         }
         
-        response = await llm_client.post("/v1/chat/completions", json=payload)
+        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         # TODO: Implement proper streaming test with httpx stream context manager
         assert response.status_code == 200
         
@@ -470,10 +470,10 @@ class TestUserRequestsResponses:
             "model": "default"
         }
         
-        response = await emb_client.post("/v1/embeddings", json=payload)
+        response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         if response.status_code == 404:
             # Try alternative endpoint
-            response = await emb_client.post("/embeddings", json=payload)
+            response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
         
         if response.status_code == 200:
             data = response.json()
@@ -492,7 +492,7 @@ class TestUserRequestsResponses:
             "params": {}
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -514,7 +514,7 @@ class TestUserRequestsResponses:
             }
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         # Should handle or return error for invalid tools
         assert response.status_code in [200, 400]
     
@@ -529,7 +529,7 @@ class TestUserRequestsResponses:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         assert "application/json" in response.headers.get("content-type", "")
     
@@ -543,7 +543,7 @@ class TestUserRequestsResponses:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         # Check for expected headers
@@ -567,7 +567,7 @@ class TestUserRequestsResponses:
                 "metadata": {"source": "pagination_test", "index": str(i)}
             }
             
-            ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+            ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             # Some might fail, but that's okay
         
         await asyncio.sleep(5)
@@ -579,7 +579,7 @@ class TestUserRequestsResponses:
             "offset": 0
         }
         
-        response = await ingestor_client.post("/search", json=search_payload)
+        response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         
         # If pagination is implemented, response should have pagination info
         # If not, just verify the search works

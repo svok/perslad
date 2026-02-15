@@ -1,8 +1,9 @@
-import pytest
-import httpx
-import json
 import asyncio
-from typing import Dict, Any
+
+import pytest
+
+from infra.config import LangGraph
+
 
 @pytest.mark.component
 @pytest.mark.integration
@@ -13,10 +14,10 @@ class TestLangGraphComponent:
     @pytest.mark.asyncio
     async def test_langgraph_health(self, langgraph_client):
         """Test that langgraph agent is healthy"""
-        response = await langgraph_client.get("/health")
+        response = await langgraph_client.get(LangGraph.HEALTH)
         if response.status_code == 404:
             # Try alternative health endpoint
-            response = await langgraph_client.get("/")
+            response = await langgraph_client.get(LangGraph.ROOT)
         
         assert response.status_code == 200
         
@@ -38,7 +39,7 @@ class TestLangGraphComponent:
             "temperature": 0.1
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -60,7 +61,7 @@ class TestLangGraphComponent:
             "max_tokens": 50
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         # TODO: Implement proper streaming test with httpx stream context manager
         assert response.status_code == 200
         # Skip streaming verification for now
@@ -95,7 +96,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -117,7 +118,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -135,7 +136,7 @@ class TestLangGraphComponent:
             "max_tokens": 100
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -159,7 +160,7 @@ class TestLangGraphComponent:
             "max_tokens": 100
         }
         
-        response_low = await langgraph_client.post("/v1/chat/completions", json=payload_low)
+        response_low = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload_low)
         assert response_low.status_code == 200
         
         # High temperature (creative)
@@ -169,7 +170,7 @@ class TestLangGraphComponent:
             "max_tokens": 100
         }
         
-        response_high = await langgraph_client.post("/v1/chat/completions", json=payload_high)
+        response_high = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload_high)
         assert response_high.status_code == 200
     
     @pytest.mark.asyncio
@@ -183,7 +184,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -202,7 +203,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code in [400, 422]
         
         # Empty messages
@@ -211,7 +212,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code in [400, 422]
     
     @pytest.mark.asyncio
@@ -230,7 +231,7 @@ class TestLangGraphComponent:
         }
         
         start_time = time.time()
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         end_time = time.time()
         
         assert response.status_code == 200
@@ -256,7 +257,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         # Should handle gracefully - either success or meaningful error
         assert response.status_code in [200, 400, 413]
     
@@ -270,7 +271,7 @@ class TestLangGraphComponent:
             "stream": False
         }
         
-        response = await langgraph_client.post("/v1/chat/completions", json=payload)
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -292,7 +293,7 @@ class TestLangGraphComponent:
                 "max_tokens": 20
             }
             
-            return await langgraph_client.post("/v1/chat/completions", json=payload)
+            return await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         
         # Make multiple concurrent requests
         tasks = [make_request(i) for i in range(5)]

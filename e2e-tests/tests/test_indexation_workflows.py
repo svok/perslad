@@ -5,12 +5,12 @@ Tests for file ingestion, processing, and storage workflows.
 Covers: Indexation workflows, DB storing
 """
 
-import pytest
 import asyncio
-import tempfile
 import os
-import json
-from typing import Dict, Any, List
+
+import pytest
+
+from infra.config import Ingestor
 
 
 @pytest.mark.integration
@@ -40,7 +40,7 @@ class TestIndexationWorkflows:
         }
         
         # Execute ingestion
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -73,7 +73,7 @@ class TestIndexationWorkflows:
                 }
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             assert response.status_code == 200
             
             data = response.json()
@@ -104,7 +104,7 @@ class TestIndexationWorkflows:
                 "metadata": {"source": "test"}
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -137,7 +137,7 @@ def main():
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         # Verify metadata was extracted (check with search or file info endpoint)
@@ -152,7 +152,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code in [400, 404]
         
         # Invalid payload structure
@@ -161,7 +161,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code in [400, 422]
     
     @pytest.mark.asyncio
@@ -177,7 +177,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -211,7 +211,7 @@ def main():
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -232,7 +232,7 @@ def main():
                 "file_path": filepath,
                 "metadata": {"source": "test", "concurrent": "true"}
             }
-            return await ingestor_client.post("/ingest", json=payload)
+            return await ingestor_client.post(Ingestor.INGEST, json=payload)
         
         responses = await asyncio.gather(*[ingest_file(f) for f in files])
         
@@ -260,7 +260,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -281,7 +281,7 @@ def main():
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=valid_payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=valid_payload)
         assert response.status_code == 200
         
         # Test with empty metadata (should still work)
@@ -290,7 +290,7 @@ def main():
             "metadata": {}
         }
         
-        response = await ingestor_client.post("/ingest", json=empty_metadata_payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=empty_metadata_payload)
         assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -310,7 +310,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -331,7 +331,7 @@ def main():
                 }
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -355,7 +355,7 @@ def main():
                 }
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             # Small files should work, large files might have limits
             assert response.status_code in [200, 413]  # 413 for payload too large
     
@@ -379,7 +379,7 @@ def main():
                     }
                 }
                 
-                response = await ingestor_client.post("/ingest", json=payload)
+                response = await ingestor_client.post(Ingestor.INGEST, json=payload)
                 # Should handle or at least not crash with different encodings
                 assert response.status_code in [200, 400, 500]
             except Exception:
@@ -399,7 +399,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         # Should handle empty files gracefully
         assert response.status_code in [200, 400]
     
@@ -415,7 +415,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         # Should handle or reject binary files
         assert response.status_code in [200, 400, 415]
     
@@ -430,15 +430,14 @@ def main():
                 "metadata": {"source": "test"}
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             # Should reject directory ingestion
             assert response.status_code in [400, 404]
     
     @pytest.mark.asyncio
     async def test_ingestion_of_symlink(self, ingestor_client, test_workspace):
         """Test ingestion of symbolic link"""
-        import tempfile
-        
+
         # Create a real file
         real_file = os.path.join(test_workspace, "real_file.txt")
         with open(real_file, "w") as f:
@@ -453,7 +452,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         # Should handle or follow symlinks
         assert response.status_code in [200, 400]
     
@@ -473,7 +472,7 @@ def main():
         }
         
         start_time = time.time()
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         end_time = time.time()
         
         assert response.status_code == 200
@@ -505,7 +504,7 @@ def main():
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         # Should handle read-only files
         assert response.status_code in [200, 403]
         
@@ -533,5 +532,5 @@ def main():
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200

@@ -13,6 +13,7 @@ from typing import Dict, Any
 from fastapi import FastAPI
 
 from infra.logger import get_logger
+from infra.config.endpoints.ingestor import Ingestor
 from ingestor.api.requests.llm_lock_request import LLMLockRequest
 from ingestor.api.requests.search_request import SearchRequest
 from ingestor.services.knowledge import KnowledgePort
@@ -46,14 +47,14 @@ class IngestorAPI:
     def _setup_routes(self) -> None:
         """Настраивает маршруты."""
         
-        @self.app.get("/")
+        @self.app.get(Ingestor.ROOT)
         async def root() -> Dict[str, Any]:
             return {
                 "service": "Ingestor",
                 "status": "running",
             }
         
-        @self.app.get("/health")
+        @self.app.get(Ingestor.HEALTH)
         async def health() -> Dict[str, Any]:
             stats = await self.storage.get_stats()
             return {
@@ -119,7 +120,7 @@ class IngestorAPI:
         
         # === Knowledge Port Endpoints ===
         
-        @self.app.post("/knowledge/search")
+        @self.app.post(Ingestor.SEARCH)
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
             Поиск по текстовому запросу или embedding.

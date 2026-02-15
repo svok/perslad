@@ -1,10 +1,11 @@
-import pytest
-import httpx
-import json
 import asyncio
-import tempfile
+import json
 import os
-from typing import Dict, Any
+
+import pytest
+
+from infra.config import Ingestor
+
 
 @pytest.mark.component
 @pytest.mark.integration
@@ -15,7 +16,7 @@ class TestIngestorComponent:
     @pytest.mark.asyncio
     async def test_ingestor_health(self, ingestor_client):
         """Test that ingestor service is healthy"""
-        response = await ingestor_client.get("/")
+        response = await ingestor_client.get(Ingestor.ROOT)
         assert response.status_code == 200
         
         data = response.json()
@@ -41,7 +42,7 @@ class TestIngestorComponent:
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -80,7 +81,7 @@ class TestIngestorComponent:
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -106,7 +107,7 @@ class TestIngestorComponent:
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -138,7 +139,7 @@ class TestIngestorComponent:
             }
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -168,7 +169,7 @@ class TestIngestorComponent:
                 }
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -194,7 +195,7 @@ The asyncio module provides the event loop and coroutines.
             }
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # Wait for processing
@@ -206,7 +207,7 @@ The asyncio module provides the event loop and coroutines.
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         data = search_response.json()
@@ -233,7 +234,7 @@ The asyncio module provides the event loop and coroutines.
                 "metadata": {"source": "test"}
             }
             
-            response = await ingestor_client.post("/ingest", json=payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -245,7 +246,7 @@ The asyncio module provides the event loop and coroutines.
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code == 404
         
         # Invalid payload
@@ -254,7 +255,7 @@ The asyncio module provides the event loop and coroutines.
             "metadata": {"source": "test"}
         }
         
-        response = await ingestor_client.post("/ingest", json=payload)
+        response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         assert response.status_code in [400, 422]
     
     @pytest.mark.asyncio
@@ -270,7 +271,7 @@ The asyncio module provides the event loop and coroutines.
             "metadata": {"source": "test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_response.json())
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=payload)
         if ingest_response.status_code == 200:
             data = ingest_response.json()
             job_id = data.get("job_id")

@@ -1,24 +1,29 @@
+import asyncio
+import logging
+import os
+
+import httpx
 import pytest
 import pytest_asyncio
-import asyncio
-import os
-import time
-import subprocess
 import requests
-import httpx
-from typing import AsyncGenerator, Generator
-import logging
+from dotenv import load_dotenv
 from sqlalchemy import text
+
+# Load environment variables from .env file
+load_dotenv(dotenv_path=".env.local", override=False)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Import endpoint constants
+from infra.config import Timeouts
+
 # Configuration from environment
 import tempfile
 TEST_CONFIG = {
-    'llm_url': os.getenv('LLMS_URL', os.getenv('LLM_URL', 'http://localhost:8000/v1')),
-    'emb_url': os.getenv('EMB_URL', 'http://localhost:8001/v1'),
+    'llm_url': os.getenv('LLMS_URL', 'http://localhost:8000'),
+    'emb_url': os.getenv('EMB_URL', 'http://localhost:8001'),
     'pg_url': os.getenv('PG_URL', 'postgresql://rag:rag@postgres:5432/rag'),
     'ingestor_url': os.getenv('INGESTOR_URL', 'http://localhost:8124'),
     'langgraph_url': os.getenv('LANGGRAPH_AGENT_URL', 'http://localhost:8123'),
@@ -28,6 +33,8 @@ TEST_CONFIG = {
     'workspace_root': os.getenv('PROJECT_ROOT', '/workspace'),
     'test_workspace': os.path.join(tempfile.gettempdir(), 'workspace-test')
 }
+
+print(f"TEST_CONFIG = {TEST_CONFIG}")
 
 @pytest.fixture(scope="session")
 def config():
@@ -54,7 +61,7 @@ async def llm_client(config):
     """Async HTTP client for LLM service"""
     async with httpx.AsyncClient(
         base_url=config['llm_url'],
-        timeout=httpx.Timeout(30.0)
+        timeout=httpx.Timeout(Timeouts.STANDARD)
     ) as client:
         yield client
 
@@ -63,7 +70,7 @@ async def emb_client(config):
     """Async HTTP client for embedding service"""
     async with httpx.AsyncClient(
         base_url=config['emb_url'],
-        timeout=httpx.Timeout(30.0)
+        timeout=httpx.Timeout(Timeouts.STANDARD)
     ) as client:
         yield client
 
@@ -72,7 +79,7 @@ async def ingestor_client(config):
     """Async HTTP client for ingestor service"""
     async with httpx.AsyncClient(
         base_url=config['ingestor_url'],
-        timeout=httpx.Timeout(60.0)
+        timeout=httpx.Timeout(Timeouts.LONG)
     ) as client:
         yield client
 
@@ -81,7 +88,7 @@ async def langgraph_client(config):
     """Async HTTP client for langgraph agent service"""
     async with httpx.AsyncClient(
         base_url=config['langgraph_url'],
-        timeout=httpx.Timeout(120.0)
+        timeout=httpx.Timeout(Timeouts.VERY_LONG)
     ) as client:
         yield client
 
@@ -133,8 +140,7 @@ def test_workspace(config):
 async def clean_database(config):
     """Clean database before each test"""
     from sqlalchemy import create_engine
-    from sqlalchemy.engine import Engine
-    
+
     engine = create_engine(config['pg_url'])
     
     with engine.connect() as conn:
@@ -289,7 +295,7 @@ async def health_check(config):
         try:
             # Remove /v1 or /mcp from URL for health check
             base_url = url.replace('/v1', '').replace('/mcp', '')
-            response = requests.get(base_url, timeout=30)
+            response = requests.get(base_url, timeout=Timeouts.STANDARD)
             if response.status_code != 200:
                 logger.warning(f"{name} health check returned {response.status_code}")
         except Exception as e:

@@ -1,8 +1,7 @@
 import pytest
-import httpx
-import json
-import asyncio
-from typing import Dict, Any
+
+from infra.config import MCP, LLM
+
 
 @pytest.mark.component
 @pytest.mark.mcp
@@ -13,7 +12,7 @@ class TestMCPComponent:
     @pytest.mark.asyncio
     async def test_mcp_bash_health(self, mcp_bash_client):
         """Test MCP bash server health"""
-        response = await mcp_bash_client.get("/")
+        response = await mcp_bash_client.get(LLM.ROOT)
         assert response.status_code == 200
         
         data = response.json()
@@ -22,7 +21,7 @@ class TestMCPComponent:
     @pytest.mark.asyncio
     async def test_mcp_project_health(self, mcp_project_client):
         """Test MCP project server health"""
-        response = await mcp_project_client.get("/")
+        response = await mcp_project_client.get(LLM.ROOT)
         assert response.status_code == 200
         
         data = response.json()
@@ -38,7 +37,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -56,7 +55,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_project_client.post("/mcp", json=payload)
+        response = await mcp_project_client.post(MCP.MCP, json=payload)
         assert response.status_code == 200
         
         data = response.json()
@@ -81,7 +80,7 @@ class TestMCPComponent:
             }
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         # MCP servers might use different response formats
         # We're mainly checking that the request is processed
     
@@ -100,7 +99,7 @@ class TestMCPComponent:
             }
         }
         
-        response = await mcp_project_client.post("/mcp", json=payload)
+        response = await mcp_project_client.post(MCP.MCP, json=payload)
         # Mainly checking request processing
     
     @pytest.mark.asyncio
@@ -114,7 +113,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         # Should return error response
     
     @pytest.mark.asyncio
@@ -128,7 +127,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_project_client.post("/mcp", json=payload)
+        response = await mcp_project_client.post(MCP.MCP, json=payload)
         # Should return error response
     
     @pytest.mark.asyncio
@@ -141,7 +140,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         if response.status_code == 200:
             data = response.json()
             if "result" in data and "tools" in data["result"]:
@@ -166,7 +165,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response = await mcp_project_client.post("/mcp", json=payload)
+        response = await mcp_project_client.post(MCP.MCP, json=payload)
         if response.status_code == 200:
             data = response.json()
             if "result" in data and "tools" in data["result"]:
@@ -187,7 +186,7 @@ class TestMCPComponent:
                 "params": {}
             }
             
-            response = await mcp_bash_client.post("/mcp", json=payload)
+            response = await mcp_bash_client.post(MCP.MCP, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -201,7 +200,7 @@ class TestMCPComponent:
                 "params": {}
             }
             
-            response = await mcp_project_client.post("/mcp", json=payload)
+            response = await mcp_project_client.post(MCP.MCP, json=payload)
             assert response.status_code == 200
     
     @pytest.mark.asyncio
@@ -220,7 +219,7 @@ class TestMCPComponent:
                 }
             }
             
-            response = await mcp_bash_client.post("/mcp", json=payload)
+            response = await mcp_bash_client.post(MCP.MCP, json=payload)
             # Mainly checking that requests are processed
     
     @pytest.mark.asyncio
@@ -234,7 +233,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response1 = await mcp_project_client.post("/mcp", json=payload1)
+        response1 = await mcp_project_client.post(MCP.MCP, json=payload1)
         # Then test with different contexts
         payload2 = {
             "jsonrpc": "2.0",
@@ -243,7 +242,7 @@ class TestMCPComponent:
             "params": {}
         }
         
-        response2 = await mcp_project_client.post("/mcp", json=payload2)
+        response2 = await mcp_project_client.post(MCP.MCP, json=payload2)
         # Check that both requests work
     
     @pytest.mark.asyncio
@@ -257,13 +256,13 @@ class TestMCPComponent:
                 "name": "execute_command",
                 "arguments": {
                     "command": "ls",
-                    "args": ["-la", "/"],
-                    "cwd": "/"
+                    "args": ["-la", LLM.ROOT],
+                    "cwd": LLM.ROOT
                 }
             }
         }
         
-        response = await mcp_bash_client.post("/mcp", json=payload)
+        response = await mcp_bash_client.post(MCP.MCP, json=payload)
         # Should handle large output gracefully
     
     @pytest.mark.asyncio
@@ -283,5 +282,5 @@ class TestMCPComponent:
             }
         }
         
-        response = await mcp_project_client.post("/mcp", json=payload)
+        response = await mcp_project_client.post(MCP.MCP, json=payload)
         # Check file discovery functionality

@@ -12,6 +12,7 @@ from infra.exceptions import (
 )
 from infra.logger import get_logger
 from infra.httpx_handler import map_httpx_error_to_exception
+from infra.config.endpoints.embedding import Embedding
 from ingestor.core.models.chunk import Chunk
 
 log = get_logger("ingestor.embedding_model")
@@ -52,7 +53,7 @@ class EmbeddingModel:
             
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.post(
-                    f"{self.embed_url}/embeddings",
+                    f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
                         "model": "embed-model",
                         "input": ["test"]
@@ -94,7 +95,7 @@ class EmbeddingModel:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.embed_url}/embeddings",
+                    f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
                         "model": "embed-model",
                         "input": [text]
@@ -170,7 +171,7 @@ class EmbeddingModel:
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.embed_url}/embeddings",
+                    f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
                         "model": "embed-model",
                         "input": texts

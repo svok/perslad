@@ -5,9 +5,9 @@ Tests for database operations and data persistence.
 Covers: DB storing, Indexation workflows
 """
 
+import time
+
 import pytest
-import asyncio
-from typing import Dict, Any, List
 from sqlalchemy import create_engine, text
 
 
@@ -449,7 +449,6 @@ class TestDatabaseOperations:
     @pytest.mark.asyncio
     async def test_database_connection_pooling(self, config):
         """Test database connection pooling"""
-        import psycopg2
         from psycopg2 import pool
         
         try:
@@ -503,8 +502,7 @@ class TestDatabaseOperations:
     @pytest.mark.asyncio
     async def test_database_backup_restore(self, config):
         """Test database backup and restore (if possible)"""
-        import subprocess
-        
+
         try:
             # This is a complex test that might not be possible in all environments
             # We'll just verify we can connect and run basic operations
@@ -523,8 +521,7 @@ class TestDatabaseOperations:
     async def test_database_connection_limits(self, config):
         """Test database connection limits"""
         import psycopg2
-        import asyncio
-        
+
         connections = []
         
         try:

@@ -1,15 +1,15 @@
 # FILE: agentnet/agents/main.py
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
-from typing import Dict, Any
 import asyncio
-import time
-import logging
+from contextlib import asynccontextmanager
+from typing import Dict, Any
 
-from .app.logger import logger, setup_logging
-from .app.managers.system import SystemManager
+from fastapi import FastAPI, HTTPException
+
+from infra.config.endpoints import LangGraph, LLM
 from .app.api.chat import ChatHandler
 from .app.api.health import HealthHandler
+from .app.logger import logger, setup_logging
+from .app.managers.system import SystemManager
 from .app.models import ChatRequest
 
 # Настраиваем логирование
@@ -61,15 +61,15 @@ async def root() -> Dict[str, Any]:
         "status": status
     }
 
-@app.get("/health")
+@app.get(LangGraph.HEALTH)
 async def health_check() -> Dict[str, Any]:
     return health_handler.get_status()
 
-@app.get("/v1/models")
+@app.get(LLM.MODELS)
 async def list_models() -> Dict[str, Any]:
     return {"object": "list", "data": [{"id": "langgraph-agent", "object": "model"}]}
 
-@app.post("/v1/chat/completions")
+@app.post(LangGraph.CHAT_COMPLETIONS)
 async def chat_completions(request: ChatRequest):
     if not request.messages:
         raise HTTPException(status_code=400, detail="Messages are required")

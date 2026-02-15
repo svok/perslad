@@ -1,10 +1,10 @@
-import pytest
-import httpx
-import json
 import asyncio
 import os
-import tempfile
-from typing import Dict, Any
+
+import pytest
+
+from infra.config import Ingestor, LangGraph, MCP
+
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -62,7 +62,7 @@ When working with databases, you can use asyncpg for PostgreSQL:
             }
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         ingest_data = ingest_response.json()
@@ -78,7 +78,7 @@ When working with databases, you can use asyncpg for PostgreSQL:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -102,7 +102,7 @@ When working with databases, you can use asyncpg for PostgreSQL:
             "max_tokens": 200
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -160,7 +160,7 @@ class UserManager:
             }
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # 3. Wait for processing
@@ -172,7 +172,7 @@ class UserManager:
             "limit": 3
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -191,7 +191,7 @@ class UserManager:
             "max_tokens": 300
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -235,7 +235,7 @@ def multiply(a, b):
                 "metadata": {"source": "e2e_test"}
             }
             
-            response = await ingestor_client.post("/ingest", json=ingest_payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             assert response.status_code == 200
         
         # 3. Wait for ingestion
@@ -247,7 +247,7 @@ def multiply(a, b):
             "limit": 3
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -265,7 +265,7 @@ def multiply(a, b):
             }
         }
         
-        mcp_response = await mcp_bash_client.post("/mcp", json=mcp_payload)
+        mcp_response = await mcp_bash_client.post(MCP.MCP, json=mcp_payload)
         # Mainly checking interaction doesn't break
         
         # 6. Chat with context from both search and MCP
@@ -282,7 +282,7 @@ def multiply(a, b):
             "max_tokens": 150
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -344,7 +344,7 @@ We use PostgreSQL with pgvector for:
             }
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         # 3. Wait for processing
@@ -359,7 +359,7 @@ We use PostgreSQL with pgvector for:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -385,7 +385,7 @@ We use PostgreSQL with pgvector for:
             "max_tokens": 300
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         assert chat_response.status_code == 200
         
         chat_data = chat_response.json()
@@ -413,14 +413,14 @@ We use PostgreSQL with pgvector for:
             "metadata": {"source": "e2e_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         assert ingest_response.status_code == 200
         
         await asyncio.sleep(3)
         
         # 3. Search
         search_payload = {"query": "streaming test", "limit": 2}
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         assert search_response.status_code == 200
         
         search_data = search_response.json()
@@ -439,7 +439,7 @@ We use PostgreSQL with pgvector for:
             "max_tokens": 200
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         # TODO: Implement proper streaming test with httpx stream context manager
         assert chat_response.status_code == 200
         
@@ -457,7 +457,7 @@ We use PostgreSQL with pgvector for:
             "metadata": {"source": "e2e_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=bad_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=bad_payload)
         # Should handle gracefully
         assert ingest_response.status_code in [400, 404]
         
@@ -472,7 +472,7 @@ We use PostgreSQL with pgvector for:
             "metadata": {"source": "e2e_test"}
         }
         
-        ingest_response = await ingestor_client.post("/ingest", json=ingest_payload)
+        ingest_response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
         # Should handle special characters
         assert ingest_response.status_code == 200
         
@@ -482,7 +482,7 @@ We use PostgreSQL with pgvector for:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         # Should handle empty query
         assert search_response.status_code in [200, 400]
         
@@ -492,7 +492,7 @@ We use PostgreSQL with pgvector for:
             "stream": False
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         # Should handle empty messages
         assert chat_response.status_code in [400, 422]
     
@@ -522,7 +522,7 @@ We use PostgreSQL with pgvector for:
                 "metadata": {"source": "benchmark", "index": str(test_files.index(filepath))}
             }
             
-            response = await ingestor_client.post("/ingest", json=ingest_payload)
+            response = await ingestor_client.post(Ingestor.INGEST, json=ingest_payload)
             end = time.time()
             
             assert response.status_code == 200
@@ -540,7 +540,7 @@ We use PostgreSQL with pgvector for:
             "limit": 5
         }
         
-        search_response = await ingestor_client.post("/search", json=search_payload)
+        search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
         search_end = time.time()
         
         assert search_response.status_code == 200
@@ -564,7 +564,7 @@ We use PostgreSQL with pgvector for:
             "max_tokens": 100
         }
         
-        chat_response = await langgraph_client.post("/v1/chat/completions", json=chat_payload)
+        chat_response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=chat_payload)
         chat_end = time.time()
         
         assert chat_response.status_code == 200
