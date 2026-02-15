@@ -43,8 +43,6 @@ class IndexationPipelineBuilder:
                 name="embed",
                 stage_class=EmbedChunksStage,
                 factory=lambda ctx: EmbedChunksStage(
-                    ctx.embed_url, 
-                    ctx.embed_api_key, 
                     max_workers=ctx.config.get("embed_workers", 2),
                     embed_model=ctx.embed_model
                 )

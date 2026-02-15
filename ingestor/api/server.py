@@ -6,20 +6,22 @@ Ingestor HTTP API
 - /health - health check
 - /stats - статистика storage
 - /knowledge/* - Knowledge Port endpoints для агента
+- /ingest - запуск индексации файла
+- /status/{job_id} - статус задачи индексации
 """
 
 from typing import Dict, Any
 
 from fastapi import FastAPI
 
-from infra.logger import get_logger
 from infra.config.endpoints.ingestor import Ingestor
+from infra.logger import get_logger
+from ingestor.adapters.embedding_model import EmbeddingModel
 from ingestor.api.requests.llm_lock_request import LLMLockRequest
 from ingestor.api.requests.search_request import SearchRequest
+from ingestor.core.ports.storage import BaseStorage
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
-from ingestor.core.ports.storage import BaseStorage
-from ingestor.adapters.embedding_model import EmbeddingModel
 
 log = get_logger("ingestor.api")
 

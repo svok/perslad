@@ -116,7 +116,7 @@ services:
       dockerfile: agents/Dockerfile
     env_file: .env
     environment:
-      - OPENAI_API_BASE=${LLMS_URL}
+      - OPENAI_API_BASE=${LLM_URL}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
       - MODEL_NAME=${MODEL_NAME}
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
@@ -138,7 +138,7 @@ services:
       dockerfile: ingestor/Dockerfile
     env_file: .env
     environment:
-      - OPENAI_API_BASE=${LLMS_URL}
+      - OPENAI_API_BASE=${LLM_URL}
       - CONTEXT_LENGTH=${CONTEXT_SIZE}
       - LLM_INIT_TIMEOUT=600  # 10 минут для загрузки больших моделей
       - LOG_LEVEL=DEBUG

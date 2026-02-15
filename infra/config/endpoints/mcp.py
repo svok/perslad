@@ -5,5 +5,4 @@ from dataclasses import dataclass
 
 @dataclass
 class MCP:
-    MCP: str = "/mcp"
-    ROOT: str = "/"
+    MCP: str = "/"

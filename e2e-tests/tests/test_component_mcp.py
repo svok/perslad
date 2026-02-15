@@ -1,6 +1,6 @@
 import pytest
 
-from infra.config import MCP, LLM
+from infra.config import MCP
 
 
 @pytest.mark.component
@@ -12,7 +12,7 @@ class TestMCPComponent:
     @pytest.mark.asyncio
     async def test_mcp_bash_health(self, mcp_bash_client):
         """Test MCP bash server health"""
-        response = await mcp_bash_client.get(LLM.ROOT)
+        response = await mcp_bash_client.get(MCP.MCP)
         assert response.status_code == 200
         
         data = response.json()
@@ -21,7 +21,7 @@ class TestMCPComponent:
     @pytest.mark.asyncio
     async def test_mcp_project_health(self, mcp_project_client):
         """Test MCP project server health"""
-        response = await mcp_project_client.get(LLM.ROOT)
+        response = await mcp_project_client.get(MCP.MCP)
         assert response.status_code == 200
         
         data = response.json()
@@ -256,8 +256,8 @@ class TestMCPComponent:
                 "name": "execute_command",
                 "arguments": {
                     "command": "ls",
-                    "args": ["-la", LLM.ROOT],
-                    "cwd": LLM.ROOT
+                    "args": ["-la", "."],
+                    "cwd": "."
                 }
             }
         }

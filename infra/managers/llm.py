@@ -17,7 +17,7 @@ class LLMManager(BaseManager):
         self.model: Optional[ChatOpenAI] = None
         self._connections["llm-server"] = False
         
-        self.api_base = api_base
+        self.api_base = api_base.rstrip("/")
         self.api_key = api_key
         self.model_name = model_name
 

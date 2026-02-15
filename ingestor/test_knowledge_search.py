@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from pydantic import SecretStr
 
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 
@@ -172,7 +171,6 @@ async def test_search_pipeline():
 
     class MockEmbeddingModel:
         async def get_embedding(self, text: str):
-            import numpy as np
             # Return random embedding for testing
             return [0.1, 0.2, 0.3] if "simple" in text else [0.4, 0.5, 0.6]
         
@@ -190,8 +188,7 @@ async def test_search_pipeline():
         storage=storage,
         llm=None,
         lock_manager=None,
-        embed_url="http://localhost:8000",
-        embed_api_key=SecretStr("sk-test"),
+        embed_model=mock_embedder,
         config={'embed_workers': 1},
         text_splitter_helper=TextSplitterHelper(),
     )

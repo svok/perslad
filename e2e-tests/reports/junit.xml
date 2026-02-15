@@ -1,417 +1,221 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="e2e_tests" errors="0" failures="88" skipped="2" tests="140" time="1001.698" timestamp="2026-02-12T18:53:57.640136+00:00" hostname="f122e6b05c44"><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_can_retrieve_ingestor_context" time="0.330"><failure message="httpx.ConnectError: All connection attempts failed">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="e2e_tests" errors="1" failures="98" skipped="2" tests="138" time="20.600" timestamp="2026-02-16T00:25:47.113787+05:00" hostname="okryz"><testcase classname="" name="tests.test_component_emb" time="0.000"><error message="collection failure">'emb' not found in `markers` configuration option</error></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_can_retrieve_ingestor_context" time="0.095"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:38: in test_agent_can_retrieve_ingestor_context
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_retrieval_with_ingestor_search" time="0.024"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:76: in test_agent_retrieval_with_ingestor_search
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_decision_with_ingestor_context" time="0.026"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:140: in test_agent_decision_with_ingestor_context
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_tool_calling_with_ingestor_context" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:198: in test_agent_tool_calling_with_ingestor_context
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_multi_turn_conversation_with_ingestor" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:273: in test_agent_multi_turn_conversation_with_ingestor
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_performance" time="5.066"><failure message="httpx.RemoteProtocolError: Server disconnected without sending a response.">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
     yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
     resp = await self._pool.handle_async_request(req)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
     raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
     response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:101: in handle_async_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/connection.py:103: in handle_async_request
+    return await self._connection.handle_async_request(request)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/http11.py:136: in handle_async_request
     raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:78: in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:124: in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/auto.py:31: in connect_tcp
-    return await self._backend.connect_tcp(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:113: in connect_tcp
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ConnectError: All connection attempts failed
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/http11.py:106: in handle_async_request
+    ) = await self._receive_response_headers(**kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/http11.py:177: in _receive_response_headers
+    event = await self._receive_event(timeout=timeout)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpcore/_async/http11.py:231: in _receive_event
+    raise RemoteProtocolError(msg)
+E   httpcore.RemoteProtocolError: Server disconnected without sending a response.
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:34: in test_agent_can_retrieve_ingestor_context
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
+tests/test_agents_ingestor_integration.py:350: in test_agent_context_retrieval_performance
+    search_response = await ingestor_client.post(Ingestor.SEARCH, json=search_payload)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1859: in post
     return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1540: in request
     return await self.send(request, auth=auth, follow_redirects=follow_redirects)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1629: in send
     response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
     response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
     response = await self._send_single_request(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
     response = await transport.handle_async_request(request)
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
     with map_httpcore_exceptions():
          ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
+/home/sokatov/.conda/envs/usr/lib/python3.13/contextlib.py:162: in __exit__
     self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
     raise mapped_exc(message) from exc
-E   httpx.ConnectError: All connection attempts failed</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_retrieval_with_ingestor_search" time="0.100"><failure message="httpx.ConnectError: All connection attempts failed">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
-    yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
-    raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
-    response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:101: in handle_async_request
-    raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:78: in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:124: in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/auto.py:31: in connect_tcp
-    return await self._backend.connect_tcp(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:113: in connect_tcp
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ConnectError: All connection attempts failed
-
-The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:72: in test_agent_retrieval_with_ingestor_search
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
-    return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
-    response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
-    response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
-    with map_httpcore_exceptions():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-E   httpx.ConnectError: All connection attempts failed</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_decision_with_ingestor_context" time="0.103"><failure message="httpx.ConnectError: All connection attempts failed">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
-    yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
-    raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
-    response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:101: in handle_async_request
-    raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:78: in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:124: in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/auto.py:31: in connect_tcp
-    return await self._backend.connect_tcp(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:113: in connect_tcp
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ConnectError: All connection attempts failed
-
-The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:136: in test_agent_decision_with_ingestor_context
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
-    return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
-    response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
-    response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
-    with map_httpcore_exceptions():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-E   httpx.ConnectError: All connection attempts failed</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_tool_calling_with_ingestor_context" time="0.110"><failure message="httpx.ConnectError: All connection attempts failed">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
-    yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
-    raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
-    response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:101: in handle_async_request
-    raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:78: in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:124: in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/auto.py:31: in connect_tcp
-    return await self._backend.connect_tcp(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:113: in connect_tcp
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ConnectError: All connection attempts failed
-
-The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:194: in test_agent_tool_calling_with_ingestor_context
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
-    return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
-    response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
-    response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
-    with map_httpcore_exceptions():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-E   httpx.ConnectError: All connection attempts failed</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_multi_turn_conversation_with_ingestor" time="0.100"><failure message="httpx.ConnectError: All connection attempts failed">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
-    yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
-    raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
-    response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:101: in handle_async_request
-    raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:78: in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:124: in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/auto.py:31: in connect_tcp
-    return await self._backend.connect_tcp(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:113: in connect_tcp
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ConnectError: All connection attempts failed
-
-The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:269: in test_agent_multi_turn_conversation_with_ingestor
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
-    return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
-    response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
-    response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
-    with map_httpcore_exceptions():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-E   httpx.ConnectError: All connection attempts failed</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_performance" time="5.169" /><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_error_recovery_with_ingestor" time="0.628" /><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_limiting" time="0.179"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:399: in test_agent_context_retrieval_limiting
-    ???
+E   httpx.RemoteProtocolError: Server disconnected without sending a response.</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_error_recovery_with_ingestor" time="0.024"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:381: in test_agent_error_recovery_with_ingestor
+    assert chat_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_metadata" time="0.135"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:442: in test_agent_context_retrieval_with_metadata
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_limiting" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:402: in test_agent_context_retrieval_limiting
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_semantic_search" time="0.145"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:487: in test_agent_context_retrieval_with_semantic_search
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_metadata" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:445: in test_agent_context_retrieval_with_metadata
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_error_handling" time="0.110"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:521: in test_agent_context_retrieval_error_handling
-    ???
-E   assert 404 in [200, 400]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_complex_queries" time="0.150"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:553: in test_agent_context_retrieval_with_complex_queries
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_semantic_search" time="0.026"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:490: in test_agent_context_retrieval_with_semantic_search
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_history" time="0.132"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:590: in test_agent_context_retrieval_with_history
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_error_handling" time="0.027"><failure message="assert 500 in [200, 400]&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">tests/test_agents_ingestor_integration.py:535: in test_agent_context_retrieval_error_handling
+    assert search_response.status_code in [200, 400]
+E   assert 500 in [200, 400]
+E    +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_complex_queries" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:556: in test_agent_context_retrieval_with_complex_queries
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_different_file_types" time="0.163"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:654: in test_agent_context_retrieval_with_different_file_types
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_history" time="0.024"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:593: in test_agent_context_retrieval_with_history
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_concurrent" time="0.160"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:695: in test_agent_context_retrieval_concurrent
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_with_different_file_types" time="0.022"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:657: in test_agent_context_retrieval_with_different_file_types
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_cancellation" time="0.132"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_agents_ingestor_integration.py:730: in test_agent_context_retrieval_cancellation
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_concurrent" time="0.022"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:698: in test_agent_context_retrieval_concurrent
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_health" time="0.114"><failure message="AssertionError: assert 'running' == 'ready'&#10;  &#10;  - ready&#10;  + running">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:23: in test_ingestor_health
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_agents_ingestor_integration.TestAgentsIngestorIntegration" name="test_agent_context_retrieval_cancellation" time="0.025"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_agents_ingestor_integration.py:733: in test_agent_context_retrieval_cancellation
+    assert ingest_response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_health" time="0.018"><failure message="AssertionError: assert 'running' == 'ready'&#10;  &#10;  - ready&#10;  + running">tests/test_component_ingestor.py:24: in test_ingestor_health
+    assert data["status"] == "ready"
 E   AssertionError: assert 'running' == 'ready'
 E     
 E     - ready
-E     + running</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_text" time="0.133"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:45: in test_ingestor_ingest_text
-    ???
+E     + running</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_text" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:46: in test_ingestor_ingest_text
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_code" time="0.086"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:84: in test_ingestor_ingest_code
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_code" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:85: in test_ingestor_ingest_code
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_markdown" time="0.112"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:110: in test_ingestor_ingest_markdown
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_markdown" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:111: in test_ingestor_ingest_markdown
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_json" time="0.102"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:142: in test_ingestor_ingest_json
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_ingest_json" time="0.017"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:143: in test_ingestor_ingest_json
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_batch_ingestion" time="0.093"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:172: in test_ingestor_batch_ingestion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_batch_ingestion" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:173: in test_ingestor_batch_ingestion
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_search" time="0.094"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:198: in test_ingestor_search
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_search" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:199: in test_ingestor_search
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_metadata_extraction" time="0.119"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:237: in test_ingestor_metadata_extraction
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_metadata_extraction" time="0.018"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:238: in test_ingestor_metadata_extraction
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_error_handling" time="0.106"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:258: in test_ingestor_error_handling
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_error_handling" time="0.018"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_ingestor.py:259: in test_ingestor_error_handling
+    assert response.status_code in [400, 422]
 E   assert 404 in [400, 422]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_status_tracking" time="0.102"><failure message="UnboundLocalError: cannot access local variable 'ingest_response' where it is not associated with a value">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_ingestor.py:273: in test_ingestor_status_tracking
-    ???
-E   UnboundLocalError: cannot access local variable 'ingest_response' where it is not associated with a value</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_health" time="0.107"><failure message="AssertionError: assert 'healthy' == 'ready'&#10;  &#10;  - ready&#10;  + healthy">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_langgraph.py:27: in test_langgraph_health
-    ???
-E   AssertionError: assert 'healthy' == 'ready'
-E     
-E     - ready
-E     + healthy</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_chat_completion" time="0.211" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_streaming_chat" time="5.903" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_with_tools" time="1.262" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_multi_turn_conversation" time="1.776" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_system_message" time="6.693" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_temperature_control" time="182.793" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_max_tokens" time="57.106"><failure message="assert 833 &lt; 20&#10; +  where 833 = len(['Machine', 'learning', 'is', 'a', 'subset', 'of', 'artificial', 'intelligence', 'that', 'focuses', 'on', 'developing', 'algorithms', 'and', 'statistical', 'models', 'that', 'enable', 'computer', 'systems', 'to', 'improve', 'their', 'performance', 'on', 'a', 'specific', 'task', 'through', 'experience.', 'This', 'process', 'of', 'learning', 'from', 'data', 'is', 'crucial', 'for', 'building', 'intelligent', 'systems', 'that', 'can', 'adapt', 'and', 'make', 'decisions', 'without', 'explicit', 'programming.', '###', 'Key', 'Concepts', 'in', 'Machine', 'Learning', '1.', '**Data**:', 'The', 'foundation', 'of', 'machine', 'learning', 'is', 'data.', 'Data', 'can', 'be', 'structured', '(like', 'in', 'databases)', 'or', 'unstructured', '(like', 'text,', 'images,', 'and', 'audio).', 'The', 'quality,', 'quantity,', 'and', 'relevance', 'of', 'the', 'data', 'are', 'critical', 'for', 'the', 'success', 'of', 'a', 'machine', 'learning', 'project.', '2.', '**Features**:', 'Features', 'are', 'the', 'input', 'variables', 'used', 'to', 'train', 'a', 'machine', 'learning', 'model.', 'They', 'can', 'be', 'numerical,', 'categorical,', 'or', 'even', 'derived', 'from', 'the', 'data', '(e.g.,', 'through', 'text', 'processing', 'or', 'image', 'analysis).', '3.', '**Labels**:', 'In', 'supervised', 'learning,', 'labels', 'are', 'the', 'output', 'variables', 'that', 'the', 'model', 'tries', 'to', 'predict.', 'Labels', 'can', 'be', 'continuous', '(regression)', 'or', 'categorical', '(classification).', '4.', '**Training**:', 'The', 'process', 'of', 'teaching', 'a', 'machine', 'learning', 'model', 'to', 'recognize', 'patterns', 'in', 'data.', 'This', 'involves', 'presenting', 'the', 'model', 'with', 'labeled', 'examples', 'and', 'adjusting', 'its', 'parameters', 'to', 'minimize', 'prediction', 'errors.', '5.', '**Validation**:', 'Ensuring', 'that', 'the', 'model', 'generalizes', 'well', 'to', 'unseen', 'data.', 'This', 'is', 'typically', 'done', 'by', 'splitting', 'the', 'data', 'into', 'training', 'and', 'validation', 'sets,', 'or', 'using', 'techniques', 'like', 'cross-validation.', '6.', '**Testing**:', 'Evaluating', 'the', 'final', 'performance', 'of', 'the', 'model', 'on', 'a', 'completely', 'separate', 'dataset', 'that', 'was', 'not', 'used', 'during', 'training', 'or', 'validation.', '7.', '**Model', 'Evaluation', 'Metrics**:', 'Various', 'metrics', 'are', 'used', 'to', 'evaluate', 'the', 'performance', 'of', 'a', 'machine', 'learning', 'model,', 'such', 'as', 'accuracy,', 'precision,', 'recall,', 'F1', 'score,', 'ROC-AUC,', 'etc.', '8.', '**Bias', 'and', 'Variance**:', 'Bias', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'approximating', 'a', 'real-world', 'problem,', 'which', 'may', 'be', 'complex,', 'with', 'a', 'simplified', 'model.', 'Variance', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'the', &quot;model's&quot;, 'sensitivity', 'to', 'small', 'fluctuations', 'in', 'the', 'training', 'data.', 'Balancing', 'bias', 'and', 'variance', 'is', 'crucial', 'for', 'building', 'robust', 'models.', '9.', '**Overfitting', 'and', 'Underfitting**:', 'Overfitting', 'occurs', 'when', 'a', 'model', 'is', 'too', 'complex', 'and', 'captures', 'noise', 'in', 'the', 'training', 'data,', 'leading', 'to', 'poor', 'generalization.', 'Underfitting', 'happens', 'when', 'a', 'model', 'is', 'too', 'simple', 'and', 'fails', 'to', 'capture', 'the', 'underlying', 'patterns', 'in', 'the', 'data.', '10.', '**Regularization**:', 'Techniques', 'to', 'prevent', 'overfitting', 'by', 'adding', 'constraints', 'to', 'the', &quot;model's&quot;, 'complexity,', 'such', 'as', 'L1', 'and', 'L2', 'regularization.', '11.', '**Ensemble', 'Methods**:', 'Combining', 'multiple', 'models', 'to', 'improve', 'overall', 'performance.', 'Techniques', 'like', 'bagging,', 'boosting,', 'and', 'stacking', 'are', 'widely', 'used.', '12.', '**Deep', 'Learning**:', 'A', 'subset', 'of', 'machine', 'learning', 'that', 'uses', 'neural', 'networks', 'with', 'many', 'layers', 'to', 'learn', 'hierarchical', 'representations', 'of', 'data.', 'Deep', 'learning', 'has', 'achieved', 'state-of-the-art', 'results', 'in', 'many', 'domains,', 'including', 'computer', 'vision,', 'natural', 'language', 'processing,', 'and', 'speech', 'recognition.', '###', 'Types', 'of', 'Machine', 'Learning', '1.', '**Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'labeled', 'data,', 'where', 'the', 'correct', 'output', 'is', 'provided.', 'Examples', 'include', 'linear', 'regression,', 'logistic', 'regression,', 'support', 'vector', 'machines,', 'and', 'neural', 'networks.', '2.', '**Unsupervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'unlabeled', 'data,', 'where', 'the', 'goal', 'is', 'to', 'discover', 'hidden', 'patterns', 'or', 'groupings.', 'Examples', 'include', 'clustering', '(k-means,', 'hierarchical', 'clustering)', 'and', 'dimensionality', 'reduction', '(PCA,', 't-SNE).', '3.', '**Reinforcement', 'Learning**:', 'Models', 'learn', 'to', 'make', 'decisions', 'in', 'an', 'environment', 'by', 'receiving', 'rewards', 'or', 'penalties.', 'The', 'goal', 'is', 'to', 'maximize', 'cumulative', 'reward.', 'Examples', 'include', 'Q-learning,', 'policy', 'gradients,', 'and', 'deep', 'reinforcement', 'learning.', '4.', '**Semi-Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'a', 'combination', 'of', 'labeled', 'and', 'unlabeled', 'data.', 'This', 'can', 'be', 'useful', 'when', 'labeled', 'data', 'is', 'scarce', 'or', 'expensive', 'to', 'obtain.', '###', 'Applications', 'of', 'Machine', 'Learning', '1.', '**Computer', 'Vision**:', 'Image', 'classification,', 'object', 'detection,', 'facial', 'recognition,', 'and', 'more.', '2.', '**Natural', 'Language', 'Processing', '(NLP)**:', 'Sentiment', 'analysis,', 'text', 'summarization,', 'machine', 'translation,', 'and', 'more.', '3.', '**Healthcare**:', 'Disease', 'diagnosis,', 'drug', 'discovery,', 'patient', 'monitoring,', 'and', 'more.', '4.', '**Finance**:', 'Fraud', 'detection,', 'risk', 'assessment,', 'algorithmic', 'trading,', 'and', 'more.', '5.', '**Autonomous', 'Vehicles**:', 'Object', 'detection,', 'lane', 'detection,', 'and', 'path', 'planning.', '6.', '**Recommendation', 'Systems**:', 'Personalized', 'recommendations', 'for', 'products,', 'movies,', 'and', 'more.', '7.', '**Robotics**:', 'Motion', 'planning,', 'object', 'manipulation,', 'and', 'more.', '###', 'Challenges', 'in', 'Machine', 'Learning', '1.', '**Data', 'Quality**:', 'Ensuring', 'that', 'the', 'data', 'is', 'clean,', 'relevant,', 'and', 'representative', 'of', 'the', 'problem', 'domain.', '2.', '**Computational', 'Resources**:', 'Training', 'complex', 'models', 'can', 'be', 'computationally', 'expensive', 'and', 'time-consuming.', '3.', '**Interpretability**:', 'Understanding', 'how', 'a', 'model', 'makes', 'decisions', 'can', 'be', 'challenging,', 'especially', 'in', 'complex', 'models', 'like', 'deep', 'neural', 'networks.', '4.', '**Ethical', 'Considerations**:', 'Ensuring', 'that', 'models', 'are', 'fair,', 'unbiased,', 'and', 'do', 'not', 'perpetuate', 'harmful', 'stereotypes.', '###', 'Future', 'Trends', 'in', 'Machine', 'Learning', '1.', '**Explainable', 'AI', '(XAI)**:', 'Developing', 'methods', 'to', 'make', 'machine', 'learning', 'models', 'more', 'transparent', 'and', 'interpretable.', '2.', '**AutoML**:', 'Automating', 'the', 'process', 'of', 'building', 'machine', 'learning', 'models,', 'including', 'data', 'preprocessing,', 'model', 'selection,', 'and', 'hyperparameter', 'tuning.', '3.', '**Edge', 'Computing**:', 'Deploying', 'machine', 'learning', 'models', 'on', 'devices', 'at', 'the', 'edge', 'of', 'the', 'network', 'to', 'reduce', 'latency', 'and', 'improve', 'performance.', '4.', '**Quantum', 'Machine', 'Learning**:', 'Exploring', 'the', 'potential', 'of', 'quantum', 'computing', 'to', 'enhance', 'machine', 'learning', 'algorithms.', 'In', 'conclusion,', 'machine', 'learning', 'is', 'a', 'powerful', 'tool', 'for', 'solving', 'a', 'wide', 'range', 'of', 'problems,', 'from', 'simple', 'regression', 'tasks', 'to', 'complex', 'decision-making', 'processes.', 'However,', 'it', 'requires', 'careful', 'consideration', 'of', 'data,', 'model', 'selection,', 'and', 'evaluation', 'to', 'achieve', 'optimal', 'results.', 'As', 'the', 'field', 'continues', 'to', 'evolve,', 'we', 'can', 'expect', 'to', 'see', 'more', 'sophisticated', 'and', 'interpretable', 'models', 'that', 'can', 'address', 'the', 'challenges', 'of', 'the', 'modern', 'world.'])&#10; +    where ['Machine', 'learning', 'is', 'a', 'subset', 'of', 'artificial', 'intelligence', 'that', 'focuses', 'on', 'developing', 'algorithms', 'and', 'statistical', 'models', 'that', 'enable', 'computer', 'systems', 'to', 'improve', 'their', 'performance', 'on', 'a', 'specific', 'task', 'through', 'experience.', 'This', 'process', 'of', 'learning', 'from', 'data', 'is', 'crucial', 'for', 'building', 'intelligent', 'systems', 'that', 'can', 'adapt', 'and', 'make', 'decisions', 'without', 'explicit', 'programming.', '###', 'Key', 'Concepts', 'in', 'Machine', 'Learning', '1.', '**Data**:', 'The', 'foundation', 'of', 'machine', 'learning', 'is', 'data.', 'Data', 'can', 'be', 'structured', '(like', 'in', 'databases)', 'or', 'unstructured', '(like', 'text,', 'images,', 'and', 'audio).', 'The', 'quality,', 'quantity,', 'and', 'relevance', 'of', 'the', 'data', 'are', 'critical', 'for', 'the', 'success', 'of', 'a', 'machine', 'learning', 'project.', '2.', '**Features**:', 'Features', 'are', 'the', 'input', 'variables', 'used', 'to', 'train', 'a', 'machine', 'learning', 'model.', 'They', 'can', 'be', 'numerical,', 'categorical,', 'or', 'even', 'derived', 'from', 'the', 'data', '(e.g.,', 'through', 'text', 'processing', 'or', 'image', 'analysis).', '3.', '**Labels**:', 'In', 'supervised', 'learning,', 'labels', 'are', 'the', 'output', 'variables', 'that', 'the', 'model', 'tries', 'to', 'predict.', 'Labels', 'can', 'be', 'continuous', '(regression)', 'or', 'categorical', '(classification).', '4.', '**Training**:', 'The', 'process', 'of', 'teaching', 'a', 'machine', 'learning', 'model', 'to', 'recognize', 'patterns', 'in', 'data.', 'This', 'involves', 'presenting', 'the', 'model', 'with', 'labeled', 'examples', 'and', 'adjusting', 'its', 'parameters', 'to', 'minimize', 'prediction', 'errors.', '5.', '**Validation**:', 'Ensuring', 'that', 'the', 'model', 'generalizes', 'well', 'to', 'unseen', 'data.', 'This', 'is', 'typically', 'done', 'by', 'splitting', 'the', 'data', 'into', 'training', 'and', 'validation', 'sets,', 'or', 'using', 'techniques', 'like', 'cross-validation.', '6.', '**Testing**:', 'Evaluating', 'the', 'final', 'performance', 'of', 'the', 'model', 'on', 'a', 'completely', 'separate', 'dataset', 'that', 'was', 'not', 'used', 'during', 'training', 'or', 'validation.', '7.', '**Model', 'Evaluation', 'Metrics**:', 'Various', 'metrics', 'are', 'used', 'to', 'evaluate', 'the', 'performance', 'of', 'a', 'machine', 'learning', 'model,', 'such', 'as', 'accuracy,', 'precision,', 'recall,', 'F1', 'score,', 'ROC-AUC,', 'etc.', '8.', '**Bias', 'and', 'Variance**:', 'Bias', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'approximating', 'a', 'real-world', 'problem,', 'which', 'may', 'be', 'complex,', 'with', 'a', 'simplified', 'model.', 'Variance', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'the', &quot;model's&quot;, 'sensitivity', 'to', 'small', 'fluctuations', 'in', 'the', 'training', 'data.', 'Balancing', 'bias', 'and', 'variance', 'is', 'crucial', 'for', 'building', 'robust', 'models.', '9.', '**Overfitting', 'and', 'Underfitting**:', 'Overfitting', 'occurs', 'when', 'a', 'model', 'is', 'too', 'complex', 'and', 'captures', 'noise', 'in', 'the', 'training', 'data,', 'leading', 'to', 'poor', 'generalization.', 'Underfitting', 'happens', 'when', 'a', 'model', 'is', 'too', 'simple', 'and', 'fails', 'to', 'capture', 'the', 'underlying', 'patterns', 'in', 'the', 'data.', '10.', '**Regularization**:', 'Techniques', 'to', 'prevent', 'overfitting', 'by', 'adding', 'constraints', 'to', 'the', &quot;model's&quot;, 'complexity,', 'such', 'as', 'L1', 'and', 'L2', 'regularization.', '11.', '**Ensemble', 'Methods**:', 'Combining', 'multiple', 'models', 'to', 'improve', 'overall', 'performance.', 'Techniques', 'like', 'bagging,', 'boosting,', 'and', 'stacking', 'are', 'widely', 'used.', '12.', '**Deep', 'Learning**:', 'A', 'subset', 'of', 'machine', 'learning', 'that', 'uses', 'neural', 'networks', 'with', 'many', 'layers', 'to', 'learn', 'hierarchical', 'representations', 'of', 'data.', 'Deep', 'learning', 'has', 'achieved', 'state-of-the-art', 'results', 'in', 'many', 'domains,', 'including', 'computer', 'vision,', 'natural', 'language', 'processing,', 'and', 'speech', 'recognition.', '###', 'Types', 'of', 'Machine', 'Learning', '1.', '**Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'labeled', 'data,', 'where', 'the', 'correct', 'output', 'is', 'provided.', 'Examples', 'include', 'linear', 'regression,', 'logistic', 'regression,', 'support', 'vector', 'machines,', 'and', 'neural', 'networks.', '2.', '**Unsupervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'unlabeled', 'data,', 'where', 'the', 'goal', 'is', 'to', 'discover', 'hidden', 'patterns', 'or', 'groupings.', 'Examples', 'include', 'clustering', '(k-means,', 'hierarchical', 'clustering)', 'and', 'dimensionality', 'reduction', '(PCA,', 't-SNE).', '3.', '**Reinforcement', 'Learning**:', 'Models', 'learn', 'to', 'make', 'decisions', 'in', 'an', 'environment', 'by', 'receiving', 'rewards', 'or', 'penalties.', 'The', 'goal', 'is', 'to', 'maximize', 'cumulative', 'reward.', 'Examples', 'include', 'Q-learning,', 'policy', 'gradients,', 'and', 'deep', 'reinforcement', 'learning.', '4.', '**Semi-Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'a', 'combination', 'of', 'labeled', 'and', 'unlabeled', 'data.', 'This', 'can', 'be', 'useful', 'when', 'labeled', 'data', 'is', 'scarce', 'or', 'expensive', 'to', 'obtain.', '###', 'Applications', 'of', 'Machine', 'Learning', '1.', '**Computer', 'Vision**:', 'Image', 'classification,', 'object', 'detection,', 'facial', 'recognition,', 'and', 'more.', '2.', '**Natural', 'Language', 'Processing', '(NLP)**:', 'Sentiment', 'analysis,', 'text', 'summarization,', 'machine', 'translation,', 'and', 'more.', '3.', '**Healthcare**:', 'Disease', 'diagnosis,', 'drug', 'discovery,', 'patient', 'monitoring,', 'and', 'more.', '4.', '**Finance**:', 'Fraud', 'detection,', 'risk', 'assessment,', 'algorithmic', 'trading,', 'and', 'more.', '5.', '**Autonomous', 'Vehicles**:', 'Object', 'detection,', 'lane', 'detection,', 'and', 'path', 'planning.', '6.', '**Recommendation', 'Systems**:', 'Personalized', 'recommendations', 'for', 'products,', 'movies,', 'and', 'more.', '7.', '**Robotics**:', 'Motion', 'planning,', 'object', 'manipulation,', 'and', 'more.', '###', 'Challenges', 'in', 'Machine', 'Learning', '1.', '**Data', 'Quality**:', 'Ensuring', 'that', 'the', 'data', 'is', 'clean,', 'relevant,', 'and', 'representative', 'of', 'the', 'problem', 'domain.', '2.', '**Computational', 'Resources**:', 'Training', 'complex', 'models', 'can', 'be', 'computationally', 'expensive', 'and', 'time-consuming.', '3.', '**Interpretability**:', 'Understanding', 'how', 'a', 'model', 'makes', 'decisions', 'can', 'be', 'challenging,', 'especially', 'in', 'complex', 'models', 'like', 'deep', 'neural', 'networks.', '4.', '**Ethical', 'Considerations**:', 'Ensuring', 'that', 'models', 'are', 'fair,', 'unbiased,', 'and', 'do', 'not', 'perpetuate', 'harmful', 'stereotypes.', '###', 'Future', 'Trends', 'in', 'Machine', 'Learning', '1.', '**Explainable', 'AI', '(XAI)**:', 'Developing', 'methods', 'to', 'make', 'machine', 'learning', 'models', 'more', 'transparent', 'and', 'interpretable.', '2.', '**AutoML**:', 'Automating', 'the', 'process', 'of', 'building', 'machine', 'learning', 'models,', 'including', 'data', 'preprocessing,', 'model', 'selection,', 'and', 'hyperparameter', 'tuning.', '3.', '**Edge', 'Computing**:', 'Deploying', 'machine', 'learning', 'models', 'on', 'devices', 'at', 'the', 'edge', 'of', 'the', 'network', 'to', 'reduce', 'latency', 'and', 'improve', 'performance.', '4.', '**Quantum', 'Machine', 'Learning**:', 'Exploring', 'the', 'potential', 'of', 'quantum', 'computing', 'to', 'enhance', 'machine', 'learning', 'algorithms.', 'In', 'conclusion,', 'machine', 'learning', 'is', 'a', 'powerful', 'tool', 'for', 'solving', 'a', 'wide', 'range', 'of', 'problems,', 'from', 'simple', 'regression', 'tasks', 'to', 'complex', 'decision-making', 'processes.', 'However,', 'it', 'requires', 'careful', 'consideration', 'of', 'data,', 'model', 'selection,', 'and', 'evaluation', 'to', 'achieve', 'optimal', 'results.', 'As', 'the', 'field', 'continues', 'to', 'evolve,', 'we', 'can', 'expect', 'to', 'see', 'more', 'sophisticated', 'and', 'interpretable', 'models', 'that', 'can', 'address', 'the', 'challenges', 'of', 'the', 'modern', 'world.'] = &lt;built-in method split of str object at 0x5ff4cd7c0f10&gt;()&#10; +      where &lt;built-in method split of str object at 0x5ff4cd7c0f10&gt; = &quot;Machine learning is a subset of artificial intelligence that focuses on developing algorithms and statistical models that enable computer systems to improve their performance on a specific task through experience. This process of learning from data is crucial for building intelligent systems that can adapt and make decisions without explicit programming.\n\n### Key Concepts in Machine Learning\n\n1. **Data**: The foundation of machine learning is data. Data can be structured (like in databases) or unstructured (like text, images, and audio). The quality, quantity, and relevance of the data are critical for the success of a machine learning project.\n\n2. **Features**: Features are the input variables used to train a machine learning model. They can be numerical, categorical, or even derived from the data (e.g., through text processing or image analysis).\n\n3. **Labels**: In supervised learning, labels are the output variables that the model tries to predict. Labels can be continuous (regression) or categorical (classification).\n\n4. **Training**: The process of teaching a machine learning model to recognize patterns in data. This involves presenting the model with labeled examples and adjusting its parameters to minimize prediction errors.\n\n5. **Validation**: Ensuring that the model generalizes well to unseen data. This is typically done by splitting the data into training and validation sets, or using techniques like cross-validation.\n\n6. **Testing**: Evaluating the final performance of the model on a completely separate dataset that was not used during training or validation.\n\n7. **Model Evaluation Metrics**: Various metrics are used to evaluate the performance of a machine learning model, such as accuracy, precision, recall, F1 score, ROC-AUC, etc.\n\n8. **Bias and Variance**: Bias refers to the error introduced by approximating a real-world problem, which may be complex, with a simplified model. Variance refers to the error introduced by the model's sensitivity to small fluctuations in the training data. Balancing bias and variance is crucial for building robust models.\n\n9. **Overfitting and Underfitting**: Overfitting occurs when a model is too complex and captures noise in the training data, leading to poor generalization. Underfitting happens when a model is too simple and fails to capture the underlying patterns in the data.\n\n10. **Regularization**: Techniques to prevent overfitting by adding constraints to the model's complexity, such as L1 and L2 regularization.\n\n11. **Ensemble Methods**: Combining multiple models to improve overall performance. Techniques like bagging, boosting, and stacking are widely used.\n\n12. **Deep Learning**: A subset of machine learning that uses neural networks with many layers to learn hierarchical representations of data. Deep learning has achieved state-of-the-art results in many domains, including computer vision, natural language processing, and speech recognition.\n\n### Types of Machine Learning\n\n1. **Supervised Learning**: Models are trained on labeled data, where the correct output is provided. Examples include linear regression, logistic regression, support vector machines, and neural networks.\n\n2. **Unsupervised Learning**: Models are trained on unlabeled data, where the goal is to discover hidden patterns or groupings. Examples include clustering (k-means, hierarchical clustering) and dimensionality reduction (PCA, t-SNE).\n\n3. **Reinforcement Learning**: Models learn to make decisions in an environment by receiving rewards or penalties. The goal is to maximize cumulative reward. Examples include Q-learning, policy gradients, and deep reinforcement learning.\n\n4. **Semi-Supervised Learning**: Models are trained on a combination of labeled and unlabeled data. This can be useful when labeled data is scarce or expensive to obtain.\n\n### Applications of Machine Learning\n\n1. **Computer Vision**: Image classification, object detection, facial recognition, and more.\n2. **Natural Language Processing (NLP)**: Sentiment analysis, text summarization, machine translation, and more.\n3. **Healthcare**: Disease diagnosis, drug discovery, patient monitoring, and more.\n4. **Finance**: Fraud detection, risk assessment, algorithmic trading, and more.\n5. **Autonomous Vehicles**: Object detection, lane detection, and path planning.\n6. **Recommendation Systems**: Personalized recommendations for products, movies, and more.\n7. **Robotics**: Motion planning, object manipulation, and more.\n\n### Challenges in Machine Learning\n\n1. **Data Quality**: Ensuring that the data is clean, relevant, and representative of the problem domain.\n2. **Computational Resources**: Training complex models can be computationally expensive and time-consuming.\n3. **Interpretability**: Understanding how a model makes decisions can be challenging, especially in complex models like deep neural networks.\n4. **Ethical Considerations**: Ensuring that models are fair, unbiased, and do not perpetuate harmful stereotypes.\n\n### Future Trends in Machine Learning\n\n1. **Explainable AI (XAI)**: Developing methods to make machine learning models more transparent and interpretable.\n2. **AutoML**: Automating the process of building machine learning models, including data preprocessing, model selection, and hyperparameter tuning.\n3. **Edge Computing**: Deploying machine learning models on devices at the edge of the network to reduce latency and improve performance.\n4. **Quantum Machine Learning**: Exploring the potential of quantum computing to enhance machine learning algorithms.\n\nIn conclusion, machine learning is a powerful tool for solving a wide range of problems, from simple regression tasks to complex decision-making processes. However, it requires careful consideration of data, model selection, and evaluation to achieve optimal results. As the field continues to evolve, we can expect to see more sophisticated and interpretable models that can address the challenges of the modern world.&quot;.split">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_langgraph.py:195: in test_langgraph_max_tokens
-    ???
-E   assert 833 &lt; 20
-E    +  where 833 = len(['Machine', 'learning', 'is', 'a', 'subset', 'of', 'artificial', 'intelligence', 'that', 'focuses', 'on', 'developing', 'algorithms', 'and', 'statistical', 'models', 'that', 'enable', 'computer', 'systems', 'to', 'improve', 'their', 'performance', 'on', 'a', 'specific', 'task', 'through', 'experience.', 'This', 'process', 'of', 'learning', 'from', 'data', 'is', 'crucial', 'for', 'building', 'intelligent', 'systems', 'that', 'can', 'adapt', 'and', 'make', 'decisions', 'without', 'explicit', 'programming.', '###', 'Key', 'Concepts', 'in', 'Machine', 'Learning', '1.', '**Data**:', 'The', 'foundation', 'of', 'machine', 'learning', 'is', 'data.', 'Data', 'can', 'be', 'structured', '(like', 'in', 'databases)', 'or', 'unstructured', '(like', 'text,', 'images,', 'and', 'audio).', 'The', 'quality,', 'quantity,', 'and', 'relevance', 'of', 'the', 'data', 'are', 'critical', 'for', 'the', 'success', 'of', 'a', 'machine', 'learning', 'project.', '2.', '**Features**:', 'Features', 'are', 'the', 'input', 'variables', 'used', 'to', 'train', 'a', 'machine', 'learning', 'model.', 'They', 'can', 'be', 'numerical,', 'categorical,', 'or', 'even', 'derived', 'from', 'the', 'data', '(e.g.,', 'through', 'text', 'processing', 'or', 'image', 'analysis).', '3.', '**Labels**:', 'In', 'supervised', 'learning,', 'labels', 'are', 'the', 'output', 'variables', 'that', 'the', 'model', 'tries', 'to', 'predict.', 'Labels', 'can', 'be', 'continuous', '(regression)', 'or', 'categorical', '(classification).', '4.', '**Training**:', 'The', 'process', 'of', 'teaching', 'a', 'machine', 'learning', 'model', 'to', 'recognize', 'patterns', 'in', 'data.', 'This', 'involves', 'presenting', 'the', 'model', 'with', 'labeled', 'examples', 'and', 'adjusting', 'its', 'parameters', 'to', 'minimize', 'prediction', 'errors.', '5.', '**Validation**:', 'Ensuring', 'that', 'the', 'model', 'generalizes', 'well', 'to', 'unseen', 'data.', 'This', 'is', 'typically', 'done', 'by', 'splitting', 'the', 'data', 'into', 'training', 'and', 'validation', 'sets,', 'or', 'using', 'techniques', 'like', 'cross-validation.', '6.', '**Testing**:', 'Evaluating', 'the', 'final', 'performance', 'of', 'the', 'model', 'on', 'a', 'completely', 'separate', 'dataset', 'that', 'was', 'not', 'used', 'during', 'training', 'or', 'validation.', '7.', '**Model', 'Evaluation', 'Metrics**:', 'Various', 'metrics', 'are', 'used', 'to', 'evaluate', 'the', 'performance', 'of', 'a', 'machine', 'learning', 'model,', 'such', 'as', 'accuracy,', 'precision,', 'recall,', 'F1', 'score,', 'ROC-AUC,', 'etc.', '8.', '**Bias', 'and', 'Variance**:', 'Bias', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'approximating', 'a', 'real-world', 'problem,', 'which', 'may', 'be', 'complex,', 'with', 'a', 'simplified', 'model.', 'Variance', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'the', "model's", 'sensitivity', 'to', 'small', 'fluctuations', 'in', 'the', 'training', 'data.', 'Balancing', 'bias', 'and', 'variance', 'is', 'crucial', 'for', 'building', 'robust', 'models.', '9.', '**Overfitting', 'and', 'Underfitting**:', 'Overfitting', 'occurs', 'when', 'a', 'model', 'is', 'too', 'complex', 'and', 'captures', 'noise', 'in', 'the', 'training', 'data,', 'leading', 'to', 'poor', 'generalization.', 'Underfitting', 'happens', 'when', 'a', 'model', 'is', 'too', 'simple', 'and', 'fails', 'to', 'capture', 'the', 'underlying', 'patterns', 'in', 'the', 'data.', '10.', '**Regularization**:', 'Techniques', 'to', 'prevent', 'overfitting', 'by', 'adding', 'constraints', 'to', 'the', "model's", 'complexity,', 'such', 'as', 'L1', 'and', 'L2', 'regularization.', '11.', '**Ensemble', 'Methods**:', 'Combining', 'multiple', 'models', 'to', 'improve', 'overall', 'performance.', 'Techniques', 'like', 'bagging,', 'boosting,', 'and', 'stacking', 'are', 'widely', 'used.', '12.', '**Deep', 'Learning**:', 'A', 'subset', 'of', 'machine', 'learning', 'that', 'uses', 'neural', 'networks', 'with', 'many', 'layers', 'to', 'learn', 'hierarchical', 'representations', 'of', 'data.', 'Deep', 'learning', 'has', 'achieved', 'state-of-the-art', 'results', 'in', 'many', 'domains,', 'including', 'computer', 'vision,', 'natural', 'language', 'processing,', 'and', 'speech', 'recognition.', '###', 'Types', 'of', 'Machine', 'Learning', '1.', '**Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'labeled', 'data,', 'where', 'the', 'correct', 'output', 'is', 'provided.', 'Examples', 'include', 'linear', 'regression,', 'logistic', 'regression,', 'support', 'vector', 'machines,', 'and', 'neural', 'networks.', '2.', '**Unsupervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'unlabeled', 'data,', 'where', 'the', 'goal', 'is', 'to', 'discover', 'hidden', 'patterns', 'or', 'groupings.', 'Examples', 'include', 'clustering', '(k-means,', 'hierarchical', 'clustering)', 'and', 'dimensionality', 'reduction', '(PCA,', 't-SNE).', '3.', '**Reinforcement', 'Learning**:', 'Models', 'learn', 'to', 'make', 'decisions', 'in', 'an', 'environment', 'by', 'receiving', 'rewards', 'or', 'penalties.', 'The', 'goal', 'is', 'to', 'maximize', 'cumulative', 'reward.', 'Examples', 'include', 'Q-learning,', 'policy', 'gradients,', 'and', 'deep', 'reinforcement', 'learning.', '4.', '**Semi-Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'a', 'combination', 'of', 'labeled', 'and', 'unlabeled', 'data.', 'This', 'can', 'be', 'useful', 'when', 'labeled', 'data', 'is', 'scarce', 'or', 'expensive', 'to', 'obtain.', '###', 'Applications', 'of', 'Machine', 'Learning', '1.', '**Computer', 'Vision**:', 'Image', 'classification,', 'object', 'detection,', 'facial', 'recognition,', 'and', 'more.', '2.', '**Natural', 'Language', 'Processing', '(NLP)**:', 'Sentiment', 'analysis,', 'text', 'summarization,', 'machine', 'translation,', 'and', 'more.', '3.', '**Healthcare**:', 'Disease', 'diagnosis,', 'drug', 'discovery,', 'patient', 'monitoring,', 'and', 'more.', '4.', '**Finance**:', 'Fraud', 'detection,', 'risk', 'assessment,', 'algorithmic', 'trading,', 'and', 'more.', '5.', '**Autonomous', 'Vehicles**:', 'Object', 'detection,', 'lane', 'detection,', 'and', 'path', 'planning.', '6.', '**Recommendation', 'Systems**:', 'Personalized', 'recommendations', 'for', 'products,', 'movies,', 'and', 'more.', '7.', '**Robotics**:', 'Motion', 'planning,', 'object', 'manipulation,', 'and', 'more.', '###', 'Challenges', 'in', 'Machine', 'Learning', '1.', '**Data', 'Quality**:', 'Ensuring', 'that', 'the', 'data', 'is', 'clean,', 'relevant,', 'and', 'representative', 'of', 'the', 'problem', 'domain.', '2.', '**Computational', 'Resources**:', 'Training', 'complex', 'models', 'can', 'be', 'computationally', 'expensive', 'and', 'time-consuming.', '3.', '**Interpretability**:', 'Understanding', 'how', 'a', 'model', 'makes', 'decisions', 'can', 'be', 'challenging,', 'especially', 'in', 'complex', 'models', 'like', 'deep', 'neural', 'networks.', '4.', '**Ethical', 'Considerations**:', 'Ensuring', 'that', 'models', 'are', 'fair,', 'unbiased,', 'and', 'do', 'not', 'perpetuate', 'harmful', 'stereotypes.', '###', 'Future', 'Trends', 'in', 'Machine', 'Learning', '1.', '**Explainable', 'AI', '(XAI)**:', 'Developing', 'methods', 'to', 'make', 'machine', 'learning', 'models', 'more', 'transparent', 'and', 'interpretable.', '2.', '**AutoML**:', 'Automating', 'the', 'process', 'of', 'building', 'machine', 'learning', 'models,', 'including', 'data', 'preprocessing,', 'model', 'selection,', 'and', 'hyperparameter', 'tuning.', '3.', '**Edge', 'Computing**:', 'Deploying', 'machine', 'learning', 'models', 'on', 'devices', 'at', 'the', 'edge', 'of', 'the', 'network', 'to', 'reduce', 'latency', 'and', 'improve', 'performance.', '4.', '**Quantum', 'Machine', 'Learning**:', 'Exploring', 'the', 'potential', 'of', 'quantum', 'computing', 'to', 'enhance', 'machine', 'learning', 'algorithms.', 'In', 'conclusion,', 'machine', 'learning', 'is', 'a', 'powerful', 'tool', 'for', 'solving', 'a', 'wide', 'range', 'of', 'problems,', 'from', 'simple', 'regression', 'tasks', 'to', 'complex', 'decision-making', 'processes.', 'However,', 'it', 'requires', 'careful', 'consideration', 'of', 'data,', 'model', 'selection,', 'and', 'evaluation', 'to', 'achieve', 'optimal', 'results.', 'As', 'the', 'field', 'continues', 'to', 'evolve,', 'we', 'can', 'expect', 'to', 'see', 'more', 'sophisticated', 'and', 'interpretable', 'models', 'that', 'can', 'address', 'the', 'challenges', 'of', 'the', 'modern', 'world.'])
-E    +    where ['Machine', 'learning', 'is', 'a', 'subset', 'of', 'artificial', 'intelligence', 'that', 'focuses', 'on', 'developing', 'algorithms', 'and', 'statistical', 'models', 'that', 'enable', 'computer', 'systems', 'to', 'improve', 'their', 'performance', 'on', 'a', 'specific', 'task', 'through', 'experience.', 'This', 'process', 'of', 'learning', 'from', 'data', 'is', 'crucial', 'for', 'building', 'intelligent', 'systems', 'that', 'can', 'adapt', 'and', 'make', 'decisions', 'without', 'explicit', 'programming.', '###', 'Key', 'Concepts', 'in', 'Machine', 'Learning', '1.', '**Data**:', 'The', 'foundation', 'of', 'machine', 'learning', 'is', 'data.', 'Data', 'can', 'be', 'structured', '(like', 'in', 'databases)', 'or', 'unstructured', '(like', 'text,', 'images,', 'and', 'audio).', 'The', 'quality,', 'quantity,', 'and', 'relevance', 'of', 'the', 'data', 'are', 'critical', 'for', 'the', 'success', 'of', 'a', 'machine', 'learning', 'project.', '2.', '**Features**:', 'Features', 'are', 'the', 'input', 'variables', 'used', 'to', 'train', 'a', 'machine', 'learning', 'model.', 'They', 'can', 'be', 'numerical,', 'categorical,', 'or', 'even', 'derived', 'from', 'the', 'data', '(e.g.,', 'through', 'text', 'processing', 'or', 'image', 'analysis).', '3.', '**Labels**:', 'In', 'supervised', 'learning,', 'labels', 'are', 'the', 'output', 'variables', 'that', 'the', 'model', 'tries', 'to', 'predict.', 'Labels', 'can', 'be', 'continuous', '(regression)', 'or', 'categorical', '(classification).', '4.', '**Training**:', 'The', 'process', 'of', 'teaching', 'a', 'machine', 'learning', 'model', 'to', 'recognize', 'patterns', 'in', 'data.', 'This', 'involves', 'presenting', 'the', 'model', 'with', 'labeled', 'examples', 'and', 'adjusting', 'its', 'parameters', 'to', 'minimize', 'prediction', 'errors.', '5.', '**Validation**:', 'Ensuring', 'that', 'the', 'model', 'generalizes', 'well', 'to', 'unseen', 'data.', 'This', 'is', 'typically', 'done', 'by', 'splitting', 'the', 'data', 'into', 'training', 'and', 'validation', 'sets,', 'or', 'using', 'techniques', 'like', 'cross-validation.', '6.', '**Testing**:', 'Evaluating', 'the', 'final', 'performance', 'of', 'the', 'model', 'on', 'a', 'completely', 'separate', 'dataset', 'that', 'was', 'not', 'used', 'during', 'training', 'or', 'validation.', '7.', '**Model', 'Evaluation', 'Metrics**:', 'Various', 'metrics', 'are', 'used', 'to', 'evaluate', 'the', 'performance', 'of', 'a', 'machine', 'learning', 'model,', 'such', 'as', 'accuracy,', 'precision,', 'recall,', 'F1', 'score,', 'ROC-AUC,', 'etc.', '8.', '**Bias', 'and', 'Variance**:', 'Bias', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'approximating', 'a', 'real-world', 'problem,', 'which', 'may', 'be', 'complex,', 'with', 'a', 'simplified', 'model.', 'Variance', 'refers', 'to', 'the', 'error', 'introduced', 'by', 'the', "model's", 'sensitivity', 'to', 'small', 'fluctuations', 'in', 'the', 'training', 'data.', 'Balancing', 'bias', 'and', 'variance', 'is', 'crucial', 'for', 'building', 'robust', 'models.', '9.', '**Overfitting', 'and', 'Underfitting**:', 'Overfitting', 'occurs', 'when', 'a', 'model', 'is', 'too', 'complex', 'and', 'captures', 'noise', 'in', 'the', 'training', 'data,', 'leading', 'to', 'poor', 'generalization.', 'Underfitting', 'happens', 'when', 'a', 'model', 'is', 'too', 'simple', 'and', 'fails', 'to', 'capture', 'the', 'underlying', 'patterns', 'in', 'the', 'data.', '10.', '**Regularization**:', 'Techniques', 'to', 'prevent', 'overfitting', 'by', 'adding', 'constraints', 'to', 'the', "model's", 'complexity,', 'such', 'as', 'L1', 'and', 'L2', 'regularization.', '11.', '**Ensemble', 'Methods**:', 'Combining', 'multiple', 'models', 'to', 'improve', 'overall', 'performance.', 'Techniques', 'like', 'bagging,', 'boosting,', 'and', 'stacking', 'are', 'widely', 'used.', '12.', '**Deep', 'Learning**:', 'A', 'subset', 'of', 'machine', 'learning', 'that', 'uses', 'neural', 'networks', 'with', 'many', 'layers', 'to', 'learn', 'hierarchical', 'representations', 'of', 'data.', 'Deep', 'learning', 'has', 'achieved', 'state-of-the-art', 'results', 'in', 'many', 'domains,', 'including', 'computer', 'vision,', 'natural', 'language', 'processing,', 'and', 'speech', 'recognition.', '###', 'Types', 'of', 'Machine', 'Learning', '1.', '**Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'labeled', 'data,', 'where', 'the', 'correct', 'output', 'is', 'provided.', 'Examples', 'include', 'linear', 'regression,', 'logistic', 'regression,', 'support', 'vector', 'machines,', 'and', 'neural', 'networks.', '2.', '**Unsupervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'unlabeled', 'data,', 'where', 'the', 'goal', 'is', 'to', 'discover', 'hidden', 'patterns', 'or', 'groupings.', 'Examples', 'include', 'clustering', '(k-means,', 'hierarchical', 'clustering)', 'and', 'dimensionality', 'reduction', '(PCA,', 't-SNE).', '3.', '**Reinforcement', 'Learning**:', 'Models', 'learn', 'to', 'make', 'decisions', 'in', 'an', 'environment', 'by', 'receiving', 'rewards', 'or', 'penalties.', 'The', 'goal', 'is', 'to', 'maximize', 'cumulative', 'reward.', 'Examples', 'include', 'Q-learning,', 'policy', 'gradients,', 'and', 'deep', 'reinforcement', 'learning.', '4.', '**Semi-Supervised', 'Learning**:', 'Models', 'are', 'trained', 'on', 'a', 'combination', 'of', 'labeled', 'and', 'unlabeled', 'data.', 'This', 'can', 'be', 'useful', 'when', 'labeled', 'data', 'is', 'scarce', 'or', 'expensive', 'to', 'obtain.', '###', 'Applications', 'of', 'Machine', 'Learning', '1.', '**Computer', 'Vision**:', 'Image', 'classification,', 'object', 'detection,', 'facial', 'recognition,', 'and', 'more.', '2.', '**Natural', 'Language', 'Processing', '(NLP)**:', 'Sentiment', 'analysis,', 'text', 'summarization,', 'machine', 'translation,', 'and', 'more.', '3.', '**Healthcare**:', 'Disease', 'diagnosis,', 'drug', 'discovery,', 'patient', 'monitoring,', 'and', 'more.', '4.', '**Finance**:', 'Fraud', 'detection,', 'risk', 'assessment,', 'algorithmic', 'trading,', 'and', 'more.', '5.', '**Autonomous', 'Vehicles**:', 'Object', 'detection,', 'lane', 'detection,', 'and', 'path', 'planning.', '6.', '**Recommendation', 'Systems**:', 'Personalized', 'recommendations', 'for', 'products,', 'movies,', 'and', 'more.', '7.', '**Robotics**:', 'Motion', 'planning,', 'object', 'manipulation,', 'and', 'more.', '###', 'Challenges', 'in', 'Machine', 'Learning', '1.', '**Data', 'Quality**:', 'Ensuring', 'that', 'the', 'data', 'is', 'clean,', 'relevant,', 'and', 'representative', 'of', 'the', 'problem', 'domain.', '2.', '**Computational', 'Resources**:', 'Training', 'complex', 'models', 'can', 'be', 'computationally', 'expensive', 'and', 'time-consuming.', '3.', '**Interpretability**:', 'Understanding', 'how', 'a', 'model', 'makes', 'decisions', 'can', 'be', 'challenging,', 'especially', 'in', 'complex', 'models', 'like', 'deep', 'neural', 'networks.', '4.', '**Ethical', 'Considerations**:', 'Ensuring', 'that', 'models', 'are', 'fair,', 'unbiased,', 'and', 'do', 'not', 'perpetuate', 'harmful', 'stereotypes.', '###', 'Future', 'Trends', 'in', 'Machine', 'Learning', '1.', '**Explainable', 'AI', '(XAI)**:', 'Developing', 'methods', 'to', 'make', 'machine', 'learning', 'models', 'more', 'transparent', 'and', 'interpretable.', '2.', '**AutoML**:', 'Automating', 'the', 'process', 'of', 'building', 'machine', 'learning', 'models,', 'including', 'data', 'preprocessing,', 'model', 'selection,', 'and', 'hyperparameter', 'tuning.', '3.', '**Edge', 'Computing**:', 'Deploying', 'machine', 'learning', 'models', 'on', 'devices', 'at', 'the', 'edge', 'of', 'the', 'network', 'to', 'reduce', 'latency', 'and', 'improve', 'performance.', '4.', '**Quantum', 'Machine', 'Learning**:', 'Exploring', 'the', 'potential', 'of', 'quantum', 'computing', 'to', 'enhance', 'machine', 'learning', 'algorithms.', 'In', 'conclusion,', 'machine', 'learning', 'is', 'a', 'powerful', 'tool', 'for', 'solving', 'a', 'wide', 'range', 'of', 'problems,', 'from', 'simple', 'regression', 'tasks', 'to', 'complex', 'decision-making', 'processes.', 'However,', 'it', 'requires', 'careful', 'consideration', 'of', 'data,', 'model', 'selection,', 'and', 'evaluation', 'to', 'achieve', 'optimal', 'results.', 'As', 'the', 'field', 'continues', 'to', 'evolve,', 'we', 'can', 'expect', 'to', 'see', 'more', 'sophisticated', 'and', 'interpretable', 'models', 'that', 'can', 'address', 'the', 'challenges', 'of', 'the', 'modern', 'world.'] = &lt;built-in method split of str object at 0x5ff4cd7c0f10&gt;()
-E    +      where &lt;built-in method split of str object at 0x5ff4cd7c0f10&gt; = "Machine learning is a subset of artificial intelligence that focuses on developing algorithms and statistical models that enable computer systems to improve their performance on a specific task through experience. This process of learning from data is crucial for building intelligent systems that can adapt and make decisions without explicit programming.\n\n### Key Concepts in Machine Learning\n\n1. **Data**: The foundation of machine learning is data. Data can be structured (like in databases) or unstructured (like text, images, and audio). The quality, quantity, and relevance of the data are critical for the success of a machine learning project.\n\n2. **Features**: Features are the input variables used to train a machine learning model. They can be numerical, categorical, or even derived from the data (e.g., through text processing or image analysis).\n\n3. **Labels**: In supervised learning, labels are the output variables that the model tries to predict. Labels can be continuous (regression) or categorical (classification).\n\n4. **Training**: The process of teaching a machine learning model to recognize patterns in data. This involves presenting the model with labeled examples and adjusting its parameters to minimize prediction errors.\n\n5. **Validation**: Ensuring that the model generalizes well to unseen data. This is typically done by splitting the data into training and validation sets, or using techniques like cross-validation.\n\n6. **Testing**: Evaluating the final performance of the model on a completely separate dataset that was not used during training or validation.\n\n7. **Model Evaluation Metrics**: Various metrics are used to evaluate the performance of a machine learning model, such as accuracy, precision, recall, F1 score, ROC-AUC, etc.\n\n8. **Bias and Variance**: Bias refers to the error introduced by approximating a real-world problem, which may be complex, with a simplified model. Variance refers to the error introduced by the model's sensitivity to small fluctuations in the training data. Balancing bias and variance is crucial for building robust models.\n\n9. **Overfitting and Underfitting**: Overfitting occurs when a model is too complex and captures noise in the training data, leading to poor generalization. Underfitting happens when a model is too simple and fails to capture the underlying patterns in the data.\n\n10. **Regularization**: Techniques to prevent overfitting by adding constraints to the model's complexity, such as L1 and L2 regularization.\n\n11. **Ensemble Methods**: Combining multiple models to improve overall performance. Techniques like bagging, boosting, and stacking are widely used.\n\n12. **Deep Learning**: A subset of machine learning that uses neural networks with many layers to learn hierarchical representations of data. Deep learning has achieved state-of-the-art results in many domains, including computer vision, natural language processing, and speech recognition.\n\n### Types of Machine Learning\n\n1. **Supervised Learning**: Models are trained on labeled data, where the correct output is provided. Examples include linear regression, logistic regression, support vector machines, and neural networks.\n\n2. **Unsupervised Learning**: Models are trained on unlabeled data, where the goal is to discover hidden patterns or groupings. Examples include clustering (k-means, hierarchical clustering) and dimensionality reduction (PCA, t-SNE).\n\n3. **Reinforcement Learning**: Models learn to make decisions in an environment by receiving rewards or penalties. The goal is to maximize cumulative reward. Examples include Q-learning, policy gradients, and deep reinforcement learning.\n\n4. **Semi-Supervised Learning**: Models are trained on a combination of labeled and unlabeled data. This can be useful when labeled data is scarce or expensive to obtain.\n\n### Applications of Machine Learning\n\n1. **Computer Vision**: Image classification, object detection, facial recognition, and more.\n2. **Natural Language Processing (NLP)**: Sentiment analysis, text summarization, machine translation, and more.\n3. **Healthcare**: Disease diagnosis, drug discovery, patient monitoring, and more.\n4. **Finance**: Fraud detection, risk assessment, algorithmic trading, and more.\n5. **Autonomous Vehicles**: Object detection, lane detection, and path planning.\n6. **Recommendation Systems**: Personalized recommendations for products, movies, and more.\n7. **Robotics**: Motion planning, object manipulation, and more.\n\n### Challenges in Machine Learning\n\n1. **Data Quality**: Ensuring that the data is clean, relevant, and representative of the problem domain.\n2. **Computational Resources**: Training complex models can be computationally expensive and time-consuming.\n3. **Interpretability**: Understanding how a model makes decisions can be challenging, especially in complex models like deep neural networks.\n4. **Ethical Considerations**: Ensuring that models are fair, unbiased, and do not perpetuate harmful stereotypes.\n\n### Future Trends in Machine Learning\n\n1. **Explainable AI (XAI)**: Developing methods to make machine learning models more transparent and interpretable.\n2. **AutoML**: Automating the process of building machine learning models, including data preprocessing, model selection, and hyperparameter tuning.\n3. **Edge Computing**: Deploying machine learning models on devices at the edge of the network to reduce latency and improve performance.\n4. **Quantum Machine Learning**: Exploring the potential of quantum computing to enhance machine learning algorithms.\n\nIn conclusion, machine learning is a powerful tool for solving a wide range of problems, from simple regression tasks to complex decision-making processes. However, it requires careful consideration of data, model selection, and evaluation to achieve optimal results. As the field continues to evolve, we can expect to see more sophisticated and interpretable models that can address the challenges of the modern world.".split</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_error_handling" time="0.021" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_performance" time="0.450" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_context_window" time="0.575" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_usage_metrics" time="0.636" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_parallel_requests" time="31.839" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_model_availability" time="0.116"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:17: in test_llm_model_availability
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_ingestor.TestIngestorComponent" name="test_ingestor_status_tracking" time="0.018" /><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_health" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:22: in test_langgraph_health
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_basic" time="0.114"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:45: in test_chat_completion_basic
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_chat_completion" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:43: in test_langgraph_chat_completion
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_with_tools" time="0.095"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:90: in test_chat_completion_with_tools
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_streaming_chat" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:66: in test_langgraph_streaming_chat
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_streaming" time="0.093"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:121: in test_chat_completion_streaming
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_with_tools" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:100: in test_langgraph_with_tools
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_embeddings_basic" time="0.101"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:138: in test_embeddings_basic
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_multi_turn_conversation" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:122: in test_langgraph_multi_turn_conversation
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_embeddings_consistency" time="0.079"><failure message="KeyError: 'data'">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:162: in test_embeddings_consistency
-    ???
-E   KeyError: 'data'</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_embeddings_batch" time="0.085"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:189: in test_embeddings_batch
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_system_message" time="0.013"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:140: in test_langgraph_system_message
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_error_handling" time="0.110"><failure message="assert 404 == 400&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:214: in test_llm_error_handling
-    ???
-E   assert 404 == 400
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_performance_metrics" time="0.087"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:240: in test_llm_performance_metrics
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_temperature_control" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:164: in test_langgraph_temperature_control
+    assert response_low.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_context_length" time="0.105"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_llm.py:269: in test_llm_context_length
-    ???
-E   assert 404 in [200, 400]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_health" time="0.104"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:17: in test_mcp_bash_health
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_max_tokens" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:188: in test_langgraph_max_tokens
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_error_handling" time="0.015"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:207: in test_langgraph_error_handling
+    assert response.status_code in [400, 422]
+E   assert 404 in [400, 422]
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_performance" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:237: in test_langgraph_performance
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_context_window" time="0.024"><failure message="assert 404 in [200, 400, 413]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:262: in test_langgraph_context_window
+    assert response.status_code in [200, 400, 413]
+E   assert 404 in [200, 400, 413]
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_usage_metrics" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:275: in test_langgraph_usage_metrics
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_langgraph.TestLangGraphComponent" name="test_langgraph_parallel_requests" time="0.028"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_langgraph.py:304: in test_langgraph_parallel_requests
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_model_availability" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_component_llm.py:17: in test_llm_model_availability
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_basic" time="0.158" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_with_tools" time="0.338" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_chat_completion_streaming" time="0.387" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_error_handling" time="0.019" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_performance_metrics" time="0.764" /><testcase classname="tests.test_component_llm.TestLLMComponent" name="test_llm_context_length" time="0.335" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_health" time="0.035"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:16: in test_mcp_bash_health
+    assert response.status_code == 200
 E   assert 307 == 200
-E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_health" time="0.116"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:26: in test_mcp_project_health
-    ???
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_health" time="0.016"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:25: in test_mcp_project_health
+    assert response.status_code == 200
 E   assert 307 == 200
-E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_list_tools" time="0.088"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:42: in test_mcp_bash_list_tools
-    ???
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_list_tools" time="0.092"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:60: in test_mcp_project_list_tools
-    ???
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_execute_command" time="0.019" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_file_operations" time="0.017" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_error_handling" time="0.017" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_error_handling" time="0.018" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_tool_schema" time="0.022" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_tool_schema" time="0.022" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_connection_stability" time="0.087"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:191: in test_mcp_bash_connection_stability
-    ???
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_connection_stability" time="0.107"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_component_mcp.py:205: in test_mcp_project_connection_stability
-    ???
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_multiple_tools" time="0.034" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_context_management" time="0.023" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_large_output" time="0.018" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_complex_query" time="0.016" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection" time="0.076"><failure message="Failed: Database connection failed: connection to server at &quot;postgres&quot; (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:33: in test_database_connection
-    ???
-/usr/local/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_list_tools" time="0.016"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:41: in test_mcp_bash_list_tools
+    assert response.status_code == 200
+E   assert 307 == 200
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_list_tools" time="0.014"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:59: in test_mcp_project_list_tools
+    assert response.status_code == 200
+E   assert 307 == 200
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_execute_command" time="0.014" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_file_operations" time="0.014" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_error_handling" time="0.013" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_error_handling" time="0.013" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_tool_schema" time="0.014" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_tool_schema" time="0.014" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_connection_stability" time="0.014"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:190: in test_mcp_bash_connection_stability
+    assert response.status_code == 200
+E   assert 307 == 200
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_connection_stability" time="0.014"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_component_mcp.py:204: in test_mcp_project_connection_stability
+    assert response.status_code == 200
+E   assert 307 == 200
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_multiple_tools" time="0.018" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_context_management" time="0.018" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_bash_large_output" time="0.017" /><testcase classname="tests.test_component_mcp.TestMCPComponent" name="test_mcp_project_complex_query" time="0.016" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection" time="0.024"><failure message="Failed: Database connection failed: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">tests/test_db_operations.py:33: in test_database_connection
+    conn = psycopg2.connect(
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   psycopg2.OperationalError: connection to server at "postgres" (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user "rag"
+E   psycopg2.OperationalError: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "rag"
 
 During handling of the above exception, another exception occurred:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:43: in test_database_connection
-    ???
-E   Failed: Database connection failed: connection to server at "postgres" (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user "rag"</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_schema" time="0.073" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_chunk_storage" time="0.607"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                RETURNING id&#10;            ]&#10;[parameters: {'file_path': 'test.txt', 'chunk_index': 0, 'content': 'Test chunk content', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'source': 'test'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+tests/test_db_operations.py:43: in test_database_connection
+    pytest.fail(f"Database connection failed: {e}")
+E   Failed: Database connection failed: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "rag"</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_schema" time="0.046" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_chunk_storage" time="0.188"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                RETURNING id&#10;            ]&#10;[parameters: {'file_path': 'test.txt', 'chunk_index': 0, 'content': 'Test chunk content', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'source': 'test'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.ProgrammingError: can't adapt type 'dict'
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:82: in test_chunk_storage
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:82: in test_chunk_storage
+    result = conn.execute(insert_sql, {
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'
 E   [SQL: 
@@ -420,30 +224,30 @@ E                   VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embed
 E                   RETURNING id
 E               ]
 E   [parameters: {'file_path': 'test.txt', 'chunk_index': 0, 'content': 'Test chunk content', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'source': 'test'}}]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_file_summary_storage" time="0.432"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO file_summaries (file_path, summary, metadata, created_at)&#10;                VALUES (%(file_path)s, %(summary)s, %(metadata)s, NOW())&#10;                RETURNING id&#10;            ]&#10;[parameters: {'file_path': 'test.txt', 'summary': 'Test file summary', 'metadata': {'source': 'test', 'category': 'documentation'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_file_summary_storage" time="0.123"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO file_summaries (file_path, summary, metadata, created_at)&#10;                VALUES (%(file_path)s, %(summary)s, %(metadata)s, NOW())&#10;                RETURNING id&#10;            ]&#10;[parameters: {'file_path': 'test.txt', 'summary': 'Test file summary', 'metadata': {'source': 'test', 'category': 'documentation'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.ProgrammingError: can't adapt type 'dict'
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:119: in test_file_summary_storage
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:119: in test_file_summary_storage
+    result = conn.execute(insert_sql, {
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'
 E   [SQL: 
@@ -452,30 +256,30 @@ E                   VALUES (%(file_path)s, %(summary)s, %(metadata)s, NOW())
 E                   RETURNING id
 E               ]
 E   [parameters: {'file_path': 'test.txt', 'summary': 'Test file summary', 'metadata': {'source': 'test', 'category': 'documentation'}}]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_module_summary_storage" time="0.467"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO module_summaries (module_name, summary, file_paths, metadata)&#10;                VALUES (%(module_name)s, %(summary)s, %(file_paths)s, %(metadata)s)&#10;                RETURNING id&#10;            ]&#10;[parameters: {'module_name': 'test_module', 'summary': 'Test module summary', 'file_paths': ['test1.txt', 'test2.txt'], 'metadata': {'source': 'test', 'type': 'module'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_module_summary_storage" time="0.114"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                INSERT INTO module_summaries (module_name, summary, file_paths, metadata)&#10;                VALUES (%(module_name)s, %(summary)s, %(file_paths)s, %(metadata)s)&#10;                RETURNING id&#10;            ]&#10;[parameters: {'module_name': 'test_module', 'summary': 'Test module summary', 'file_paths': ['test1.txt', 'test2.txt'], 'metadata': {'source': 'test', 'type': 'module'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.ProgrammingError: can't adapt type 'dict'
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:154: in test_module_summary_storage
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:154: in test_module_summary_storage
+    result = conn.execute(insert_sql, {
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'
 E   [SQL: 
@@ -484,32 +288,32 @@ E                   VALUES (%(module_name)s, %(summary)s, %(file_paths)s, %(meta
 E                   RETURNING id
 E               ]
 E   [parameters: {'module_name': 'test_module', 'summary': 'Test module summary', 'file_paths': ['test1.txt', 'test2.txt'], 'metadata': {'source': 'test', 'type': 'module'}}]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_query_execution" time="0.588"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column &quot;chunk_index&quot; of relation &quot;chunks&quot; does not exist&#10;LINE 2:                 INSERT INTO chunks (file_path, chunk_index, ...&#10;                                                       ^&#10;&#10;[SQL: &#10;                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                VALUES &#10;                ('doc1.txt', 0, 'First chunk of doc1', '[0.1, 0.2, 0.3]', '{}'),&#10;                ('doc1.txt', 1, 'Second chunk of doc1', '[0.4, 0.5, 0.6]', '{}'),&#10;                ('doc2.txt', 0, 'First chunk of doc2', '[0.7, 0.8, 0.9]', '{}')&#10;            ]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_query_execution" time="0.150"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column &quot;chunk_index&quot; of relation &quot;chunks&quot; does not exist&#10;LINE 2:                 INSERT INTO chunks (file_path, chunk_index, ...&#10;                                                       ^&#10;&#10;[SQL: &#10;                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                VALUES &#10;                ('doc1.txt', 0, 'First chunk of doc1', '[0.1, 0.2, 0.3]', '{}'),&#10;                ('doc1.txt', 1, 'Second chunk of doc1', '[0.4, 0.5, 0.6]', '{}'),&#10;                ('doc2.txt', 0, 'First chunk of doc2', '[0.7, 0.8, 0.9]', '{}')&#10;            ]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.errors.UndefinedColumn: column "chunk_index" of relation "chunks" does not exist
 E   LINE 2:                 INSERT INTO chunks (file_path, chunk_index, ...
 E                                                          ^
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:191: in test_query_execution
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:191: in test_query_execution
+    conn.execute(insert_sql)
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.errors.UndefinedColumn) column "chunk_index" of relation "chunks" does not exist
 E   LINE 2:                 INSERT INTO chunks (file_path, chunk_index, ...
@@ -522,32 +326,32 @@ E                   ('doc1.txt', 0, 'First chunk of doc1', '[0.1, 0.2, 0.3]', '{
 E                   ('doc1.txt', 1, 'Second chunk of doc1', '[0.4, 0.5, 0.6]', '{}'),
 E                   ('doc2.txt', 0, 'First chunk of doc2', '[0.7, 0.8, 0.9]', '{}')
 E               ]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_vector_similarity_search" time="0.012" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_transaction_handling" time="0.053"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                        INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                        VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                        RETURNING id&#10;                    ]&#10;[parameters: {'file_path': 'transaction_test.txt', 'chunk_index': 0, 'content': 'Transaction test chunk', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'transaction'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_vector_similarity_search" time="0.015" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_transaction_handling" time="0.013"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                        INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                        VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                        RETURNING id&#10;                    ]&#10;[parameters: {'file_path': 'transaction_test.txt', 'chunk_index': 0, 'content': 'Transaction test chunk', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'transaction'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.ProgrammingError: can't adapt type 'dict'
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:255: in test_transaction_handling
-    ???
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:235: in test_transaction_handling
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:255: in test_transaction_handling
+    raise e
+tests/test_db_operations.py:235: in test_transaction_handling
+    result = conn.execute(insert_sql, {
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'
 E   [SQL: 
@@ -556,37 +360,37 @@ E                           VALUES (%(file_path)s, %(chunk_index)s, %(content)s,
 E                           RETURNING id
 E                       ]
 E   [parameters: {'file_path': 'transaction_test.txt', 'chunk_index': 0, 'content': 'Transaction test chunk', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'transaction'}}]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_concurrent_db_operations" time="0.076"><failure message="assert 0 == 5">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:310: in test_concurrent_db_operations
-    ???
-E   assert 0 == 5</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_error_handling" time="0.013" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_data_persistence_across_connections" time="0.055"><failure message="psycopg2.OperationalError: connection to server at &quot;postgres&quot; (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:357: in test_data_persistence_across_connections
-    ???
-/usr/local/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_concurrent_db_operations" time="0.016"><failure message="assert 0 == 5">tests/test_db_operations.py:310: in test_concurrent_db_operations
+    assert count == 5
+E   assert 0 == 5</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_error_handling" time="0.015" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_data_persistence_across_connections" time="0.011"><failure message="psycopg2.OperationalError: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">tests/test_db_operations.py:357: in test_data_persistence_across_connections
+    conn1 = psycopg2.connect(
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   psycopg2.OperationalError: connection to server at "postgres" (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user "rag"</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_performance_queries" time="0.595"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                    INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                    VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                ]&#10;[parameters: {'file_path': 'perf_test_0.txt', 'chunk_index': 0, 'content': 'Performance test chunk 0', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'performance'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+E   psycopg2.OperationalError: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "rag"</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_performance_queries" time="0.166"><failure message="sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'&#10;[SQL: &#10;                    INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)&#10;                    VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)&#10;                ]&#10;[parameters: {'file_path': 'perf_test_0.txt', 'chunk_index': 0, 'content': 'Performance test chunk 0', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'performance'}}]&#10;(Background on this error at: https://sqlalche.me/e/20/f405)">/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   psycopg2.ProgrammingError: can't adapt type 'dict'
 
 The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:426: in test_database_performance_queries
-    ???
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
+tests/test_db_operations.py:426: in test_database_performance_queries
+    conn.execute(insert_sql, {
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1419: in execute
     return meth(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/sql/elements.py:527: in _execute_on_connection
     return connection._execute_clauseelement(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1641: in _execute_clauseelement
     ret = self._execute_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1846: in _execute_context
     return self._exec_single_context(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1986: in _exec_single_context
     self._handle_dbapi_exception(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:2363: in _handle_dbapi_exception
     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/base.py:1967: in _exec_single_context
     self.dialect.do_execute(
-/usr/local/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/sqlalchemy/engine/default.py:952: in do_execute
     cursor.execute(statement, parameters)
 E   sqlalchemy.exc.ProgrammingError: (psycopg2.ProgrammingError) can't adapt type 'dict'
 E   [SQL: 
@@ -594,189 +398,159 @@ E                       INSERT INTO chunks (file_path, chunk_index, content, emb
 E                       VALUES (%(file_path)s, %(chunk_index)s, %(content)s, %(embedding)s, %(metadata)s)
 E                   ]
 E   [parameters: {'file_path': 'perf_test_0.txt', 'chunk_index': 0, 'content': 'Performance test chunk 0', 'embedding': '[0.1, 0.2, 0.3]', 'metadata': {'test': 'performance'}}]
-E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection_pooling" time="0.009"><skipped type="pytest.skip" message="Connection pooling test skipped: connection to server at &quot;postgres&quot; (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:479: Connection pooling test skipped: connection to server at "postgres" (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user "rag"</skipped></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_schema_versions" time="0.015"><skipped type="pytest.skip" message="Schema versioning not implemented">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:501: Schema versioning not implemented</skipped></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_backup_restore" time="0.001" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection_limits" time="0.042"><failure message="AssertionError: Should be able to create at least one connection&#10;assert 0 &gt; 0&#10; +  where 0 = len([])">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:533: in test_database_connection_limits
-    ???
-/usr/local/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
+E   (Background on this error at: https://sqlalche.me/e/20/f405)</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection_pooling" time="0.010"><skipped type="pytest.skip" message="Connection pooling test skipped: connection to server at &quot;localhost&quot; (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user &quot;rag&quot;">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:478: Connection pooling test skipped: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "rag"</skipped></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_schema_versions" time="0.016"><skipped type="pytest.skip" message="Schema versioning not implemented">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:500: Schema versioning not implemented</skipped></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_backup_restore" time="0.001" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_connection_limits" time="0.010"><failure message="AssertionError: Should be able to create at least one connection&#10;assert 0 &gt; 0&#10; +  where 0 = len([])">tests/test_db_operations.py:530: in test_database_connection_limits
+    conn = psycopg2.connect(
+/home/sokatov/.conda/envs/usr/lib/python3.13/site-packages/psycopg2/__init__.py:122: in connect
     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E   psycopg2.OperationalError: connection to server at "postgres" (172.19.0.3), port 5432 failed: FATAL:  password authentication failed for user "rag"
+E   psycopg2.OperationalError: connection to server at "localhost" (127.0.0.1), port 5432 failed: FATAL:  password authentication failed for user "rag"
 
 During handling of the above exception, another exception occurred:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_db_operations.py:547: in test_database_connection_limits
-    ???
+tests/test_db_operations.py:544: in test_database_connection_limits
+    assert len(connections) &gt; 0, "Should be able to create at least one connection"
 E   AssertionError: Should be able to create at least one connection
 E   assert 0 &gt; 0
-E    +  where 0 = len([])</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_timeouts" time="0.015" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_index_performance" time="0.016" /><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_file_ingestion_to_search" time="0.764"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:66: in test_e2e_file_ingestion_to_search
-    ???
+E    +  where 0 = len([])</failure></testcase><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_timeouts" time="0.116" /><testcase classname="tests.test_db_operations.TestDatabaseOperations" name="test_database_index_performance" time="0.017" /><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_file_ingestion_to_search" time="0.051"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:66: in test_e2e_file_ingestion_to_search
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_code_analysis_workflow" time="0.910"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:164: in test_e2e_code_analysis_workflow
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_code_analysis_workflow" time="0.186"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:164: in test_e2e_code_analysis_workflow
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_multi_component_interaction" time="0.956"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:239: in test_e2e_multi_component_interaction
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_multi_component_interaction" time="0.221"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:239: in test_e2e_multi_component_interaction
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_rag_workflow" time="0.744"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:348: in test_e2e_rag_workflow
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_rag_workflow" time="0.179"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:348: in test_e2e_rag_workflow
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_workflow_with_streaming" time="0.863"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:417: in test_e2e_workflow_with_streaming
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_workflow_with_streaming" time="0.196"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:417: in test_e2e_workflow_with_streaming
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_error_recovery" time="0.143"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:477: in test_e2e_error_recovery
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_error_recovery" time="0.026"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:477: in test_e2e_error_recovery
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_performance_benchmark" time="0.790"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_e2e_full_workflow.py:528: in test_e2e_performance_benchmark
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_e2e_full_workflow.TestE2EFullWorkflow" name="test_e2e_performance_benchmark" time="0.195"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_e2e_full_workflow.py:528: in test_e2e_performance_benchmark
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_single_file_ingestion_text" time="0.092"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:44: in test_single_file_ingestion_text
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_single_file_ingestion_text" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:44: in test_single_file_ingestion_text
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_batch_file_ingestion" time="0.094"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:77: in test_batch_file_ingestion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_batch_file_ingestion" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:77: in test_batch_file_ingestion
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_file_type_detection" time="0.110"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:108: in test_file_type_detection
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_file_type_detection" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:108: in test_file_type_detection
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_metadata_extraction" time="0.090"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:141: in test_metadata_extraction
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_metadata_extraction" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:141: in test_metadata_extraction
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_error_handling" time="0.108"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:165: in test_ingestion_error_handling
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_error_handling" time="0.019"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:165: in test_ingestion_error_handling
+    assert response.status_code in [400, 422]
 E   assert 404 in [400, 422]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_status_tracking" time="0.098"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:181: in test_ingestion_status_tracking
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_status_tracking" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:181: in test_ingestion_status_tracking
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_large_file_ingestion" time="0.116"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:215: in test_large_file_ingestion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_large_file_ingestion" time="0.019"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:215: in test_large_file_ingestion
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_concurrent_ingestion" time="0.120"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:241: in test_concurrent_ingestion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_concurrent_ingestion" time="0.023"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:241: in test_concurrent_ingestion
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_special_characters" time="0.105"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:264: in test_ingestion_with_special_characters
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_special_characters" time="0.019"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:264: in test_ingestion_with_special_characters
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_metadata_validation" time="0.120"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:285: in test_ingestion_with_metadata_validation
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_metadata_validation" time="0.022"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:285: in test_ingestion_with_metadata_validation
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_cancellation" time="0.126"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:314: in test_ingestion_cancellation
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_cancellation" time="0.017"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:314: in test_ingestion_cancellation
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_priority_handling" time="0.080"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:335: in test_ingestion_priority_handling
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_priority_handling" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:335: in test_ingestion_priority_handling
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_file_size_limits" time="0.091"><failure message="assert 404 in [200, 413]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:360: in test_ingestion_file_size_limits
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_file_size_limits" time="0.015"><failure message="assert 404 in [200, 413]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:360: in test_ingestion_file_size_limits
+    assert response.status_code in [200, 413]  # 413 for payload too large
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 E   assert 404 in [200, 413]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_file_encoding" time="0.032" /><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_empty_file" time="0.107"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:404: in test_ingestion_of_empty_file
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_file_encoding" time="0.025" /><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_empty_file" time="0.016"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:404: in test_ingestion_of_empty_file
+    assert response.status_code in [200, 400]
 E   assert 404 in [200, 400]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_binary_file" time="0.094"><failure message="assert 404 in [200, 400, 415]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:420: in test_ingestion_of_binary_file
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_binary_file" time="0.014"><failure message="assert 404 in [200, 400, 415]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:420: in test_ingestion_of_binary_file
+    assert response.status_code in [200, 400, 415]
 E   assert 404 in [200, 400, 415]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_directory" time="0.028" /><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_symlink" time="0.086"><failure message="FileExistsError: [Errno 17] File exists: '/tmp/workspace-test/real_file.txt' -&gt; '/tmp/workspace-test/symlink_file.txt'">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:449: in test_ingestion_of_symlink
-    ???
-E   FileExistsError: [Errno 17] File exists: '/tmp/workspace-test/real_file.txt' -&gt; '/tmp/workspace-test/symlink_file.txt'</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_performance_metrics" time="0.120"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:479: in test_ingestion_performance_metrics
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_directory" time="0.015" /><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_symlink" time="0.010"><failure message="FileExistsError: [Errno 17] File exists: '/tmp/workspace-test/real_file.txt' -&gt; '/tmp/workspace-test/symlink_file.txt'">tests/test_indexation_workflows.py:448: in test_ingestion_of_symlink
+    os.symlink(real_file, symlink_file)
+E   FileExistsError: [Errno 17] File exists: '/tmp/workspace-test/real_file.txt' -&gt; '/tmp/workspace-test/symlink_file.txt'</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_performance_metrics" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:478: in test_ingestion_performance_metrics
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_file_permissions" time="0.112"><failure message="assert 404 in [200, 403]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:510: in test_ingestion_with_file_permissions
-    ???
-E   assert 404 in [200, 403]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_nested_files" time="0.142"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_indexation_workflows.py:537: in test_ingestion_of_nested_files
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_with_file_permissions" time="0.010"><failure message="PermissionError: [Errno 13] Permission denied: '/tmp/workspace-test/permission_test.txt'">tests/test_indexation_workflows.py:496: in test_ingestion_with_file_permissions
+    with open(test_file, "w") as f:
+         ^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 13] Permission denied: '/tmp/workspace-test/permission_test.txt'</failure></testcase><testcase classname="tests.test_indexation_workflows.TestIndexationWorkflows" name="test_ingestion_of_nested_files" time="0.017"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_indexation_workflows.py:536: in test_ingestion_of_nested_files
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_test_execution" time="0.012" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_fixture_access" time="0.001" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_fixture_access" time="0.011" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_test_workspace" time="0.001" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_test_data" time="0.000" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_function" time="0.012" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_marked_functions" time="0.001" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_api_health_endpoints" time="0.175"><failure message="AssertionError: assert 'running' == 'ready'&#10;  &#10;  - ready&#10;  + running">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:29: in test_api_health_endpoints
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_test_execution" time="0.012" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_fixture_access" time="0.001" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_fixture_access" time="0.011" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_test_workspace" time="0.001" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_test_data" time="0.002" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_async_function" time="0.014" /><testcase classname="tests.test_infrastructure.TestInfrastructure" name="test_marked_functions" time="0.002" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_api_health_endpoints" time="0.043"><failure message="AssertionError: assert 'running' == 'ready'&#10;  &#10;  - ready&#10;  + running">tests/test_user_requests_responses.py:30: in test_api_health_endpoints
+    assert data["status"] == "ready"
 E   AssertionError: assert 'running' == 'ready'
 E     
 E     - ready
-E     + running</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_ingest_endpoint" time="0.091"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:58: in test_ingestor_ingest_endpoint
-    ???
+E     + running</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_ingest_endpoint" time="0.017"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:59: in test_ingestor_ingest_endpoint
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_search_endpoint" time="0.130"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:98: in test_ingestor_search_endpoint
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_search_endpoint" time="0.019"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:99: in test_ingestor_search_endpoint
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_langgraph_chat_completion_endpoint" time="0.525" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_streaming_responses" time="3.799" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_error_response_formats" time="0.044" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_content_validation" time="0.208" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_request_headers" time="1.169" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_timeouts" time="0.520"><failure message="AssertionError: assert ('timeout' in '' or 'connect' in '')&#10; +  where '' = &lt;built-in method lower of str object at 0x7f9ac878d240&gt;()&#10; +    where &lt;built-in method lower of str object at 0x7f9ac878d240&gt; = ''.lower&#10; +      where '' = str(ReadTimeout(''))&#10; +  and   '' = &lt;built-in method lower of str object at 0x7f9ac878d240&gt;()&#10; +    where &lt;built-in method lower of str object at 0x7f9ac878d240&gt; = ''.lower&#10; +      where '' = str(ReadTimeout(''))">/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:101: in map_httpcore_exceptions
-    yield
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:394: in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:256: in handle_async_request
-    raise exc from None
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection_pool.py:236: in handle_async_request
-    response = await connection.handle_async_request(
-/usr/local/lib/python3.13/site-packages/httpcore/_async/connection.py:103: in handle_async_request
-    return await self._connection.handle_async_request(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/http11.py:136: in handle_async_request
-    raise exc
-/usr/local/lib/python3.13/site-packages/httpcore/_async/http11.py:106: in handle_async_request
-    ) = await self._receive_response_headers(**kwargs)
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/http11.py:177: in _receive_response_headers
-    event = await self._receive_event(timeout=timeout)
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpcore/_async/http11.py:217: in _receive_event
-    data = await self._network_stream.read(
-/usr/local/lib/python3.13/site-packages/httpcore/_backends/anyio.py:32: in read
-    with map_exceptions(exc_map):
-         ^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpcore/_exceptions.py:14: in map_exceptions
-    raise to_exc(exc) from exc
-E   httpcore.ReadTimeout
-
-The above exception was the direct cause of the following exception:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:290: in test_response_timeouts
-    ???
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1859: in post
-    return await self.request(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1540: in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1629: in send
-    response = await self._send_handling_auth(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1657: in _send_handling_auth
-    response = await self._send_handling_redirects(
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1694: in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_client.py:1730: in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:393: in handle_async_request
-    with map_httpcore_exceptions():
-         ^^^^^^^^^^^^^^^^^^^^^^^^^
-/usr/local/lib/python3.13/contextlib.py:162: in __exit__
-    self.gen.throw(value)
-/usr/local/lib/python3.13/site-packages/httpx/_transports/default.py:118: in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-E   httpx.ReadTimeout
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_langgraph_chat_completion_endpoint" time="0.018"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:141: in test_langgraph_chat_completion_endpoint
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_streaming_responses" time="0.016"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:173: in test_streaming_responses
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_error_response_formats" time="0.026"><failure message="assert 404 in [400, 422]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:196: in test_error_response_formats
+    assert response.status_code in [400, 422]
+E   assert 404 in [400, 422]
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_content_validation" time="0.015"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:210: in test_response_content_validation
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_request_headers" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:256: in test_request_headers
+    assert response.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_timeouts" time="0.022"><failure message="AssertionError: assert ('timeout' in 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' or 'connect' in 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code')&#10; +  where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' = &lt;built-in method lower of str object at 0x7e33402b15b0&gt;()&#10; +    where &lt;built-in method lower of str object at 0x7e33402b15b0&gt; = 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'.lower&#10; +      where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code' = str(AssertionError('assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'))&#10; +  and   'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' = &lt;built-in method lower of str object at 0x7e33402b15b0&gt;()&#10; +    where &lt;built-in method lower of str object at 0x7e33402b15b0&gt; = 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'.lower&#10; +      where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code' = str(AssertionError('assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'))">tests/test_user_requests_responses.py:292: in test_response_timeouts
+    assert response.status_code in [200, 408, 504]
+E   assert 404 in [200, 408, 504]
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code
 
 During handling of the above exception, another exception occurred:
-/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:295: in test_response_timeouts
-    ???
-E   AssertionError: assert ('timeout' in '' or 'connect' in '')
-E    +  where '' = &lt;built-in method lower of str object at 0x7f9ac878d240&gt;()
-E    +    where &lt;built-in method lower of str object at 0x7f9ac878d240&gt; = ''.lower
-E    +      where '' = str(ReadTimeout(''))
-E    +  and   '' = &lt;built-in method lower of str object at 0x7f9ac878d240&gt;()
-E    +    where &lt;built-in method lower of str object at 0x7f9ac878d240&gt; = ''.lower
-E    +      where '' = str(ReadTimeout(''))</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_concurrent_api_requests" time="30.465" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_large_payloads" time="0.947" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_api_rate_limiting" time="85.418" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_status_endpoint" time="0.046" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_knowledge_endpoints" time="0.123"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:406: in test_ingestor_knowledge_endpoints
-    ???
+tests/test_user_requests_responses.py:295: in test_response_timeouts
+    assert "timeout" in str(e).lower() or "connect" in str(e).lower()
+E   AssertionError: assert ('timeout' in 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' or 'connect' in 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code')
+E    +  where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' = &lt;built-in method lower of str object at 0x7e33402b15b0&gt;()
+E    +    where &lt;built-in method lower of str object at 0x7e33402b15b0&gt; = 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'.lower
+E    +      where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code' = str(AssertionError('assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'))
+E    +  and   'assert 404 in [200, 408, 504]\n +  where 404 = &lt;response [404 not found]&gt;.status_code' = &lt;built-in method lower of str object at 0x7e33402b15b0&gt;()
+E    +    where &lt;built-in method lower of str object at 0x7e33402b15b0&gt; = 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'.lower
+E    +      where 'assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code' = str(AssertionError('assert 404 in [200, 408, 504]\n +  where 404 = &lt;Response [404 Not Found]&gt;.status_code'))</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_concurrent_api_requests" time="0.023"><failure message="assert 404 == 200">tests/test_user_requests_responses.py:321: in test_concurrent_api_requests
+    assert status_code == 200
+E   assert 404 == 200</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_large_payloads" time="0.016"><failure message="assert 404 in [200, 400, 413]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:341: in test_large_payloads
+    assert response.status_code in [200, 400, 413]  # 413 for payload too large
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 404 in [200, 400, 413]
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_api_rate_limiting" time="0.032" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_status_endpoint" time="0.015" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_ingestor_knowledge_endpoints" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:406: in test_ingestor_knowledge_endpoints
+    assert ingest_response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_llm_chat_completion" time="0.100"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:438: in test_llm_chat_completion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_llm_chat_completion" time="0.135" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_llm_streaming_chat_completion" time="0.330" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_embedding_generation" time="0.023" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_mcp_tools_endpoint" time="0.018"><failure message="assert 307 == 200&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_user_requests_responses.py:496: in test_mcp_tools_endpoint
+    assert response.status_code == 200
+E   assert 307 == 200
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_mcp_tool_call" time="0.015"><failure message="assert 307 in [200, 400]&#10; +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code">tests/test_user_requests_responses.py:519: in test_mcp_tool_call
+    assert response.status_code in [200, 400]
+E   assert 307 in [200, 400]
+E    +  where 307 = &lt;Response [307 Temporary Redirect]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_content_types" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:533: in test_response_content_types
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_llm_streaming_chat_completion" time="0.113"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:460: in test_llm_streaming_chat_completion
-    ???
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_headers" time="0.014"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">tests/test_user_requests_responses.py:547: in test_response_headers
+    assert response.status_code == 200
 E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_embedding_generation" time="0.023" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_mcp_tools_endpoint" time="0.099"><failure message="assert 404 == 200&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:496: in test_mcp_tools_endpoint
-    ???
-E   assert 404 == 200
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_mcp_tool_call" time="0.081"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:519: in test_mcp_tool_call
-    ???
-E   assert 404 in [200, 400]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_content_types" time="0.600" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_headers" time="0.587" /><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_pagination" time="20.332"><failure message="assert 404 in [200, 400]&#10; +  where 404 = &lt;Response [404 Not Found]&gt;.status_code">/sda/sokatov/own/perslad-1/e2e-tests/tests/test_user_requests_responses.py:586: in test_response_pagination
-    ???
-E   assert 404 in [200, 400]
-E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase></testsuite></testsuites>
+E    +  where 404 = &lt;Response [404 Not Found]&gt;.status_code</failure></testcase><testcase classname="tests.test_user_requests_responses.TestUserRequestsResponses" name="test_response_pagination" time="5.059"><failure message="assert 500 in [200, 400]&#10; +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code">tests/test_user_requests_responses.py:586: in test_response_pagination
+    assert response.status_code in [200, 400]  # 400 if offset not supported
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   assert 500 in [200, 400]
+E    +  where 500 = &lt;Response [500 Internal Server Error]&gt;.status_code</failure></testcase></testsuite></testsuites>

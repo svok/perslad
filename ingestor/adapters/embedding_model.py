@@ -23,7 +23,8 @@ class EmbeddingModel:
     Manages communication with the embedding model service.
     """
 
-    def __init__(self, embed_url: str, api_key: str) -> None:
+    def __init__(self, embed_url: str, api_key: str, served_model_name: str) -> None:
+        self.served_model_name = served_model_name
         self.embed_url = embed_url.rstrip("/")
         self.api_key = api_key
 
@@ -55,7 +56,7 @@ class EmbeddingModel:
                 response = await client.post(
                     f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
-                        "model": "embed-model",
+                        "model": self.served_model_name,
                         "input": ["test"]
                     },
                     headers={"Authorization": f"Bearer {self.api_key}"}
@@ -97,7 +98,7 @@ class EmbeddingModel:
                 response = await client.post(
                     f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
-                        "model": "embed-model",
+                        "model": self.served_model_name,
                         "input": [text]
                     },
                     headers={"Authorization": f"Bearer {self.api_key}"}
@@ -173,7 +174,7 @@ class EmbeddingModel:
                 response = await client.post(
                     f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
-                        "model": "embed-model",
+                        "model": self.served_model_name,
                         "input": texts
                     },
                     headers={"Authorization": f"Bearer {self.api_key}"}

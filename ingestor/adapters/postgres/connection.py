@@ -14,7 +14,7 @@ from tenacity import (
 )
 
 from infra.logger import get_logger
-from ingestor.config.storage import storage as storage_config
+from ingestor.config import storage_config
 
 log = get_logger("ingestor.storage.postgres.connection")
 

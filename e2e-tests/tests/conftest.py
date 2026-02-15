@@ -22,19 +22,19 @@ from infra.config import Timeouts
 # Configuration from environment
 import tempfile
 TEST_CONFIG = {
-    'llm_url': os.getenv('LLMS_URL', 'http://localhost:8000'),
-    'emb_url': os.getenv('EMB_URL', 'http://localhost:8001'),
+    'llm_url': os.getenv('LLM_URL', 'http://localhost:8000/v1'),
+    'llm_served_model_name': os.getenv('LLM_SERVED_MODEL_NAME', 'default_model'),
+    'emb_url': os.getenv('EMB_URL', 'http://localhost:8001/v1'),
+    'emb_served_model_name': os.getenv('EMB_SERVED_MODEL_NAME', 'embed_model'),
     'pg_url': os.getenv('PG_URL', 'postgresql://rag:rag@postgres:5432/rag'),
     'ingestor_url': os.getenv('INGESTOR_URL', 'http://localhost:8124'),
-    'langgraph_url': os.getenv('LANGGRAPH_AGENT_URL', 'http://localhost:8123'),
+    'langgraph_url': os.getenv('LANGGRAPH_AGENT_URL', 'http://localhost:8123/v1'),
     'mcp_bash_url': os.getenv('MCP_BASH_URL', 'http://localhost:8081/mcp'),
     'mcp_project_url': os.getenv('MCP_PROJECT_URL', 'http://localhost:8083/mcp'),
     'test_mode': os.getenv('TEST_MODE', 'true').lower() == 'true',
     'workspace_root': os.getenv('PROJECT_ROOT', '/workspace'),
     'test_workspace': os.path.join(tempfile.gettempdir(), 'workspace-test')
 }
-
-print(f"TEST_CONFIG = {TEST_CONFIG}")
 
 @pytest.fixture(scope="session")
 def config():
@@ -291,10 +291,9 @@ async def health_check(config):
         ('MCP Project', config['mcp_project_url'])
     ]
     
-    for name, url in services:
+    for name, base_url in services:
         try:
             # Remove /v1 or /mcp from URL for health check
-            base_url = url.replace('/v1', '').replace('/mcp', '')
             response = requests.get(base_url, timeout=Timeouts.STANDARD)
             if response.status_code != 200:
                 logger.warning(f"{name} health check returned {response.status_code}")

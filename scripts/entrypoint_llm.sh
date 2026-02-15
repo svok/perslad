@@ -26,7 +26,7 @@ else
         --host 0.0.0.0 --port 8000 \
         --tool-call-parser hermes \
         --enable-auto-tool-choice \
-        --served-model-name qwen-coder \
+        --served-model-name default-model \
         --max-model-len ${CONTEXT_SIZE}
 fi
 #        --chat-template llama-3 \
