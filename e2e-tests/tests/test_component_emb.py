@@ -43,6 +43,7 @@ class TestEMBComponent:
         
         # First request
         response1 = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
+        print(f"RESPONSE!!!!: {response1.url}")
         data1 = response1.json()
         embedding1 = data1["data"][0]["embedding"]
         

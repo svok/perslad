@@ -23,9 +23,9 @@ from infra.config import Timeouts
 import tempfile
 TEST_CONFIG = {
     'llm_url': os.getenv('LLM_URL', 'http://localhost:8000/v1'),
-    'llm_served_model_name': os.getenv('LLM_SERVED_MODEL_NAME', 'default_model'),
+    'llm_served_model_name': os.getenv('LLM_SERVED_MODEL_NAME', 'default-model'),
     'emb_url': os.getenv('EMB_URL', 'http://localhost:8001/v1'),
-    'emb_served_model_name': os.getenv('EMB_SERVED_MODEL_NAME', 'embed_model'),
+    'emb_served_model_name': os.getenv('EMB_SERVED_MODEL_NAME', 'embed-model'),
     'pg_url': os.getenv('PG_URL', 'postgresql://rag:rag@postgres:5432/rag'),
     'ingestor_url': os.getenv('INGESTOR_URL', 'http://localhost:8124'),
     'langgraph_url': os.getenv('LANGGRAPH_AGENT_URL', 'http://localhost:8123/v1'),
