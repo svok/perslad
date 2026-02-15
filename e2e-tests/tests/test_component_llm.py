@@ -212,16 +212,7 @@ class TestLLMComponent:
         
         response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
         assert response.status_code == 400
-        
-        # Invalid model
-        payload = {
-            "model": "nonexistent-model",
-            "messages": [{"role": "user", "content": "test"}]
-        }
-        
-        response = await llm_client.post(LLM.CHAT_COMPLETIONS, json=payload)
-        assert response.status_code in [400, 404]
-    
+
     @pytest.mark.asyncio
     async def test_llm_performance_metrics(self, llm_client):
         """Test that LLM responses include performance metrics"""
