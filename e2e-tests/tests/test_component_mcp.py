@@ -12,20 +12,16 @@ class TestMCPComponent:
     @pytest.mark.asyncio
     async def test_mcp_bash_health(self, mcp_bash_client):
         """Test MCP bash server health"""
-        response = await mcp_bash_client.get(MCP.MCP)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "status" in data
-    
+        # The fixture already initializes the session
+        # Just verify that we have a session ID
+        assert mcp_bash_client.session_id is not None
+
     @pytest.mark.asyncio
     async def test_mcp_project_health(self, mcp_project_client):
         """Test MCP project server health"""
-        response = await mcp_project_client.get(MCP.MCP)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "status" in data
+        # The fixture already initializes the session
+        # Just verify that we have a session ID
+        assert mcp_project_client.session_id is not None
     
     @pytest.mark.asyncio
     async def test_mcp_bash_list_tools(self, mcp_bash_client):

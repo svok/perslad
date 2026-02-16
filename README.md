@@ -188,9 +188,9 @@ POST http://localhost:8123/api/chat/v1/chat/completions
 ### Ingestor Knowledge Port
 
 ```
-POST http://localhost:8124/knowledge/search
-GET  http://localhost:8124/knowledge/file/{path}
-GET  http://localhost:8124/knowledge/overview
+POST http://localhost:8124/v1/knowledge/search
+GET  http://localhost:8124/v1/knowledge/file/{path}
+GET  http://localhost:8124/v1/knowledge/overview
 ```
 
 ## 🛠 Development
@@ -258,8 +258,6 @@ Connectable components:
 ## 📚 Documentation
 
 - [Ingestor README](ingestor/README.md) - detailed component documentation
-- [Implementations](ingestor/IMPLEMENTATION.md) - technical details
-- [API Documentation](docs/api.md) - complete endpoint list
 - [E2E Tests](e2e-tests/README.md) - end-to-end testing framework
 
 ## 🧪 Testing

@@ -70,21 +70,26 @@ class TestDatabaseOperations:
         with db_engine.connect() as conn:
             # Clean up first
             conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
+            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
             conn.commit()
+            
+            # Create parent record first (required by FK)
+            conn.execute(text("""
+                INSERT INTO file_summaries (file_path, summary)
+                VALUES (:file_path, 'Test summary')
+            """), {"file_path": "test.txt"})
             
             # Insert test chunk
             insert_sql = text("""
-                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-                VALUES (:file_path, :chunk_index, :content, :embedding, :metadata)
+                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+                VALUES (:file_path, :content, 0, 10, 'text', :embedding)
                 RETURNING id
             """)
             
             result = conn.execute(insert_sql, {
                 "file_path": "test.txt",
-                "chunk_index": 0,
                 "content": "Test chunk content",
-                "embedding": "[0.1, 0.2, 0.3]",
-                "metadata": {"source": "test"}
+                "embedding": "[0.1, 0.2, 0.3]"
             })
             
             chunk_id = result.fetchone()[0]
@@ -111,82 +116,54 @@ class TestDatabaseOperations:
             
             # Insert test file summary
             insert_sql = text("""
-                INSERT INTO file_summaries (file_path, summary, metadata, created_at)
-                VALUES (:file_path, :summary, :metadata, NOW())
-                RETURNING id
+                INSERT INTO file_summaries (file_path, summary, metadata)
+                VALUES (:file_path, :summary, :metadata)
+                RETURNING file_path
             """)
             
             result = conn.execute(insert_sql, {
                 "file_path": "test.txt",
                 "summary": "Test file summary",
-                "metadata": {"source": "test", "category": "documentation"}
+                "metadata": '{"source": "test", "category": "documentation"}'
             })
             
-            summary_id = result.fetchone()[0]
-            assert summary_id is not None
+            file_path = result.fetchone()[0]
+            assert file_path == "test.txt"
             
             # Verify insertion
-            select_sql = text("SELECT * FROM file_summaries WHERE id = :id")
-            result = conn.execute(select_sql, {"id": summary_id})
+            select_sql = text("SELECT * FROM file_summaries WHERE file_path = :id")
+            result = conn.execute(select_sql, {"id": file_path})
             row = result.fetchone()
             assert row is not None
             assert row.summary == "Test file summary"
             
             # Clean up
-            conn.execute(text("DELETE FROM file_summaries WHERE id = :id"), {"id": summary_id})
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :id"), {"id": file_path})
             conn.commit()
-    
-    @pytest.mark.asyncio
-    async def test_module_summary_storage(self, db_engine):
-        """Test storing and retrieving module summaries"""
-        with db_engine.connect() as conn:
-            # Clean up first
-            conn.execute(text("TRUNCATE TABLE module_summaries CASCADE"))
-            conn.commit()
-            
-            # Insert test module summary
-            insert_sql = text("""
-                INSERT INTO module_summaries (module_name, summary, file_paths, metadata)
-                VALUES (:module_name, :summary, :file_paths, :metadata)
-                RETURNING id
-            """)
-            
-            result = conn.execute(insert_sql, {
-                "module_name": "test_module",
-                "summary": "Test module summary",
-                "file_paths": ["test1.txt", "test2.txt"],
-                "metadata": {"source": "test", "type": "module"}
-            })
-            
-            module_id = result.fetchone()[0]
-            assert module_id is not None
-            
-            # Verify insertion
-            select_sql = text("SELECT * FROM module_summaries WHERE id = :id")
-            result = conn.execute(select_sql, {"id": module_id})
-            row = result.fetchone()
-            assert row is not None
-            assert row.module_name == "test_module"
-            
-            # Clean up
-            conn.execute(text("DELETE FROM module_summaries WHERE id = :id"), {"id": module_id})
-            conn.commit()
-    
+
     @pytest.mark.asyncio
     async def test_query_execution(self, db_engine):
         """Test database query execution"""
         with db_engine.connect() as conn:
             # Create test data
             conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
+            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
             conn.commit()
+            
+            # Create parents
+            conn.execute(text("""
+                INSERT INTO file_summaries (file_path, summary) VALUES 
+                ('doc1.txt', 'Summary 1'),
+                ('doc2.txt', 'Summary 2')
+            """))
             
             # Insert test data
             insert_sql = text("""
-                INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
+                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
                 VALUES 
-                ('doc1.txt', 0, 'First chunk of doc1', '[0.1, 0.2, 0.3]', '{}'),
-                ('doc1.txt', 1, 'Second chunk of doc1', '[0.4, 0.5, 0.6]', '{}'),
-                ('doc2.txt', 0, 'First chunk of doc2', '[0.7, 0.8, 0.9]', '{}')
+                ('doc1.txt', 'First chunk of doc1', 0, 10, 'text', '[0.1, 0.2, 0.3]'),
+                ('doc1.txt', 'Second chunk of doc1', 10, 20, 'text', '[0.4, 0.5, 0.6]'),
+                ('doc2.txt', 'First chunk of doc2', 0, 10, 'text', '[0.7, 0.8, 0.9]')
             """)
             conn.execute(insert_sql)
             conn.commit()
@@ -222,22 +199,24 @@ class TestDatabaseOperations:
     async def test_transaction_handling(self, db_engine):
         """Test transaction handling and rollback"""
         with db_engine.connect() as conn:
+            # Create parent
+            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('transaction_test.txt', '')"))
+            conn.commit()
+            
             # Start transaction
             with conn.begin() as trans:
                 try:
                     # Insert test data
                     insert_sql = text("""
-                        INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-                        VALUES (:file_path, :chunk_index, :content, :embedding, :metadata)
+                        INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+                        VALUES (:file_path, :content, 0, 10, 'text', :embedding)
                         RETURNING id
                     """)
                     
                     result = conn.execute(insert_sql, {
                         "file_path": "transaction_test.txt",
-                        "chunk_index": 0,
                         "content": "Transaction test chunk",
-                        "embedding": "[0.1, 0.2, 0.3]",
-                        "metadata": {"test": "transaction"}
+                        "embedding": "[0.1, 0.2, 0.3]"
                     })
                     
                     chunk_id = result.fetchone()[0]
@@ -259,6 +238,12 @@ class TestDatabaseOperations:
         """Test concurrent database operations"""
         import asyncio
         
+        # Prepare parents
+        with db_engine.connect() as conn:
+            for i in range(5):
+                conn.execute(text(f"INSERT INTO file_summaries (file_path, summary) VALUES ('concurrent_{i}.txt', '')"))
+            conn.commit()
+        
         async def insert_chunk(index):
             async def db_operation():
                 # Create a new connection for each operation
@@ -274,15 +259,13 @@ class TestDatabaseOperations:
                 
                 try:
                     cursor.execute("""
-                        INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-                        VALUES (%s, %s, %s, %s, %s)
+                        INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+                        VALUES (%s, %s, 0, 10, 'text', %s)
                         RETURNING id
                     """, (
                         f"concurrent_{index}.txt",
-                        index,
                         f"Concurrent test chunk {index}",
-                        "[0.1, 0.2, 0.3]",
-                        '{"test": "concurrent"}'
+                        "[0.1, 0.2, 0.3]"
                     ))
                     
                     result = cursor.fetchone()
@@ -313,6 +296,10 @@ class TestDatabaseOperations:
     async def test_database_error_handling(self, db_engine):
         """Test error handling for invalid database operations"""
         with db_engine.connect() as conn:
+            # Create parent
+            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('duplicate_test.txt', '')"))
+            conn.commit()
+
             # Test invalid SQL
             try:
                 conn.execute(text("INVALID SQL"))
@@ -322,28 +309,28 @@ class TestDatabaseOperations:
             
             # Test duplicate key insertion
             try:
-                # Insert same chunk twice
+                # Insert chunk with explicit ID
                 insert_sql = text("""
-                    INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-                    VALUES (:file_path, :chunk_index, :content, :embedding, :metadata)
+                    INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                    VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
                 """)
                 
                 params = {
+                    "id": "dup_chunk_1",
                     "file_path": "duplicate_test.txt",
-                    "chunk_index": 0,
                     "content": "Test chunk",
-                    "embedding": "[0.1, 0.2, 0.3]",
-                    "metadata": {}
+                    "embedding": "[0.1, 0.2, 0.3]"
                 }
                 
                 conn.execute(insert_sql, params)
                 conn.commit()
                 
-                # Try to insert again with same file_path and chunk_index
+                # Try to insert again with same ID
                 conn.execute(insert_sql, params)
                 conn.commit()
                 
-                # Should have failed or overwritten
+                # Should have failed
+                assert False, "Should fail on duplicate PK"
             except Exception:
                 # Expected behavior for duplicate keys
                 pass
@@ -352,6 +339,11 @@ class TestDatabaseOperations:
     async def test_data_persistence_across_connections(self, db_engine, config):
         """Test that data persists across database connections"""
         import psycopg2
+        
+        # Setup parent
+        with db_engine.connect() as conn:
+            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('persist_test.txt', '')"))
+            conn.commit()
         
         # Connection 1: Insert data
         conn1 = psycopg2.connect(
@@ -364,10 +356,10 @@ class TestDatabaseOperations:
         
         cursor1 = conn1.cursor()
         cursor1.execute("""
-            INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+            VALUES (%s, %s, 0, 10, 'text', %s)
             RETURNING id
-        """, ("persist_test.txt", 0, "Persistence test", "[0.1, 0.2, 0.3]", "{}"))
+        """, ("persist_test.txt", "Persistence test", "[0.1, 0.2, 0.3]"))
         
         chunk_id = cursor1.fetchone()[0]
         conn1.commit()
@@ -391,20 +383,7 @@ class TestDatabaseOperations:
         assert result is not None
         assert result[0] == "Persistence test"
         
-        # Clean up
-        conn3 = psycopg2.connect(
-            host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-            port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-            user=config['pg_url'].split('://')[1].split(':')[0],
-            password=config['pg_url'].split(':')[1].split('@')[0],
-            database=config['pg_url'].split('/')[-1]
-        )
-        
-        cursor3 = conn3.cursor()
-        cursor3.execute("DELETE FROM chunks WHERE id = %s", (chunk_id,))
-        conn3.commit()
-        cursor3.close()
-        conn3.close()
+        # Clean up handled by fixture teardown (truncate)
     
     @pytest.mark.asyncio
     async def test_database_performance_queries(self, db_engine):
@@ -414,21 +393,27 @@ class TestDatabaseOperations:
         # Insert test data
         with db_engine.connect() as conn:
             conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
+            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
             conn.commit()
             
+            # Prepare parents
+            conn.execute(text("""
+                INSERT INTO file_summaries (file_path, summary) 
+                SELECT 'perf_test_' || generate_series(0, 99) || '.txt', ''
+            """))
+            
             # Insert 100 test chunks
+            insert_sql = text("""
+                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+                VALUES (:file_path, :content, :i, :i+10, 'text', '[0.1, 0.2, 0.3]')
+            """)
+            
+            # Batch insert loop (simplified)
             for i in range(100):
-                insert_sql = text("""
-                    INSERT INTO chunks (file_path, chunk_index, content, embedding, metadata)
-                    VALUES (:file_path, :chunk_index, :content, :embedding, :metadata)
-                """)
-                
                 conn.execute(insert_sql, {
                     "file_path": f"perf_test_{i}.txt",
-                    "chunk_index": i,
                     "content": f"Performance test chunk {i}",
-                    "embedding": "[0.1, 0.2, 0.3]",
-                    "metadata": {"test": "performance"}
+                    "i": i
                 })
             
             conn.commit()

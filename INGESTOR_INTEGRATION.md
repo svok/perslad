@@ -114,7 +114,7 @@ langgraph-agent:
 
 ### Knowledge Port
 
-- `POST /knowledge/search` - поиск по embedding
+- `POST /v1/knowledge/search` - поиск по embedding
   ```json
   {
     "query_embedding": [0.1, 0.2, ...],

@@ -3,6 +3,7 @@ from typing import List
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.core.models.chunk import Chunk
+from ingestor.pipeline.models.context import PipelineFileContext
 
 ENRICHMENT_PROMPT_TEMPLATE = """You are analyzing a code/documentation chunk.
 
@@ -24,25 +25,27 @@ Keep it concise and factual.
 
 class EnrichChunksStage(ProcessorStage):
 
-
     def __init__(self, llm, lock_manager, max_workers: int = 2):
-        super().__init__("enrich_chunks", max_workers)
+        super().__init__("chunk_enrich", max_workers)
         self.llm = llm
         self.lock_manager = lock_manager
 
-    async def process(self, chunks: List[Chunk]) -> List[Chunk]:
-        valid_chunks = [c for c in chunks if c.content and c.content.strip()]
-        if not valid_chunks:
-            return chunks # Возвращаем как есть, но без обработки
+    async def process(self, context: PipelineFileContext) -> PipelineFileContext:
+        # Пропускаем skipped или пустые
+        if context.status != "success" or not context.chunks:
+            return context
+        
+        # Запускаем обогащение (изменяет chunks in-place)
+        await self.run(context.chunks)
+        return context
 
-        return await self.run(valid_chunks)
-
-    async def run(self, chunks: List[Chunk]) -> List[Chunk]:
+    async def run(self, chunks: List[Chunk]) -> None:
         """
         Обогащает чанки summaries с параллелизмом.
+        Изменяет chunks на месте.
         """
         if not chunks:
-            return []
+            return
 
         self.log.info("enrich.start", chunks_count=len(chunks))
 
@@ -59,8 +62,6 @@ class EnrichChunksStage(ProcessorStage):
             await asyncio.gather(*tasks, return_exceptions=True)
         except Exception as e:
             self.log.error(f"Critical error in gather: {e}")
-
-        return chunks
 
     async def _enrich_chunk(self, chunk: Chunk) -> None:
         prompt = ENRICHMENT_PROMPT_TEMPLATE.format(

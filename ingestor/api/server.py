@@ -12,7 +12,7 @@ Ingestor HTTP API
 
 from typing import Dict, Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 
 from infra.config.endpoints.ingestor import Ingestor
 from infra.logger import get_logger
@@ -43,20 +43,21 @@ class IngestorAPI:
         self.knowledge_port = knowledge_port
         self.embedding_model = embedding_model
         self.app = FastAPI(title="Ingestor API")
+        self.router = APIRouter(prefix="/v1")
         
         self._setup_routes()
 
     def _setup_routes(self) -> None:
         """Настраивает маршруты."""
         
-        @self.app.get(Ingestor.ROOT)
+        @self.router.get(Ingestor.ROOT)
         async def root() -> Dict[str, Any]:
             return {
                 "service": "Ingestor",
                 "status": "running",
             }
         
-        @self.app.get(Ingestor.HEALTH)
+        @self.router.get(Ingestor.HEALTH)
         async def health() -> Dict[str, Any]:
             stats = await self.storage.get_stats()
             return {
@@ -64,7 +65,7 @@ class IngestorAPI:
                 "storage": stats,
             }
         
-        @self.app.post("/system/llm_lock")
+        @self.router.post(Ingestor.LLM_LOCK)
         async def set_llm_lock(request: LLMLockRequest) -> Dict[str, Any]:
             """
             Endpoint для управления блокировкой LLM от агента.
@@ -85,21 +86,21 @@ class IngestorAPI:
                 "lock_state": self.lock_manager.get_status(),
             }
         
-        @self.app.get("/system/llm_lock")
+        @self.router.get(Ingestor.LLM_LOCK)
         async def get_llm_lock() -> Dict[str, Any]:
             """
             Получить текущее состояние блокировки.
             """
             return self.lock_manager.get_status()
         
-        @self.app.get("/stats")
+        @self.router.get(Ingestor.STATS)
         async def get_stats() -> Dict[str, Any]:
             """
             Статистика storage.
             """
             return await self.storage.get_stats()
         
-        @self.app.get("/chunks")
+        @self.router.get(Ingestor.CHUNKS)
         async def list_chunks(limit: int = 10) -> Dict[str, Any]:
             """
             Список чанков (для отладки).
@@ -122,7 +123,7 @@ class IngestorAPI:
         
         # === Knowledge Port Endpoints ===
         
-        @self.app.post(Ingestor.SEARCH)
+        @self.router.post(Ingestor.SEARCH)
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
             Поиск по текстовому запросу или embedding.
@@ -152,16 +153,18 @@ class IngestorAPI:
             else:
                 return {"results": [], "error": "query or query_embedding required"}
         
-        @self.app.get("/knowledge/file/{file_path:path}")
+        @self.router.get(Ingestor.FILE)
         async def get_file_context(file_path: str) -> Dict[str, Any]:
             """
             Получить контекст файла.
             """
             return await self.knowledge_port.get_file_context(file_path)
         
-        @self.app.get("/knowledge/overview")
+        @self.router.get(Ingestor.OVERVIEW)
         async def get_project_overview() -> Dict[str, Any]:
             """
             Получить обзор проекта.
             """
             return await self.knowledge_port.get_project_overview()
+
+        self.app.include_router(self.router)

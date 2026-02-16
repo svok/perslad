@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 from infra.logger import get_logger
-from ingestor.pipeline.models.file_event import FileEvent
+from ingestor.pipeline.models.context import PipelineFileContext
 from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 
@@ -15,7 +15,7 @@ class ScannerSourceStage(SourceStage):
         self.log = get_logger('ingestor.scanner.ScannerSourceStage')
         self.log.info(f"[scanner] Initialized, workspace={self.workspace_path}")
 
-    async def generate(self) -> AsyncGenerator[FileEvent, None]:
+    async def generate(self) -> AsyncGenerator[PipelineFileContext, None]:
         try:
             if not self.workspace_path.exists():
                 self.log.error("Path does not exist: %s", self.workspace_path)
@@ -26,7 +26,7 @@ class ScannerSourceStage(SourceStage):
             for root, dirs, files in os.walk(self.workspace_path):
                 current_root = Path(root)
 
-                # 1. Динамически подгружаем .gitignore, если встретили его в новой папке
+                # 1. Динамически подгружаем .gitignore, если встретили ее в новой папке
                 if (current_root / '.gitignore').exists():
                     self.checker.load_spec_for_dir(current_root)
 
@@ -50,10 +50,10 @@ class ScannerSourceStage(SourceStage):
                         continue
 
                     self.log.info(f"[scanner] File detected {rel_path}")
-                    yield FileEvent(
-                        path=rel_path,
+                    yield PipelineFileContext(
+                        file_path=rel_path,
+                        abs_path=file_path,
                         event_type="scan",
-                        abs_path=file_path
                     )
 
             self.log.info("Scan completed")

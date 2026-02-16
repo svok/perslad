@@ -6,7 +6,8 @@ from typing import AsyncGenerator, Optional, Dict
 import inotify_simple
 from inotify_simple import flags
 
-from ingestor.pipeline.models.file_event import FileEvent, EventTypes
+from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.models.file_event import EventTypes
 from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 
@@ -53,7 +54,7 @@ class InotifySourceStage(SourceStage):
             )
             self._wd_to_path[wd] = root_path
 
-    async def _read_loop(self) -> AsyncGenerator[FileEvent, None]:
+    async def _read_loop(self) -> AsyncGenerator[PipelineFileContext, None]:
         self.log.info("[inotify] _read_loop STARTED")
 
         while not self._stop_event.is_set():
@@ -91,15 +92,15 @@ class InotifySourceStage(SourceStage):
                     if event_type:
                         try:
                             rel_path = abs_path.relative_to(self.workspace_path)
-                            yield FileEvent(
-                                path=rel_path,
+                            yield PipelineFileContext(
+                                file_path=rel_path,
+                                abs_path=abs_path,
                                 event_type=event_type,
-                                abs_path=abs_path
                             )
                         except ValueError:
                             continue
 
-    async def generate(self) -> AsyncGenerator[FileEvent, None]:
+    async def generate(self) -> AsyncGenerator[PipelineFileContext, None]:
         self.log.info(f"[{self.name}] Starting recursive inotify on: {self.workspace_path}")
         try:
             self._add_watch_recursive(self.workspace_path)

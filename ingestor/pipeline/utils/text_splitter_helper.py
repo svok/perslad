@@ -87,8 +87,8 @@ class TextSplitterHelper:
 
         return [
             {
-                "content": node.text,
-                "metadata": node.metadata,
+                "content": getattr(node, "text", None),
+                "metadata": getattr(node, "metadata", {}),
                 "chunk_type": chunk_type,
             }
             for node in nodes
@@ -101,15 +101,7 @@ class TextSplitterHelper:
     ) -> str | None:
         """
         Reads file content with encoding handling.
-        
-        Tries multiple encodings in priority order.
-        
-        Args:
-            file_path: Absolute file path
-            relative_path: Relative path for logging
-        
-        Returns:
-            File content as string, or None if reading failed
+        Tries multiple encodings. Returns None if all fail (likely binary).
         """
         encodings = ['utf-8', 'utf-8-sig', 'latin-1', 'cp1252', 'iso-8859-1']
         
@@ -190,7 +182,7 @@ class TextSplitterHelper:
             chunks.append({
                 "id": chunk_id,
                 "file_path": relative_path,
-                "content": node.text,
+                "content": getattr(node,"text", None),
                 "start_line": node.metadata.get("start_line", 0),
                 "end_line": node.metadata.get("end_line", 0),
                 "chunk_type": chunk_type,

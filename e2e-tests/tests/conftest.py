@@ -1,8 +1,7 @@
-import asyncio
+import logging
 import logging
 import os
 
-import httpx
 import pytest
 import pytest_asyncio
 import requests
@@ -92,23 +91,211 @@ async def langgraph_client(config):
     ) as client:
         yield client
 
-@pytest_asyncio.fixture(scope="function")
-async def mcp_bash_client(config):
-    """Async HTTP client for MCP bash server"""
-    async with httpx.AsyncClient(
-        base_url=config['mcp_bash_url'],
-        timeout=httpx.Timeout(30.0)
-    ) as client:
-        yield client
+import pytest
+import asyncio
+import httpx
+import json
+from typing import Any, Dict, Optional
+from dataclasses import dataclass
+from datetime import datetime
 
-@pytest_asyncio.fixture(scope="function")
+
+# MCP Client class for handling SSE connections
+@dataclass
+class MCPClientsession:
+    """Manages MCP server session with SSE"""
+    
+    base_url: str
+    client: httpx.AsyncClient
+    session_id: Optional[str] = None
+    
+    def _parse_sse_response(self, text: str) -> dict:
+        """Parse SSE (Server-Sent Events) format response and extract JSON"""
+        # Handle Windows-style line endings
+        lines = text.replace('\r\n', '\n').split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('data:'):
+                try:
+                    return json.loads(line[5:].strip())
+                except json.JSONDecodeError as e:
+                    continue
+        raise ValueError("No valid JSON data found in SSE response")
+    
+    async def initialize(self) -> str:
+        """Initialize MCP session and return session ID"""
+        # Try POST with initialize method (JSON-RPC)
+        payload = {
+            "jsonrpc": "2.0",
+            "id": str(int(datetime.now().timestamp() * 1000000)),
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {
+                    "name": "test-client",
+                    "version": "1.0"
+                }
+            }
+        }
+        
+        response = await self.client.post(
+            "/",
+            json=payload,
+            headers={
+                "Accept": "application/json, text/event-stream"
+            }
+        )
+        
+        if response.status_code == 200:
+            # Session ID should be in header
+            self.session_id = response.headers.get("mcp-session-id")
+            
+            if not self.session_id:
+                raise Exception("Failed to get session ID from MCP server")
+            
+            return self.session_id
+        else:
+            # Try fallback: GET request with Accept header
+            response = await self.client.get(
+                "/",
+                headers={"Accept": "application/json, text/event-stream"}
+            )
+            
+            if response.status_code == 200:
+                self.session_id = response.headers.get("mcp-session-id")
+                
+                if not self.session_id:
+                    raise Exception("Failed to get session ID from MCP server")
+                
+                return self.session_id
+            else:
+                raise Exception(f"Failed to initialize MCP session: {response.status_code} - {response.text}")
+    
+    async def get(self, path: str, **kwargs):
+        """Proxy HTTP GET requests to underlying client with session ID"""
+        headers = kwargs.pop('headers', {})
+        # Always include session ID if available
+        if self.session_id:
+            headers['mcp-session-id'] = self.session_id
+        return await self.client.get(path, headers=headers, **kwargs)
+    
+    async def post(self, path: str, **kwargs):
+        """Proxy HTTP POST requests to underlying client with session ID"""
+        headers = kwargs.pop('headers', {})
+        # Always include session ID if available
+        if self.session_id:
+            headers['mcp-session-id'] = self.session_id
+        # Always include required Accept header for MCP
+        if 'Accept' not in headers:
+            headers['Accept'] = 'application/json, text/event-stream'
+        return await self.client.post(path, headers=headers, **kwargs)
+    
+    async def call_tool(self, tool_name: str, arguments: Optional[Dict[str, Any]] = None) -> dict:
+        """Call a single tool"""
+        if not self.session_id:
+            await self.initialize()
+        
+        payload = {
+            "jsonrpc": "2.0",
+            "id": str(int(datetime.now().timestamp() * 1000000)),
+            "method": "tools/call",
+            "params": {
+                "name": tool_name,
+                "arguments": arguments or {}
+            }
+        }
+        
+        response = await self.client.post(
+            "/",
+            json=payload,
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "mcp-session-id": self.session_id
+            }  # type: ignore
+        )
+        
+        if response.status_code == 200:
+            return self._parse_sse_response(response.text)
+        else:
+            raise Exception(f"Tool call failed: {response.status_code} - {response.text}")
+    
+    async def list_tools(self) -> dict:
+        """List all available tools"""
+        if not self.session_id:
+            await self.initialize()
+        
+        payload = {
+            "jsonrpc": "2.0",
+            "id": str(int(datetime.now().timestamp() * 1000000)),
+            "method": "tools/list",
+            "params": {}
+        }
+        
+        response = await self.client.post(
+            "/",
+            json=payload,
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "mcp-session-id": self.session_id
+            }  # type: ignore
+        )
+        
+        if response.status_code == 200:
+            # Debug: print response text for troubleshooting
+            # print(f"DEBUG list_tools response text: {response.text[:200]}")
+            return self._parse_sse_response(response.text)
+        else:
+            raise Exception(f"List tools failed: {response.status_code} - {response.text}")
+    
+    async def close(self):
+        """Close MCP session"""
+        await self.client.aclose()
+
+@pytest.fixture(scope="function")
+async def mcp_bash_client(config):
+    """Async MCP client for bash server with session management"""
+    client = httpx.AsyncClient(
+        base_url=config['mcp_bash_url'],
+        timeout=httpx.Timeout(30.0),
+        follow_redirects=True
+    )
+    
+    # Create MCP session wrapper
+    mcp_client = MCPClientsession(
+        base_url=config['mcp_bash_url'],
+        client=client
+    )
+    
+    # Initialize session on fixture creation
+    try:
+        await mcp_client.initialize()
+        yield mcp_client
+    finally:
+        await mcp_client.close()
+
+@pytest.fixture(scope="function")
 async def mcp_project_client(config):
-    """Async HTTP client for MCP project server"""
-    async with httpx.AsyncClient(
+    """Async MCP client for project server with session management"""
+    client = httpx.AsyncClient(
         base_url=config['mcp_project_url'],
-        timeout=httpx.Timeout(30.0)
-    ) as client:
-        yield client
+        timeout=httpx.Timeout(30.0),
+        follow_redirects=True
+    )
+    
+    # Create MCP session wrapper
+    mcp_client = MCPClientsession(
+        base_url=config['mcp_project_url'],
+        client=client
+    )
+    
+    # Initialize session on fixture creation
+    try:
+        await mcp_client.initialize()
+        yield mcp_client
+    finally:
+        await mcp_client.close()
 
 @pytest.fixture(scope="session")
 def test_workspace(config):

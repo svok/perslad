@@ -3,22 +3,23 @@ from typing import List, Optional
 
 from ingestor.pipeline.base.base_stage import BaseStage
 from ingestor.pipeline.indexation.queues import ThrottledQueue
-from ingestor.pipeline.models.file_event import FileEvent
+from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.adapters import BaseStorage  # Для тип hinted, но storage передается в __init__
 
 
 class IncrementalFilterStage(BaseStage):
     """
-    Фильтрует FileEvent, пропуская только измененные или новые файлы.
+    Фильтрует PipelineFileContext, пропуская только измененные или новые файлы.
     Собирает события сканирования в батчи для эффективной проверки в БД.
     События inotify пропускает немедленно.
     """
 
     def __init__(self, storage, batch_size: int = 100, max_wait: float = 3.0):
         super().__init__("incremental_filter")
-        self.storage = storage
+        self.storage: BaseStorage = storage
         self.batch_size = batch_size
         self.max_wait = max_wait
-        self._buffer: List[FileEvent] = []
+        self._buffer: List[PipelineFileContext] = []
         self._lock = asyncio.Lock()
         self._flush_event = asyncio.Event()
         self.input_queue: Optional[ThrottledQueue] = None
@@ -39,9 +40,9 @@ class IncrementalFilterStage(BaseStage):
         """Основной цикл обработки очереди"""
         while not self._stop_event.is_set():
             try:
-                event = await self.input_queue.get()
+                context = await self.input_queue.get()
 
-                if event is None:
+                if context is None:
                     async with self._lock:
                         if self._buffer:
                             await self._process_and_flush()
@@ -50,15 +51,15 @@ class IncrementalFilterStage(BaseStage):
                     break
 
                 # Логика разделения: inotify - сразу, scan - в батч
-                if event.event_type != "scan":
+                if context.event_type != "scan":
                     if self.output_queue:
-                        await self.output_queue.put(event)
+                        await self.output_queue.put(context)
                     self.input_queue.task_done()
                     continue
 
                 # Добавляем в буфер для сканирования
                 async with self._lock:
-                    self._buffer.append(event)
+                    self._buffer.append(context)
                     if len(self._buffer) >= self.batch_size:
                         self._flush_event.set()
 
@@ -97,41 +98,40 @@ class IncrementalFilterStage(BaseStage):
         self._buffer = []
         
         try:
-            paths = [str(event.path) for event in current_batch]
+            paths = [str(ctx.file_path) for ctx in current_batch]
             db_metadata = await self.storage.get_files_metadata(paths)
             
-            filtered_events = []
-            for event in current_batch:
-                path_str = str(event.path)
+            for ctx in current_batch:
+                path_str = str(ctx.file_path)
                 if path_str not in db_metadata:
-                    filtered_events.append(event)
+                    # Новый файл
+                    if self.output_queue:
+                        await self.output_queue.put(ctx)
                     continue
                 
                 db_mtime = db_metadata[path_str].get("mtime", 0)
                 try:
-                    if event.abs_path and event.abs_path.exists():
-                        current_mtime = event.abs_path.stat().st_mtime
+                    if ctx.abs_path and ctx.abs_path.exists():
+                        current_mtime = ctx.abs_path.stat().st_mtime
                     else:
                         current_mtime = 0
                 except Exception:
                     current_mtime = 0
                 
                 if current_mtime > db_mtime + 0.01:
-                    filtered_events.append(event)
+                    # Файл изменился
+                    if self.output_queue:
+                        await self.output_queue.put(ctx)
                 else:
                     self.log.debug(f"Skipping unchanged scanned file: {path_str}")
-
-            if self.output_queue and filtered_events:
-                for fe in filtered_events:
-                    await self.output_queue.put(fe)
             
-            self.log.info(f"Filtered scan batch: {len(current_batch)} -> {len(filtered_events)}")
+            self.log.info(f"Filtered scan batch: {len(current_batch)} processed")
 
         except Exception as e:
             self.log.error(f"Error processing batch: {e}", exc_info=True)
             if self.output_queue:
-                for fe in current_batch:
-                    await self.output_queue.put(fe)
+                for ctx in current_batch:
+                    await self.output_queue.put(ctx)
 
     async def stop(self):
         self._stop_event.set()
