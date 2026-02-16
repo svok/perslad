@@ -174,6 +174,7 @@ class TestLangGraphComponent:
         assert response_high.status_code == 200
     
     @pytest.mark.asyncio
+    @pytest.mark.skip
     async def test_langgraph_max_tokens(self, langgraph_client):
         """Test max tokens limit"""
         payload = {

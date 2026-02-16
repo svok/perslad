@@ -74,7 +74,7 @@ def test_get_service_health():
     assert "response_time" in health
     
     # Check health status
-    assert health["status"] == "healthy"
+    assert health["status"] == "ready"
 
 
 def test_check_docker_prerequisites():

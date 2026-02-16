@@ -60,7 +60,7 @@ class IngestorAPI:
         async def health() -> Dict[str, Any]:
             stats = await self.storage.get_stats()
             return {
-                "status": "healthy",
+                "status": "ready",
                 "storage": stats,
             }
         

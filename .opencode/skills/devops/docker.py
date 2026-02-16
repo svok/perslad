@@ -9,10 +9,9 @@ Design principles:
 - DRY and KISS patterns
 """
 
-from typing import Dict, List, Optional, Any
-from pathlib import Path
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional, Any
 
 
 class ServiceStatus(Enum):
@@ -22,7 +21,7 @@ class ServiceStatus(Enum):
     RESTARTING = "restarting"
     EXITED = "exited"
     CREATED = "created"
-    UNHEALTHY = "unhealthy"
+    UNHEALTHY = "unready"
 
 
 @dataclass
@@ -151,19 +150,19 @@ def get_service_health(service_name: str) -> Dict[str, Any]:
     health_checks = {
         "llm-engine": {
             "endpoint": "http://localhost:8000/v1/models",
-            "status": "healthy",
+            "status": "ready",
             "response_time": "0.5s",
             "last_check": "2026-02-12T09:00:00Z"
         },
         "langgraph-agent": {
             "endpoint": "http://localhost:8123/health",
-            "status": "healthy",
+            "status": "ready",
             "response_time": "0.1s",
             "last_check": "2026-02-12T09:00:00Z"
         },
         "ingestor": {
             "endpoint": "http://localhost:8124/health",
-            "status": "healthy",
+            "status": "ready",
             "response_time": "0.2s",
             "last_check": "2026-02-12T09:00:00Z"
         }

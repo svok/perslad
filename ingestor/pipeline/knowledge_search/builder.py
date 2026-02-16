@@ -1,11 +1,10 @@
-from typing import List, Callable, Type
-from dataclasses import dataclass
-from ingestor.pipeline.base.processor_stage import ProcessorStage
-from ingestor.pipeline.models.pipeline_context import PipelineContext
+from typing import List
+
 from ingestor.pipeline.models.stage_def import StageDef
-from ingestor.pipeline.stages.query_parse_stage import QueryParseStage
 from ingestor.pipeline.stages.embed_stage import EmbedChunksStage
+from ingestor.pipeline.stages.query_parse_stage import QueryParseStage
 from ingestor.pipeline.stages.search_db_stage import SearchDBStage
+
 
 class KnowledgeSearchPipelineBuilder:
     """Билдер пайплайна поиска"""
@@ -25,8 +24,6 @@ class KnowledgeSearchPipelineBuilder:
                 name="embed",
                 stage_class=EmbedChunksStage,
                 factory=lambda ctx: EmbedChunksStage(
-                    ctx.embed_url, 
-                    ctx.embed_api_key, 
                     max_workers=ctx.config.get("embed_workers", 2),
                     embed_model=ctx.embed_model
                 )

@@ -12,7 +12,7 @@ class HealthHandler:
         system_status = self.system.get_status()
 
         # Определяем общий статус
-        overall = "healthy" if system_status["llm_ready"] else "unhealthy"
+        overall = "ready" if system_status["llm_ready"] else "unready"
 
         return {
             "status": overall,
