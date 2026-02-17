@@ -7,8 +7,31 @@ Covers: DB storing, Indexation workflows
 
 import time
 
+import json
+import random
+import uuid
 import pytest
 from sqlalchemy import create_engine, text
+from urllib.parse import urlparse
+
+
+def create_embedding_vector(dimensions: int = 768) -> str:
+    """Create a random embedding vector with specified dimensions"""
+    return json.dumps([round(random.random(), 6) for _ in range(dimensions)])
+
+
+def parse_pg_url(pg_url: str) -> tuple:
+    """Parse PostgreSQL URL into (host, port, user, password, database)"""
+    parsed = urlparse(pg_url)
+    if parsed.hostname is None:
+        parsed = urlparse(f"postgresql://{pg_url}")
+    return (
+        parsed.hostname or 'localhost',
+        parsed.port or 5432,
+        parsed.username,
+        parsed.password,
+        parsed.path.lstrip('/')
+    )
 
 
 @pytest.mark.integration
@@ -30,12 +53,13 @@ class TestDatabaseOperations:
         import psycopg2
         
         try:
+            host, port, user, password, database = parse_pg_url(config['pg_url'])
             conn = psycopg2.connect(
-                host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-                port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-                user=config['pg_url'].split('://')[1].split(':')[0],
-                password=config['pg_url'].split(':')[1].split('@')[0],
-                database=config['pg_url'].split('/')[-1]
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database
             )
             conn.close()
             assert True
@@ -60,7 +84,7 @@ class TestDatabaseOperations:
                 assert table in tables, f"Table {table} not found in database"
     
     @pytest.mark.asyncio
-    async def test_chunk_storage(self, db_engine, test_workspace):
+    async def test_chunk_storage(self, db_engine, test_workspace, config):
         """Test storing and retrieving chunks"""
         # First, we need to ingest a file to create chunks
         # This would require the ingestor service to be running
@@ -81,15 +105,16 @@ class TestDatabaseOperations:
             
             # Insert test chunk
             insert_sql = text("""
-                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
-                VALUES (:file_path, :content, 0, 10, 'text', :embedding)
+                INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
                 RETURNING id
             """)
             
             result = conn.execute(insert_sql, {
+                "id": str(uuid.uuid4()),
                 "file_path": "test.txt",
                 "content": "Test chunk content",
-                "embedding": "[0.1, 0.2, 0.3]"
+                "embedding": create_embedding_vector(config['pgvector_dimensions'])
             })
             
             chunk_id = result.fetchone()[0]
@@ -142,7 +167,7 @@ class TestDatabaseOperations:
             conn.commit()
 
     @pytest.mark.asyncio
-    async def test_query_execution(self, db_engine):
+    async def test_query_execution(self, db_engine, config):
         """Test database query execution"""
         with db_engine.connect() as conn:
             # Create test data
@@ -158,14 +183,20 @@ class TestDatabaseOperations:
             """))
             
             # Insert test data
+            emb = create_embedding_vector(config['pgvector_dimensions'])
             insert_sql = text("""
-                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
+                INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
                 VALUES 
-                ('doc1.txt', 'First chunk of doc1', 0, 10, 'text', '[0.1, 0.2, 0.3]'),
-                ('doc1.txt', 'Second chunk of doc1', 10, 20, 'text', '[0.4, 0.5, 0.6]'),
-                ('doc2.txt', 'First chunk of doc2', 0, 10, 'text', '[0.7, 0.8, 0.9]')
+                (:id1, 'doc1.txt', 'First chunk of doc1', 0, 10, 'text', :emb1),
+                (:id2, 'doc1.txt', 'Second chunk of doc1', 10, 20, 'text', :emb2),
+                (:id3, 'doc2.txt', 'First chunk of doc2', 0, 10, 'text', :emb3)
             """)
-            conn.execute(insert_sql)
+            conn.execute(insert_sql, {
+                "id1": str(uuid.uuid4()),
+                "id2": str(uuid.uuid4()),
+                "id3": str(uuid.uuid4()),
+                "emb1": emb, "emb2": emb, "emb3": emb
+            })
             conn.commit()
             
             # Test query
@@ -196,7 +227,7 @@ class TestDatabaseOperations:
                 pytest.skip(f"Vector operations not available: {e}")
     
     @pytest.mark.asyncio
-    async def test_transaction_handling(self, db_engine):
+    async def test_transaction_handling(self, db_engine, config):
         """Test transaction handling and rollback"""
         with db_engine.connect() as conn:
             # Create parent
@@ -208,15 +239,16 @@ class TestDatabaseOperations:
                 try:
                     # Insert test data
                     insert_sql = text("""
-                        INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
-                        VALUES (:file_path, :content, 0, 10, 'text', :embedding)
+                        INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                        VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
                         RETURNING id
                     """)
                     
                     result = conn.execute(insert_sql, {
+                        "id": str(uuid.uuid4()),
                         "file_path": "transaction_test.txt",
                         "content": "Transaction test chunk",
-                        "embedding": "[0.1, 0.2, 0.3]"
+                        "embedding": create_embedding_vector(config['pgvector_dimensions'])
                     })
                     
                     chunk_id = result.fetchone()[0]
@@ -244,28 +276,32 @@ class TestDatabaseOperations:
                 conn.execute(text(f"INSERT INTO file_summaries (file_path, summary) VALUES ('concurrent_{i}.txt', '')"))
             conn.commit()
         
-        async def insert_chunk(index):
-            async def db_operation():
+        test_embedding = create_embedding_vector(config['pgvector_dimensions'])
+        
+        async def insert_chunk(index, embedding):
+            def db_operation():
                 # Create a new connection for each operation
                 import psycopg2
+                host, port, user, password, database = parse_pg_url(config['pg_url'])
                 conn = psycopg2.connect(
-                    host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-                    port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-                    user=config['pg_url'].split('://')[1].split(':')[0],
-                    password=config['pg_url'].split(':')[1].split('@')[0],
-                    database=config['pg_url'].split('/')[-1]
+                    host=host,
+                    port=port,
+                    user=user,
+                    password=password,
+                    database=database
                 )
                 cursor = conn.cursor()
                 
                 try:
                     cursor.execute("""
-                        INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
-                        VALUES (%s, %s, 0, 10, 'text', %s)
+                        INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                        VALUES (%s, %s, %s, 0, 10, 'text', %s)
                         RETURNING id
                     """, (
+                        str(uuid.uuid4()),
                         f"concurrent_{index}.txt",
                         f"Concurrent test chunk {index}",
-                        "[0.1, 0.2, 0.3]"
+                        embedding
                     ))
                     
                     result = cursor.fetchone()
@@ -278,7 +314,7 @@ class TestDatabaseOperations:
             return await asyncio.get_event_loop().run_in_executor(None, db_operation)
         
         # Execute concurrent operations
-        tasks = [insert_chunk(i) for i in range(5)]
+        tasks = [insert_chunk(i, test_embedding) for i in range(5)]
         results = await asyncio.gather(*tasks)
         
         # All should succeed
@@ -293,7 +329,7 @@ class TestDatabaseOperations:
             assert count == 5
     
     @pytest.mark.asyncio
-    async def test_database_error_handling(self, db_engine):
+    async def test_database_error_handling(self, db_engine, config):
         """Test error handling for invalid database operations"""
         with db_engine.connect() as conn:
             # Create parent
@@ -319,7 +355,7 @@ class TestDatabaseOperations:
                     "id": "dup_chunk_1",
                     "file_path": "duplicate_test.txt",
                     "content": "Test chunk",
-                    "embedding": "[0.1, 0.2, 0.3]"
+                    "embedding": create_embedding_vector(config['pgvector_dimensions'])
                 }
                 
                 conn.execute(insert_sql, params)
@@ -346,20 +382,21 @@ class TestDatabaseOperations:
             conn.commit()
         
         # Connection 1: Insert data
+        host, port, user, password, database = parse_pg_url(config['pg_url'])
         conn1 = psycopg2.connect(
-            host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-            port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-            user=config['pg_url'].split('://')[1].split(':')[0],
-            password=config['pg_url'].split(':')[1].split('@')[0],
-            database=config['pg_url'].split('/')[-1]
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database
         )
         
         cursor1 = conn1.cursor()
         cursor1.execute("""
-            INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
-            VALUES (%s, %s, 0, 10, 'text', %s)
+            INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+            VALUES (%s, %s, %s, 0, 10, 'text', %s)
             RETURNING id
-        """, ("persist_test.txt", "Persistence test", "[0.1, 0.2, 0.3]"))
+        """, (str(uuid.uuid4()), "persist_test.txt", "Persistence test", create_embedding_vector(config['pgvector_dimensions'])))
         
         chunk_id = cursor1.fetchone()[0]
         conn1.commit()
@@ -368,11 +405,11 @@ class TestDatabaseOperations:
         
         # Connection 2: Verify data persists
         conn2 = psycopg2.connect(
-            host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-            port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-            user=config['pg_url'].split('://')[1].split(':')[0],
-            password=config['pg_url'].split(':')[1].split('@')[0],
-            database=config['pg_url'].split('/')[-1]
+            host=host,
+            port=port,
+            user=user,
+            password=password,
+            database=database
         )
         
         cursor2 = conn2.cursor()
@@ -386,7 +423,7 @@ class TestDatabaseOperations:
         # Clean up handled by fixture teardown (truncate)
     
     @pytest.mark.asyncio
-    async def test_database_performance_queries(self, db_engine):
+    async def test_database_performance_queries(self, db_engine, config):
         """Test database query performance"""
         import time
         
@@ -403,17 +440,20 @@ class TestDatabaseOperations:
             """))
             
             # Insert 100 test chunks
+            test_embedding = create_embedding_vector(config['pgvector_dimensions'])
             insert_sql = text("""
-                INSERT INTO chunks (file_path, content, start_line, end_line, chunk_type, embedding)
-                VALUES (:file_path, :content, :i, :i+10, 'text', '[0.1, 0.2, 0.3]')
+                INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                VALUES (:id, :file_path, :content, :i, :i+10, 'text', :embedding)
             """)
             
             # Batch insert loop (simplified)
             for i in range(100):
                 conn.execute(insert_sql, {
+                    "id": f"perf_{i}",
                     "file_path": f"perf_test_{i}.txt",
                     "content": f"Performance test chunk {i}",
-                    "i": i
+                    "i": i,
+                    "embedding": test_embedding
                 })
             
             conn.commit()
@@ -438,15 +478,16 @@ class TestDatabaseOperations:
         
         try:
             # Create connection pool
+            host, port, user, password, database = parse_pg_url(config['pg_url'])
             db_pool = pool.SimpleConnectionPool(
                 1, 5,
-                host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-                port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-                user=config['pg_url'].split('://')[1].split(':')[0],
-                password=config['pg_url'].split(':')[1].split('@')[0],
-                database=config['pg_url'].split('/')[-1]
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database
             )
-            
+
             # Get connection from pool
             conn = db_pool.getconn()
             cursor = conn.cursor()
@@ -485,24 +526,6 @@ class TestDatabaseOperations:
                 pytest.skip("Schema versioning not implemented")
     
     @pytest.mark.asyncio
-    async def test_database_backup_restore(self, config):
-        """Test database backup and restore (if possible)"""
-
-        try:
-            # This is a complex test that might not be possible in all environments
-            # We'll just verify we can connect and run basic operations
-            
-            # Test database backup command (dry run)
-            backup_command = f"pg_dump -h {config['pg_url'].split('@')[1].split('/')[0].split(':')[0]} -U {config['pg_url'].split('://')[1].split(':')[0]} -d {config['pg_url'].split('/')[-1]} --schema-only"
-            
-            # Just verify the command can be constructed
-            assert isinstance(backup_command, str)
-            assert len(backup_command) > 0
-            
-        except Exception as e:
-            pytest.skip(f"Backup/restore test skipped: {e}")
-    
-    @pytest.mark.asyncio
     async def test_database_connection_limits(self, config):
         """Test database connection limits"""
         import psycopg2
@@ -510,14 +533,15 @@ class TestDatabaseOperations:
         connections = []
         
         try:
+            host, port, user, password, database = parse_pg_url(config['pg_url'])
             # Try to create multiple connections
             for i in range(10):
                 conn = psycopg2.connect(
-                    host=config['pg_url'].split('@')[1].split('/')[0].split(':')[0],
-                    port=int(config['pg_url'].split('@')[1].split('/')[0].split(':')[1]),
-                    user=config['pg_url'].split('://')[1].split(':')[0],
-                    password=config['pg_url'].split(':')[1].split('@')[0],
-                    database=config['pg_url'].split('/')[-1]
+                    host=host,
+                    port=port,
+                    user=user,
+                    password=password,
+                    database=database
                 )
                 connections.append(conn)
             

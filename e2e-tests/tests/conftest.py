@@ -26,6 +26,7 @@ TEST_CONFIG = {
     'emb_url': os.getenv('EMB_URL', 'http://localhost:8001/v1'),
     'emb_served_model_name': os.getenv('EMB_SERVED_MODEL_NAME', 'embed-model'),
     'pg_url': os.getenv('PG_URL', 'postgresql://rag:rag@postgres:5432/rag'),
+    'pgvector_dimensions': int(os.getenv('PGVECTOR_DIMENSIONS', '768')),
     'ingestor_url': os.getenv('INGESTOR_URL', 'http://localhost:8124'),
     'langgraph_url': os.getenv('LANGGRAPH_AGENT_URL', 'http://localhost:8123/v1'),
     'mcp_bash_url': os.getenv('MCP_BASH_URL', 'http://localhost:8081/mcp'),
@@ -329,10 +330,11 @@ async def clean_database(config):
     from sqlalchemy import create_engine
 
     engine = create_engine(config['pg_url'])
+    dimensions = config['pgvector_dimensions']
     
     with engine.connect() as conn:
         # Create schema if not exists
-        conn.execute(text("""
+        conn.execute(text(f"""
             CREATE TABLE IF NOT EXISTS chunks (
                 id TEXT PRIMARY KEY,
                 file_path TEXT NOT NULL,
@@ -342,7 +344,7 @@ async def clean_database(config):
                 chunk_type TEXT NOT NULL,
                 summary TEXT,
                 purpose TEXT,
-                embedding vector(1536)
+                embedding vector({dimensions})
             );
             CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
         """))
