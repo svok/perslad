@@ -111,7 +111,6 @@ def assert_file_indexed_with_error(db_engine, file_path: str, project_root: str 
     assert chunks_count == 0, f"Invalid file should have 0 chunks, got {chunks_count}"
 
 # Configuration from environment
-import tempfile
 TEST_CONFIG = {
     'llm_url': os.getenv('LLM_URL', 'http://localhost:8000/v1'),
     'llm_served_model_name': os.getenv('LLM_SERVED_MODEL_NAME', 'default-model'),
@@ -124,8 +123,7 @@ TEST_CONFIG = {
     'mcp_bash_url': os.getenv('MCP_BASH_URL', 'http://localhost:8081/mcp'),
     'mcp_project_url': os.getenv('MCP_PROJECT_URL', 'http://localhost:8083/mcp'),
     'test_mode': os.getenv('TEST_MODE', 'true').lower() == 'true',
-    'workspace_root': os.getenv('PROJECT_ROOT', '/workspace'),
-    'test_workspace': os.path.join(tempfile.gettempdir(), 'workspace-test')
+    'workspace_root': os.getenv('WORKSPACE_ROOT', '/workspace'),
 }
 
 @pytest.fixture(scope="session")
@@ -391,9 +389,9 @@ async def mcp_project_client(config):
         await mcp_client.close()
 
 @pytest.fixture(scope="session")
-def project_root(config):
-    """Путь к workspace для создания файлов (видимый ингестором)"""
-    return config.get('workspace_root', config.get('test_workspace', '/workspace'))
+def workspace_root(config):
+    """Путь к workspace для создания файлов (видимый ингестором внутри контейнера)"""
+    return config.get('workspace_root')
 
 
 @pytest.fixture(scope="function")
@@ -404,11 +402,12 @@ def db_engine(config):
     engine.dispose()
 
 
-@pytest.fixture(scope="session")
-def test_workspace(config):
-    """Create test workspace directory"""
+@pytest.fixture(scope="function")
+def test_workspace(config, request):
+    """Create test workspace directory. DEPRECATED: Use workspace_root instead."""
     import os
-    workspace = config['test_workspace']
+    import tempfile
+    workspace = os.path.join(tempfile.gettempdir(), 'workspace-test')
     os.makedirs(workspace, exist_ok=True)
     
     # Create some test files
@@ -428,6 +427,13 @@ def test_workspace(config):
             elif filename.endswith('.json'):
                 f.write('{"test": true, "value": 42}\n')
     
+    # Cleanup after test
+    def cleanup():
+        import shutil
+        if os.path.exists(workspace):
+            shutil.rmtree(workspace)
+    
+    request.addfinalizer(cleanup)
     return workspace
 
 @pytest.fixture(scope="function")

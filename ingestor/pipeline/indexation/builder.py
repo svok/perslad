@@ -1,7 +1,7 @@
 from typing import List
 
 from ingestor.pipeline.models.stage_def import StageDef
-from ingestor.pipeline.stages.embed_stage import EmbedChunksStage
+from ingestor.pipeline.stages.embed_chunks_stage import EmbedChunksStage
 from ingestor.pipeline.stages.enrich_chunks_stage import EnrichChunksStage
 from ingestor.pipeline.stages.enrich_stage import EnrichStage
 from ingestor.pipeline.stages.file_summary_stage import FileSummaryStage

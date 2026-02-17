@@ -96,6 +96,7 @@ class InotifySourceStage(SourceStage):
                                 file_path=rel_path,
                                 abs_path=abs_path,
                                 event_type=event_type,
+                                status="pending"
                             )
                         except ValueError:
                             continue

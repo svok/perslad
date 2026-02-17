@@ -88,7 +88,7 @@ services:
     container_name: mcp-bash
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${PROJECT_ROOT}:/workspace
+      - ${PROJECT_ROOT}:${WORKSPACE_ROOT}
     ports:
       - "8081:8081"
     command: ["python", "-m", "servers.mcp_bash"]
@@ -101,7 +101,7 @@ services:
       dockerfile: servers/Dockerfile
     container_name: mcp-project
     volumes:
-      - ${PROJECT_ROOT}:/workspace
+      - ${PROJECT_ROOT}:${WORKSPACE_ROOT}
     ports:
       - "8083:8083"
     command: ["python", "-m", "servers.mcp_project"]
@@ -147,7 +147,7 @@ services:
     volumes:
       - ./infra:/app/infra:ro
       - ./ingestor:/app/ingestor:ro
-      - ${PROJECT_ROOT}:/workspace
+      - ${PROJECT_ROOT}:${WORKSPACE_ROOT}
     depends_on:
       - llm
       - emb

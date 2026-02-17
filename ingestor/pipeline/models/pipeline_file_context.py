@@ -1,67 +1,65 @@
 """
 Pipeline File Context
 
-Единый контейнер для передачи информации о файле через весь pipeline.
-Содержит все метаданные, статус обработки и результаты (чанки).
+Контекст для индексационного пайплайна.
+Наследуется от BasePipelineContext.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Any
+from typing import Optional
 import time
 
 from ingestor.core.models.chunk import Chunk
-from ingestor.pipeline.models.file_event import EventTypes
+
+# Import from pipeline base
+from .pipeline_base_context import PipelineBaseContext
 
 
-@dataclass
-class PipelineFileContext:
-    """Контекст processing одного файла."""
-    
-    # Обязательные идентификаторы
-    file_path: Path          # Относительный путь (в workspace)
-    abs_path: Path           # Абсолютный путь
-    event_type: EventTypes   # "scan", "inotify", "full_scan"
-    
-    # Обогащенные метаданные (заполняются EnrichStage)
+@dataclass(kw_only=True)
+class PipelineFileContext(PipelineBaseContext):
+    """
+    Контекст для индексационного пайплайна.
+
+    Наследует поля:
+    - chunks: список чанков
+    - status: статус обработки
+    - error: сообщение об ошибке
+    - has_errors/erros: флаги ошибок
+    - created_at/updated_at: временные метки
+
+    Добавляет специфичные поля:
+    - file_path: относительный путь к файлу
+    - abs_path: абсолютный путь к файлу
+    - event_type: тип события (scan, inotify, full_scan)
+    - size: размер файла
+    - mtime: время модификации
+    - raw_event: исходное событие (опционально)
+    """
+
+    # Специфичные поля для file pipeline
+    file_path: Path
+    abs_path: Path
+    event_type: str
     size: int = 0
     mtime: float = 0
-    
-    # Результаты обработки
-    chunks: List['Chunk'] = field(default_factory=list)
-    status: str = "pending"  # "pending", "success", "skipped", "error"
-    error: Optional[str] = None
-    
-    # Флаги ошибок (вместо пропуска)
-    has_errors: bool = False
-    errors: List[str] = field(default_factory=list)
-    
-    # Временные метки
-    created_at: float = field(default_factory=time.time)
-    updated_at: float = field(default_factory=time.time)
-    
-    # Ссылка на исходное событие (опционально, для отладки)
-    raw_event: Optional[Any] = None
-    
-    def mark_success(self):
+    raw_event: Optional[dict] = None
+
+    def mark_success(self) -> None:
         """Отметить успешную обработку."""
         self.status = "success"
         self.updated_at = time.time()
-    
-    def mark_skipped(self, reason: str = ""):
-        """Отметить пропуск файла."""
+
+    def mark_skipped(self, reason: str = "") -> None:
+        """Отметить пропуск обработки."""
         self.status = "skipped"
         self.error = reason
         self.updated_at = time.time()
-    
-    def mark_error(self, error: str):
+
+    def mark_error(self, error: str) -> None:
         """Отметить ошибку обработки."""
         self.status = "error"
         self.error = error
+        self.has_errors = True
+        self.errors.append(error)
         self.updated_at = time.time()
-    
-    def has_content(self) -> bool:
-        """Есть ли валидные чанки для сохранения."""
-        return len(self.chunks) > 0 and any(
-            c.content and c.content.strip() for c in self.chunks
-        )

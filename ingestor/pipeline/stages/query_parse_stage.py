@@ -1,44 +1,56 @@
-from typing import List, Dict, Any
+"""
+Query Parse Stage
+
+Разбивает поисковый запрос на чанки.
+"""
+
+from typing import Dict, Any
 from ingestor.core.models.chunk import Chunk
+from ingestor.pipeline.models.pipeline_search_context import PipelineSearchContext
 from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 
+
 class QueryParseStage(ProcessorStage):
     """
-    Разбивает поисковый запрос на чанки, используя ту же логику, что и для файлов.
+    Разбивает поисковый запрос на чанки.
     """
+
     def __init__(self, max_workers: int = 1, text_splitter_helper: TextSplitterHelper = None):
         super().__init__("query_parse", max_workers)
         self.helper = text_splitter_helper or TextSplitterHelper()
 
-    async def process(self, query_data: Dict[str, Any]) -> List[Chunk]:
+    async def process(self, context: PipelineSearchContext) -> PipelineSearchContext:
         """
-        Вход: {'query': str, 'top_k': int, 'filter_by_file': Optional[str]}
-        Выход: Список объектов Chunk (без ID, т.к. это временные объекты для эмбеддинга)
+        Вход: PipelineSearchContext с query_data
+        Выход: PipelineSearchContext с chunks
         """
+        query_data: Dict[str, Any] = context.query_data
         query_text = query_data.get('query', '')
+        
         if not query_text:
-            return []
+            context.mark_error("Empty query")
+            return context
 
         try:
-            # Используем логику разбивки из хелпера
-            chunks_text = self.helper.split_query_by_sentences(query_text, max_chars=2000)
-            
-            chunks = []
-            for i, text in enumerate(chunks_text):
-                # Создаем временный Chunk для совместимости с EmbedChunksStage
-                chunk = Chunk(
-                    id=f"query_{i}",
+            # Разбиваем запрос на чанки
+            # В будущем: использовать text_splitter_helper если нужно
+            # Сейчас создаем один чанк с полным текстом
+            context.chunks = [
+                Chunk(
+                    id="query_0",
                     file_path="query",
-                    content=text,
+                    content=query_text,
                     start_line=0,
                     end_line=0,
                     chunk_type="query",
                     metadata={'original_query_data': query_data}
                 )
-                chunks.append(chunk)
+            ]
             
-            return chunks
+            # Важно: не меняем статус на success здесь,
+            # пусть следующая стадия (Embed) успешно отработает и проставит
+            return context
         except Exception as e:
-            self.log.error(f"Query parse error: {e}", exc_info=True)
-            return []
+            context.mark_error(f"Query parse error: {e}")
+            return context

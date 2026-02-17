@@ -84,7 +84,7 @@ class EnrichChunksStage(ProcessorStage):
 
         # Если result пришел как байты, декодируем их ОДИН раз
         if isinstance(result, bytes):
-            result = result.decode('utf-8')
+            result = result.decode('utf-8', errors='strict')
 
         # УБИРАЕМ любые .encode().decode(unicode-escape),
         # если данные уже в нормальном UTF-8.

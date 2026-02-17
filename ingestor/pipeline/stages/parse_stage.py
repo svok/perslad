@@ -20,12 +20,18 @@ class ParseProcessorStage(ProcessorStage):
             return context
 
         try:
-            raw_chunks = self.helper.chunk_file(
+            raw_chunks, error = await self.helper.chunk_file(
                 file_path=str(context.abs_path),
                 relative_path=str(context.file_path),
                 extension=context.abs_path.suffix,
-                text_splitter_helper=self.helper
             )
+
+            if error:
+                self.log.error(f"Failed to chunk file {context.file_path}: {error}")
+                context.has_errors = True
+                context.errors.append(f"chunk error: {error}")
+                context.chunks = []
+                return context
 
             if not raw_chunks:
                 self.log.warning(f"No chunks generated for {context.file_path} (binary or empty)")

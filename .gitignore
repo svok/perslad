@@ -1,7 +1,8 @@
 **/.idea/
 /.volumes/
 /out*.txt
-.env
+**/.env
+**/.env.local
 
 **/*.iml
 

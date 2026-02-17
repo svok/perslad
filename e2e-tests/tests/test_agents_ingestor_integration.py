@@ -20,14 +20,11 @@ import uuid
 
 import pytest
 
-from infra.config import Ingestor, LangGraph
 from conftest import (
     get_file_summary,
     get_chunks_count_for_file,
-    get_chunks_count,
-    get_file_summaries_count,
 )
-
+from infra.config import Ingestor, LangGraph
 
 INDEXATION_WAIT = 8
 INGESTOR_CONTAINER = "perslad-1-ingestor-1"
@@ -145,8 +142,6 @@ class TestInitialScan:
     async def test_no_orphan_files_in_db(self, db_engine):
         """DB should not contain files that don't exist in workspace"""
         from sqlalchemy import text
-        
-        workspace = os.getenv('PROJECT_ROOT', '/workspace')
         
         with db_engine.connect() as conn:
             result = conn.execute(text("SELECT file_path FROM file_summaries"))

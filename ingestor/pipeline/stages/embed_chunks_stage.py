@@ -1,6 +1,6 @@
 from ingestor.adapters.embedding_model import EmbeddingModel
 from ingestor.pipeline.base.processor_stage import ProcessorStage
-from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
+from ingestor.pipeline.models import PipelineBaseContext
 
 
 class EmbedChunksStage(ProcessorStage):
@@ -12,7 +12,7 @@ class EmbedChunksStage(ProcessorStage):
         super().__init__("embed", max_workers)
         self.embed_model = embed_model
 
-    async def process(self, context: PipelineFileContext) -> PipelineFileContext:
+    async def process(self, context: PipelineBaseContext) -> PipelineBaseContext:
         # Пропускаем skipped или пустые
         if context.status != "success" or not context.chunks:
             return context

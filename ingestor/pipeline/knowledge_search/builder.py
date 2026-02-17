@@ -1,7 +1,7 @@
 from typing import List
 
 from ingestor.pipeline.models.stage_def import StageDef
-from ingestor.pipeline.stages.embed_stage import EmbedChunksStage
+from ingestor.pipeline.stages.embed_chunks_stage import EmbedChunksStage
 from ingestor.pipeline.stages.query_parse_stage import QueryParseStage
 from ingestor.pipeline.stages.search_db_stage import SearchDBStage
 

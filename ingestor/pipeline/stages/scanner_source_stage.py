@@ -54,6 +54,7 @@ class ScannerSourceStage(SourceStage):
                         file_path=rel_path,
                         abs_path=file_path,
                         event_type="scan",
+                        status="pending"
                     )
 
             self.log.info("Scan completed")

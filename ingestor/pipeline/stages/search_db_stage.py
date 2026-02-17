@@ -1,6 +1,7 @@
 from typing import List, Dict, Any
 from ingestor.core.models.chunk import Chunk
 from ingestor.pipeline.base.processor_stage import ProcessorStage
+from ingestor.pipeline.models.pipeline_search_context import PipelineSearchContext
 
 class SearchDBStage(ProcessorStage):
     """
@@ -10,17 +11,17 @@ class SearchDBStage(ProcessorStage):
         super().__init__("search_db", max_workers)
         self.storage = storage
 
-    async def process(self, chunks: List[Chunk]) -> List[Dict[str, Any]]:
+    async def process(self, context: PipelineSearchContext) -> PipelineSearchContext:
         """
         Вход: Список чанков с эмбеддингами
         Выход: Список найденных результатов из БД
         """
-        if not chunks:
-            return []
+        if not context.is_processable() or not context.chunks:
+            return context
 
         all_results = []
         try:
-            for chunk in chunks:
+            for chunk in context.chunks:
                 if chunk.embedding is None:
                     continue
                 
@@ -49,7 +50,9 @@ class SearchDBStage(ProcessorStage):
                         "query_chunk": chunk.content
                     })
             
-            return all_results
+            context.result = all_results
+            context.mark_success()
+            return context
         except Exception as e:
             self.log.error(f"DB Search error: {e}", exc_info=True)
-            return []
+            return context
