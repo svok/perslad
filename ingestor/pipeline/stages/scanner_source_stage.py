@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import AsyncGenerator
 
 from infra.logger import get_logger
-from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 

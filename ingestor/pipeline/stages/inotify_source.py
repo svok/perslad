@@ -6,7 +6,7 @@ from typing import AsyncGenerator, Optional, Dict
 import inotify_simple
 from inotify_simple import flags
 
-from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 from ingestor.pipeline.models.file_event import EventTypes
 from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage

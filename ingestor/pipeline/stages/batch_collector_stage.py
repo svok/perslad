@@ -1,7 +1,7 @@
 import asyncio
 from typing import List, Optional
 
-from ingestor.pipeline.indexation.queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.core.models.chunk import Chunk
 

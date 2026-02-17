@@ -3,7 +3,7 @@ from typing import Any, AsyncGenerator, Optional
 import asyncio
 
 from infra.logger import get_logger
-from ingestor.pipeline.indexation.queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 
 
 class SourceStage(ABC):

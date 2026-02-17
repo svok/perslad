@@ -1,12 +1,11 @@
 import logging
-import logging
 import os
 
 import pytest
 import pytest_asyncio
 import requests
 from dotenv import load_dotenv
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path=".env.local", override=False)
@@ -17,6 +16,99 @@ logger = logging.getLogger(__name__)
 
 # Import endpoint constants
 from infra.config import Timeouts
+
+
+# =====================
+# DB Helper Functions
+# =====================
+
+def get_relative_path(file_path: str, project_root: str) -> str:
+    """Конвертировать абсолютный путь в относительный для БД"""
+    if file_path.startswith(project_root):
+        rel_path = os.path.relpath(file_path, project_root)
+        return rel_path
+    return file_path
+
+
+def get_file_summary(db_engine, file_path: str, project_root: str | None = None) -> dict | None:
+    """Получить file_summary с метаданными"""
+    if project_root is not None:
+        file_path = get_relative_path(file_path, project_root)
+    with db_engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT file_path, summary, metadata, mtime, checksum FROM file_summaries WHERE file_path = :path"
+        ), {"path": file_path})
+        row = result.fetchone()
+        if row:
+            metadata = row[2]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            return {
+                "file_path": row[0],
+                "summary": row[1],
+                "metadata": metadata,
+                "mtime": row[3],
+                "checksum": row[4]
+            }
+        return None
+
+
+def get_chunks_count_for_file(db_engine, file_path: str, project_root: str | None = None) -> int:
+    """Количество chunks для файла"""
+    if project_root is not None:
+        file_path = get_relative_path(file_path, project_root)
+    with db_engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT COUNT(*) FROM chunks WHERE file_path = :path"
+        ), {"path": file_path})
+        return result.fetchone()[0]
+
+
+def get_chunks_count(db_engine, file_pattern: str | None = None) -> int:
+    """Подсчитать chunks в БД"""
+    with db_engine.connect() as conn:
+        if file_pattern:
+            result = conn.execute(text(
+                "SELECT COUNT(*) FROM chunks WHERE file_path LIKE :pattern"
+            ), {"pattern": f"%{file_pattern}%"})
+        else:
+            result = conn.execute(text("SELECT COUNT(*) FROM chunks"))
+        return result.fetchone()[0]
+
+
+def get_file_summaries_count(db_engine) -> int:
+    """Подсчитать file_summaries в БД"""
+    with db_engine.connect() as conn:
+        result = conn.execute(text("SELECT COUNT(*) FROM file_summaries"))
+        return result.fetchone()[0]
+
+
+def assert_file_indexed_successfully(db_engine, file_path: str, project_root: str | None = None) -> None:
+    """Проверить что файл успешно проиндексирован"""
+    summary = get_file_summary(db_engine, file_path, project_root)
+    assert summary is not None, f"File {file_path} not found in file_summaries"
+    
+    metadata = summary["metadata"]
+    assert metadata.get("valid") == True, f"File should be valid, got metadata: {metadata}"
+    
+    chunks_count = get_chunks_count_for_file(db_engine, file_path, project_root)
+    assert chunks_count > 0, f"Valid file should have chunks, got {chunks_count}"
+
+
+def assert_file_indexed_with_error(db_engine, file_path: str, project_root: str | None = None, expected_reason: str | None = None) -> None:
+    """Проверить что файл проиндексирован с ошибкой"""
+    summary = get_file_summary(db_engine, file_path, project_root)
+    assert summary is not None, f"File {file_path} not found in file_summaries"
+    
+    metadata = summary["metadata"]
+    assert "invalid_reason" in metadata, f"File should have invalid_reason, got metadata: {metadata}"
+    
+    if expected_reason:
+        assert expected_reason.lower() in metadata["invalid_reason"].lower(), \
+            f"Expected '{expected_reason}' in reason, got: {metadata['invalid_reason']}"
+    
+    chunks_count = get_chunks_count_for_file(db_engine, file_path, project_root)
+    assert chunks_count == 0, f"Invalid file should have 0 chunks, got {chunks_count}"
 
 # Configuration from environment
 import tempfile
@@ -297,6 +389,20 @@ async def mcp_project_client(config):
         yield mcp_client
     finally:
         await mcp_client.close()
+
+@pytest.fixture(scope="session")
+def project_root(config):
+    """Путь к workspace для создания файлов (видимый ингестором)"""
+    return config.get('workspace_root', config.get('test_workspace', '/workspace'))
+
+
+@pytest.fixture(scope="function")
+def db_engine(config):
+    """Database engine for direct DB queries"""
+    engine = create_engine(config['pg_url'])
+    yield engine
+    engine.dispose()
+
 
 @pytest.fixture(scope="session")
 def test_workspace(config):

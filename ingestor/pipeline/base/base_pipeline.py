@@ -5,7 +5,7 @@ from typing import List, Optional
 from infra.logger import get_logger
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 from .processor_stage import ProcessorStage
-from ..indexation.queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 from ..utils.text_splitter_helper import TextSplitterHelper
 
 

@@ -3,7 +3,7 @@ from typing import List
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.core.models.chunk import Chunk
-from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 
 ENRICHMENT_PROMPT_TEMPLATE = """You are analyzing a code/documentation chunk.
 

@@ -2,8 +2,8 @@ import asyncio
 from typing import List, Optional
 
 from ingestor.pipeline.base.base_stage import BaseStage
-from ingestor.pipeline.indexation.queues import ThrottledQueue
-from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.base.queues import ThrottledQueue
+from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 from ingestor.adapters import BaseStorage  # Для тип hinted, но storage передается в __init__
 
 

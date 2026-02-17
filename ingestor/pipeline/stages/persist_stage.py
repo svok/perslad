@@ -1,6 +1,6 @@
 from ingestor.adapters import BaseStorage
 from ingestor.pipeline.base.processor_stage import ProcessorStage
-from ingestor.pipeline.models.context import PipelineFileContext
+from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 
 
 class PersistChunksStage(ProcessorStage):

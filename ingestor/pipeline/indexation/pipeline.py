@@ -1,10 +1,9 @@
 import asyncio
 from dataclasses import replace
-from pathlib import Path
 from typing import Optional, Set
 
 from .builder import IndexationPipelineBuilder
-from .queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 from ingestor.pipeline.stages.indexer_sink import IndexerSinkStage
 from ingestor.pipeline.base.source_stage import SourceStage
 
