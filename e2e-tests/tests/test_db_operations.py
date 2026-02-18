@@ -89,127 +89,142 @@ class TestDatabaseOperations:
         # First, we need to ingest a file to create chunks
         # This would require the ingestor service to be running
         # For now, test direct database operations
-        
-        # Insert a test chunk
+
+        test_file_path = "test_chunk_storage_temp.txt"
+
         with db_engine.connect() as conn:
-            # Clean up first
-            conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
-            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
+            # Clean up only our test data (if any)
+            conn.execute(text("DELETE FROM chunks WHERE file_path = :fp"), {"fp": test_file_path})
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": test_file_path})
             conn.commit()
-            
+
             # Create parent record first (required by FK)
             conn.execute(text("""
                 INSERT INTO file_summaries (file_path, summary)
                 VALUES (:file_path, 'Test summary')
-            """), {"file_path": "test.txt"})
-            
+            """), {"file_path": test_file_path})
+
             # Insert test chunk
             insert_sql = text("""
                 INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
                 VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
                 RETURNING id
             """)
-            
+
             result = conn.execute(insert_sql, {
                 "id": str(uuid.uuid4()),
-                "file_path": "test.txt",
+                "file_path": test_file_path,
                 "content": "Test chunk content",
                 "embedding": create_embedding_vector(config['pgvector_dimensions'])
             })
-            
+
             chunk_id = result.fetchone()[0]
             assert chunk_id is not None
-            
+
             # Verify insertion
             select_sql = text("SELECT * FROM chunks WHERE id = :id")
             result = conn.execute(select_sql, {"id": chunk_id})
             row = result.fetchone()
             assert row is not None
             assert row.content == "Test chunk content"
-            
+
             # Clean up
-            conn.execute(text("DELETE FROM chunks WHERE id = :id"), {"id": chunk_id})
+            conn.execute(text("DELETE FROM chunks WHERE file_path = :fp"), {"fp": test_file_path})
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": test_file_path})
             conn.commit()
     
     @pytest.mark.asyncio
     async def test_file_summary_storage(self, db_engine):
         """Test storing and retrieving file summaries"""
+        test_file_path = "test_file_summary_temp.txt"
+
         with db_engine.connect() as conn:
-            # Clean up first
-            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
+            # Clean up only our test data (if any)
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": test_file_path})
             conn.commit()
-            
+
             # Insert test file summary
             insert_sql = text("""
                 INSERT INTO file_summaries (file_path, summary, metadata)
                 VALUES (:file_path, :summary, :metadata)
                 RETURNING file_path
             """)
-            
+
             result = conn.execute(insert_sql, {
-                "file_path": "test.txt",
+                "file_path": test_file_path,
                 "summary": "Test file summary",
                 "metadata": '{"source": "test", "category": "documentation"}'
             })
-            
+
             file_path = result.fetchone()[0]
-            assert file_path == "test.txt"
-            
+            assert file_path == test_file_path
+
             # Verify insertion
             select_sql = text("SELECT * FROM file_summaries WHERE file_path = :id")
             result = conn.execute(select_sql, {"id": file_path})
             row = result.fetchone()
             assert row is not None
             assert row.summary == "Test file summary"
-            
+
             # Clean up
-            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :id"), {"id": file_path})
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": test_file_path})
             conn.commit()
 
     @pytest.mark.asyncio
     async def test_query_execution(self, db_engine, config):
         """Test database query execution"""
+        test_files = ['doc1_query_test.txt', 'doc2_query_test.txt']
+
         with db_engine.connect() as conn:
-            # Create test data
-            conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
-            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
+            # Clean up only our test data (if any)
+            for fp in test_files:
+                conn.execute(text("DELETE FROM chunks WHERE file_path = :fp"), {"fp": fp})
+                conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": fp})
             conn.commit()
-            
+
             # Create parents
             conn.execute(text("""
                 INSERT INTO file_summaries (file_path, summary) VALUES 
-                ('doc1.txt', 'Summary 1'),
-                ('doc2.txt', 'Summary 2')
-            """))
-            
+                (:fp1, 'Summary 1'),
+                (:fp2, 'Summary 2')
+            """), {"fp1": test_files[0], "fp2": test_files[1]})
+
             # Insert test data
             emb = create_embedding_vector(config['pgvector_dimensions'])
             insert_sql = text("""
                 INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
-                VALUES 
-                (:id1, 'doc1.txt', 'First chunk of doc1', 0, 10, 'text', :emb1),
-                (:id2, 'doc1.txt', 'Second chunk of doc1', 10, 20, 'text', :emb2),
-                (:id3, 'doc2.txt', 'First chunk of doc2', 0, 10, 'text', :emb3)
+                VALUES
+                (:id1, :fp1, 'First chunk of doc1', 0, 10, 'text', :emb1),
+                (:id2, :fp1, 'Second chunk of doc1', 10, 20, 'text', :emb2),
+                (:id3, :fp2, 'First chunk of doc2', 0, 10, 'text', :emb3)
             """)
             conn.execute(insert_sql, {
                 "id1": str(uuid.uuid4()),
                 "id2": str(uuid.uuid4()),
                 "id3": str(uuid.uuid4()),
+                "fp1": test_files[0], "fp2": test_files[1],
                 "emb1": emb, "emb2": emb, "emb3": emb
             })
             conn.commit()
-            
-            # Test query
+
+            # Test query (count all chunks - should be 3)
             select_sql = text("SELECT COUNT(*) as count FROM chunks")
             result = conn.execute(select_sql)
             count = result.fetchone()[0]
-            assert count == 3
-            
+            # We expect at least 3 from our test (there may be others from previous runs, so >= 3)
+            assert count >= 3
+
             # Test filtering
             filter_sql = text("SELECT * FROM chunks WHERE file_path = :file_path")
-            result = conn.execute(filter_sql, {"file_path": "doc1.txt"})
+            result = conn.execute(filter_sql, {"file_path": test_files[0]})
             rows = result.fetchall()
             assert len(rows) == 2
+
+            # Cleanup our test data
+            for fp in test_files:
+                conn.execute(text("DELETE FROM chunks WHERE file_path = :fp"), {"fp": fp})
+                conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": fp})
+            conn.commit()
     
     @pytest.mark.asyncio
     async def test_vector_similarity_search(self, db_engine):
@@ -229,224 +244,251 @@ class TestDatabaseOperations:
     @pytest.mark.asyncio
     async def test_transaction_handling(self, db_engine, config):
         """Test transaction handling and rollback"""
-        with db_engine.connect() as conn:
-            # Create parent
-            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('transaction_test.txt', '')"))
-            conn.commit()
-            
-            # Start transaction
-            with conn.begin() as trans:
-                try:
-                    # Insert test data
-                    insert_sql = text("""
-                        INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
-                        VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
-                        RETURNING id
-                    """)
-                    
-                    result = conn.execute(insert_sql, {
-                        "id": str(uuid.uuid4()),
-                        "file_path": "transaction_test.txt",
-                        "content": "Transaction test chunk",
-                        "embedding": create_embedding_vector(config['pgvector_dimensions'])
-                    })
-                    
-                    chunk_id = result.fetchone()[0]
-                    
-                    # Verify insertion
-                    select_sql = text("SELECT COUNT(*) as count FROM chunks WHERE id = :id")
-                    result = conn.execute(select_sql, {"id": chunk_id})
-                    count = result.fetchone()[0]
-                    assert count == 1
-                    
-                    # Transaction will be rolled back automatically
-                    # Test data should not persist
-                except Exception as e:
-                    trans.rollback()
-                    raise e
+        try:
+            with db_engine.connect() as conn:
+                # Create parent
+                conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('transaction_test.txt', '')"))
+                conn.commit()
+
+                # Start transaction
+                with conn.begin() as trans:
+                    try:
+                        # Insert test data
+                        insert_sql = text("""
+                            INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                            VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
+                            RETURNING id
+                        """)
+
+                        result = conn.execute(insert_sql, {
+                            "id": str(uuid.uuid4()),
+                            "file_path": "transaction_test.txt",
+                            "content": "Transaction test chunk",
+                            "embedding": create_embedding_vector(config['pgvector_dimensions'])
+                        })
+
+                        chunk_id = result.fetchone()[0]
+
+                        # Verify insertion
+                        select_sql = text("SELECT COUNT(*) as count FROM chunks WHERE id = :id")
+                        result = conn.execute(select_sql, {"id": chunk_id})
+                        count = result.fetchone()[0]
+                        assert count == 1
+
+                        # Transaction will be rolled back automatically
+                        # Test data should not persist
+                    except Exception as e:
+                        trans.rollback()
+                        raise e
+        finally:
+            # Cleanup
+            with db_engine.connect() as conn:
+                conn.execute(text("DELETE FROM chunks WHERE file_path = 'transaction_test.txt'"))
+                conn.execute(text("DELETE FROM file_summaries WHERE file_path = 'transaction_test.txt'"))
+                conn.commit()
     
     @pytest.mark.asyncio
     async def test_concurrent_db_operations(self, db_engine, config):
         """Test concurrent database operations"""
         import asyncio
-        
-        # Prepare parents
-        with db_engine.connect() as conn:
-            for i in range(5):
-                conn.execute(text(f"INSERT INTO file_summaries (file_path, summary) VALUES ('concurrent_{i}.txt', '')"))
-            conn.commit()
-        
-        test_embedding = create_embedding_vector(config['pgvector_dimensions'])
-        
-        async def insert_chunk(index, embedding):
-            def db_operation():
-                # Create a new connection for each operation
-                import psycopg2
-                host, port, user, password, database = parse_pg_url(config['pg_url'])
-                conn = psycopg2.connect(
-                    host=host,
-                    port=port,
-                    user=user,
-                    password=password,
-                    database=database
-                )
-                cursor = conn.cursor()
-                
-                try:
-                    cursor.execute("""
-                        INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
-                        VALUES (%s, %s, %s, 0, 10, 'text', %s)
-                        RETURNING id
-                    """, (
-                        str(uuid.uuid4()),
-                        f"concurrent_{index}.txt",
-                        f"Concurrent test chunk {index}",
-                        embedding
-                    ))
-                    
-                    result = cursor.fetchone()
-                    conn.commit()
-                    return result[0]
-                finally:
-                    cursor.close()
-                    conn.close()
-            
-            return await asyncio.get_event_loop().run_in_executor(None, db_operation)
-        
-        # Execute concurrent operations
-        tasks = [insert_chunk(i, test_embedding) for i in range(5)]
-        results = await asyncio.gather(*tasks)
-        
-        # All should succeed
-        assert len(results) == 5
-        assert all(r is not None for r in results)
-        
-        # Verify all chunks were inserted
-        with db_engine.connect() as conn:
-            select_sql = text("SELECT COUNT(*) as count FROM chunks WHERE file_path LIKE 'concurrent_%'")
-            result = conn.execute(select_sql)
-            count = result.fetchone()[0]
-            assert count == 5
+
+        try:
+            # Prepare parents
+            with db_engine.connect() as conn:
+                for i in range(5):
+                    conn.execute(text(f"INSERT INTO file_summaries (file_path, summary) VALUES ('concurrent_{i}.txt', '')"))
+                conn.commit()
+
+            test_embedding = create_embedding_vector(config['pgvector_dimensions'])
+
+            async def insert_chunk(index, embedding):
+                def db_operation():
+                    # Create a new connection for each operation
+                    import psycopg2
+                    host, port, user, password, database = parse_pg_url(config['pg_url'])
+                    conn = psycopg2.connect(
+                        host=host,
+                        port=port,
+                        user=user,
+                        password=password,
+                        database=database
+                    )
+                    cursor = conn.cursor()
+
+                    try:
+                        cursor.execute("""
+                            INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                            VALUES (%s, %s, %s, 0, 10, 'text', %s)
+                            RETURNING id
+                        """, (
+                            str(uuid.uuid4()),
+                            f"concurrent_{index}.txt",
+                            f"Concurrent test chunk {index}",
+                            embedding
+                        ))
+
+                        result = cursor.fetchone()
+                        conn.commit()
+                        return result[0]
+                    finally:
+                        cursor.close()
+                        conn.close()
+
+                return await asyncio.get_event_loop().run_in_executor(None, db_operation)
+
+            # Execute concurrent operations
+            tasks = [insert_chunk(i, test_embedding) for i in range(5)]
+            results = await asyncio.gather(*tasks)
+
+            # All should succeed
+            assert len(results) == 5
+            assert all(r is not None for r in results)
+
+            # Verify all chunks were inserted
+            with db_engine.connect() as conn:
+                select_sql = text("SELECT COUNT(*) as count FROM chunks WHERE file_path LIKE 'concurrent_%'")
+                result = conn.execute(select_sql)
+                count = result.fetchone()[0]
+                assert count == 5
+        finally:
+            # Cleanup all concurrent_ files
+            with db_engine.connect() as conn:
+                for i in range(5):
+                    conn.execute(text("DELETE FROM chunks WHERE file_path = :fp"), {"fp": f"concurrent_{i}.txt"})
+                    conn.execute(text("DELETE FROM file_summaries WHERE file_path = :fp"), {"fp": f"concurrent_{i}.txt"})
+                conn.commit()
     
     @pytest.mark.asyncio
     async def test_database_error_handling(self, db_engine, config):
         """Test error handling for invalid database operations"""
-        with db_engine.connect() as conn:
-            # Create parent
-            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('duplicate_test.txt', '')"))
-            conn.commit()
+        try:
+            with db_engine.connect() as conn:
+                # Create parent
+                conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('duplicate_test.txt', '')"))
+                conn.commit()
 
-            # Test invalid SQL
-            try:
-                conn.execute(text("INVALID SQL"))
-                assert False, "Should have raised an error"
-            except Exception:
-                pass  # Expected
-            
-            # Test duplicate key insertion
-            try:
-                # Insert chunk with explicit ID
-                insert_sql = text("""
-                    INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
-                    VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
-                """)
-                
-                params = {
-                    "id": "dup_chunk_1",
-                    "file_path": "duplicate_test.txt",
-                    "content": "Test chunk",
-                    "embedding": create_embedding_vector(config['pgvector_dimensions'])
-                }
-                
-                conn.execute(insert_sql, params)
+                # Test invalid SQL
+                try:
+                    conn.execute(text("INVALID SQL"))
+                    assert False, "Should have raised an error"
+                except Exception:
+                    pass  # Expected
+
+                # Test duplicate key insertion
+                try:
+                    # Insert chunk with explicit ID
+                    insert_sql = text("""
+                        INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                        VALUES (:id, :file_path, :content, 0, 10, 'text', :embedding)
+                    """)
+
+                    params = {
+                        "id": "dup_chunk_1",
+                        "file_path": "duplicate_test.txt",
+                        "content": "Test chunk",
+                        "embedding": create_embedding_vector(config['pgvector_dimensions'])
+                    }
+
+                    conn.execute(insert_sql, params)
+                    conn.commit()
+
+                    # Try to insert again with same ID
+                    conn.execute(insert_sql, params)
+                    conn.commit()
+
+                    # Should have failed
+                    assert False, "Should fail on duplicate PK"
+                except Exception:
+                    # Expected behavior for duplicate keys
+                    pass
+        finally:
+            # Cleanup
+            with db_engine.connect() as conn:
+                conn.execute(text("DELETE FROM chunks WHERE file_path = 'duplicate_test.txt'"))
+                conn.execute(text("DELETE FROM file_summaries WHERE file_path = 'duplicate_test.txt'"))
                 conn.commit()
-                
-                # Try to insert again with same ID
-                conn.execute(insert_sql, params)
-                conn.commit()
-                
-                # Should have failed
-                assert False, "Should fail on duplicate PK"
-            except Exception:
-                # Expected behavior for duplicate keys
-                pass
     
     @pytest.mark.asyncio
     async def test_data_persistence_across_connections(self, db_engine, config):
         """Test that data persists across database connections"""
         import psycopg2
-        
-        # Setup parent
-        with db_engine.connect() as conn:
-            conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('persist_test.txt', '')"))
-            conn.commit()
-        
-        # Connection 1: Insert data
-        host, port, user, password, database = parse_pg_url(config['pg_url'])
-        conn1 = psycopg2.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database
-        )
-        
-        cursor1 = conn1.cursor()
-        cursor1.execute("""
-            INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
-            VALUES (%s, %s, %s, 0, 10, 'text', %s)
-            RETURNING id
-        """, (str(uuid.uuid4()), "persist_test.txt", "Persistence test", create_embedding_vector(config['pgvector_dimensions'])))
-        
-        chunk_id = cursor1.fetchone()[0]
-        conn1.commit()
-        cursor1.close()
-        conn1.close()
-        
-        # Connection 2: Verify data persists
-        conn2 = psycopg2.connect(
-            host=host,
-            port=port,
-            user=user,
-            password=password,
-            database=database
-        )
-        
-        cursor2 = conn2.cursor()
-        cursor2.execute("SELECT content FROM chunks WHERE id = %s", (chunk_id,))
-        result = cursor2.fetchone()
-        conn2.close()
-        
-        assert result is not None
-        assert result[0] == "Persistence test"
-        
-        # Clean up handled by fixture teardown (truncate)
+
+        try:
+            # Setup parent
+            with db_engine.connect() as conn:
+                conn.execute(text("INSERT INTO file_summaries (file_path, summary) VALUES ('persist_test.txt', '')"))
+                conn.commit()
+
+            # Connection 1: Insert data
+            host, port, user, password, database = parse_pg_url(config['pg_url'])
+            conn1 = psycopg2.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database
+            )
+
+            cursor1 = conn1.cursor()
+            cursor1.execute("""
+                INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
+                VALUES (%s, %s, %s, 0, 10, 'text', %s)
+                RETURNING id
+            """, (str(uuid.uuid4()), "persist_test.txt", "Persistence test", create_embedding_vector(config['pgvector_dimensions'])))
+
+            chunk_id = cursor1.fetchone()[0]
+            conn1.commit()
+            cursor1.close()
+            conn1.close()
+
+            # Connection 2: Verify data persists
+            conn2 = psycopg2.connect(
+                host=host,
+                port=port,
+                user=user,
+                password=password,
+                database=database
+            )
+
+            cursor2 = conn2.cursor()
+            cursor2.execute("SELECT content FROM chunks WHERE id = %s", (chunk_id,))
+            result = cursor2.fetchone()
+            conn2.close()
+
+            assert result is not None
+            assert result[0] == "Persistence test"
+        finally:
+            # Cleanup
+            with db_engine.connect() as conn:
+                conn.execute(text("DELETE FROM chunks WHERE file_path = 'persist_test.txt'"))
+                conn.execute(text("DELETE FROM file_summaries WHERE file_path = 'persist_test.txt'"))
+                conn.commit()
     
     @pytest.mark.asyncio
     async def test_database_performance_queries(self, db_engine, config):
         """Test database query performance"""
         import time
-        
-        # Insert test data
+
         with db_engine.connect() as conn:
-            conn.execute(text("TRUNCATE TABLE chunks CASCADE"))
-            conn.execute(text("TRUNCATE TABLE file_summaries CASCADE"))
+            # Clean up only our test data first (if any from previous runs)
+            conn.execute(text("DELETE FROM chunks WHERE file_path LIKE 'perf_test_%'"))
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path LIKE 'perf_test_%'"))
             conn.commit()
-            
+
             # Prepare parents
             conn.execute(text("""
-                INSERT INTO file_summaries (file_path, summary) 
+                INSERT INTO file_summaries (file_path, summary)
                 SELECT 'perf_test_' || generate_series(0, 99) || '.txt', ''
             """))
-            
+
             # Insert 100 test chunks
             test_embedding = create_embedding_vector(config['pgvector_dimensions'])
             insert_sql = text("""
                 INSERT INTO chunks (id, file_path, content, start_line, end_line, chunk_type, embedding)
                 VALUES (:id, :file_path, :content, :i, :i+10, 'text', :embedding)
             """)
-            
-            # Batch insert loop (simplified)
+
+            # Batch insert loop
             for i in range(100):
                 conn.execute(insert_sql, {
                     "id": f"perf_{i}",
@@ -455,21 +497,26 @@ class TestDatabaseOperations:
                     "i": i,
                     "embedding": test_embedding
                 })
-            
+
             conn.commit()
-            
+
             # Test query performance
             start_time = time.time()
-            
+
             select_sql = text("SELECT COUNT(*) as count FROM chunks WHERE file_path LIKE 'perf_test_%'")
             result = conn.execute(select_sql)
             count = result.fetchone()[0]
-            
+
             end_time = time.time()
             query_time = end_time - start_time
-            
+
             assert count == 100
             assert query_time < 1.0  # Should complete within 1 second
+
+            # Cleanup our test data
+            conn.execute(text("DELETE FROM chunks WHERE file_path LIKE 'perf_test_%'"))
+            conn.execute(text("DELETE FROM file_summaries WHERE file_path LIKE 'perf_test_%'"))
+            conn.commit()
     
     @pytest.mark.asyncio
     async def test_database_connection_pooling(self, config):

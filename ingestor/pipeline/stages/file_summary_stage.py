@@ -20,10 +20,12 @@ class FileSummaryStage(ProcessorStage):
         file_path = str(context.file_path)
         abs_path = Path(self.workspace_path) / file_path
 
-        if not abs_path.exists():
-            # Если файла нет, возможно его удалили.
-            # Inotify delete event обрабатывается отдельно?
-            # Если это scan event и файла нет -> странно.
+        # Удаление файла
+        if context.event_type == "delete" or not abs_path.exists():
+            if not abs_path.exists() and context.event_type != "delete":
+                self.log.warning(f"File not found for file_summary: {file_path} (event_type={context.event_type})")
+            await self.storage.delete_file_summary(file_path)
+            self.log.info(f"FileSummary deleted: {file_path}")
             return context
 
         try:
@@ -65,42 +67,6 @@ class FileSummaryStage(ProcessorStage):
             
             await self.storage.save_file_summary(summary)
             self.log.info(f"FileSummary updated: {file_path} (valid={not context.has_errors})")
-
-        except Exception as e:
-            self.log.error(f"Error in FileSummaryStage: {e}", exc_info=True)
-
-        return context
-
-        # Нет чанков – ничего не делаем (summary не обновляем)
-        if not context.chunks:
-            return context
-
-        file_path = str(context.file_path)
-        abs_path = Path(self.workspace_path) / file_path
-
-        if not abs_path.exists():
-            return context
-
-        try:
-            stat = await asyncio.to_thread(abs_path.stat)
-            new_checksum = await self._calc_checksum(abs_path)
-
-            existing = await self.storage.get_file_summary(file_path)
-            if existing and existing.metadata.get("checksum") == new_checksum:
-                return context  # Не изменился
-
-            summary = FileSummary(
-                file_path=file_path,
-                summary="",
-                chunk_ids=[c.id for c in context.chunks],
-                metadata={
-                    "mtime": stat.st_mtime,
-                    "checksum": new_checksum,
-                    "size": stat.st_size,
-                },
-            )
-            await self.storage.save_file_summary(summary)
-            self.log.info(f"FileSummary updated: {file_path}")
 
         except Exception as e:
             self.log.error(f"Error in FileSummaryStage: {e}", exc_info=True)

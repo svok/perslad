@@ -5,6 +5,7 @@ python-dotenv>=1.2.1
 
 # async / runtime
 anyio>=4.12.1
+aiofiles==24.1.0
 
 # web framework
 fastapi>=0.128.8

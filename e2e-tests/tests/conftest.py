@@ -403,6 +403,66 @@ def db_engine(config):
 
 
 @pytest.fixture(scope="function")
+async def ensure_test_sample_indexed(db_engine, config):
+    """Ensure that expected test files are indexed in the database."""
+    import time
+    import subprocess
+
+    # All static test files that must be indexed
+    expected_files = [
+        "test_sample.py", "test_sample.md", "test_sample.txt",
+        "test_empty.txt", "test_binary.bin"
+    ]
+    container_workspace = "/workspace"  # inside ingestor container
+    container_name = "perslad-1-ingestor-1"
+
+    # Clean up any existing data to ensure isolation
+    with db_engine.connect() as conn:
+        # Delete chunks first (in case no cascade)
+        conn.execute(text("DELETE FROM chunks"))
+        conn.execute(text("DELETE FROM file_summaries"))
+        conn.commit()
+
+    # Touch files to trigger inotify MODIFY/CREATE events
+    for fname in expected_files:
+        container_path = f"{container_workspace}/{fname}"
+        try:
+            subprocess.run(
+                ["docker", "exec", container_name, "touch", container_path],
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError:
+            continue
+
+    # Wait for indexing to complete
+    timeout = 30
+    start = time.time()
+    while time.time() - start < timeout:
+        with db_engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM file_summaries WHERE file_path = ANY(:paths)"),
+                {"paths": expected_files}
+            )
+            count = result.fetchone()[0]
+            if count >= len(expected_files):
+                break
+        time.sleep(1)
+    else:
+        with db_engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT file_path FROM file_summaries WHERE file_path = ANY(:paths)"),
+                {"paths": expected_files}
+            )
+            present = [row[0] for row in result.fetchall()]
+            missing = [f for f in expected_files if f not in present]
+            if missing:
+                pytest.fail(f"Expected files not indexed within {timeout}s: {missing}")
+
+    yield
+
+
+@pytest.fixture(scope="function")
 def test_workspace(config, request):
     """Create test workspace directory. DEPRECATED: Use workspace_root instead."""
     import os

@@ -80,80 +80,101 @@ class TestInitialScan:
     """Tests for initial workspace scanning"""
 
     @pytest.mark.asyncio
-    async def test_expected_valid_files_in_db(self, db_engine):
+    async def test_expected_valid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected valid files should be indexed with chunks"""
         for file_path, expected in EXPECTED_VALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert metadata.get("valid") == True, f"File {file_path} should be valid, got: {metadata}"
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count >= expected["min_chunks"], \
                 f"File {file_path} should have >= {expected['min_chunks']} chunks, got {chunks_count}"
 
     @pytest.mark.asyncio
-    async def test_expected_invalid_files_in_db(self, db_engine):
+    async def test_expected_invalid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected invalid files should have invalid_reason and 0 chunks"""
         for file_path, expected in EXPECTED_INVALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert "invalid_reason" in metadata, \
                 f"File {file_path} should have invalid_reason, got: {metadata}"
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count == 0, \
                 f"Invalid file {file_path} should have 0 chunks, got {chunks_count}"
 
     @pytest.mark.asyncio
-    async def test_valid_files_have_metadata(self, db_engine):
+    async def test_valid_files_have_metadata(self, db_engine, ensure_test_sample_indexed):
         """Valid files should have mtime and checksum in metadata"""
         for file_path in EXPECTED_VALID_FILES:
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} not found"
-            
+
             metadata = summary["metadata"]
             assert "mtime" in metadata, f"File {file_path} should have mtime"
             assert "checksum" in metadata, f"File {file_path} should have checksum"
 
     @pytest.mark.asyncio
-    async def test_chunks_have_embeddings_and_summaries(self, db_engine):
-        """All chunks should have embeddings and summaries"""
+    async def test_chunks_have_embeddings_and_summaries(self, db_engine, ensure_test_sample_indexed):
+        """All chunks for expected test files should have embeddings and summaries"""
         from sqlalchemy import text
-        
+
+        # Get expected file paths
+        expected_files = list(EXPECTED_VALID_FILES.keys()) + list(EXPECTED_INVALID_FILES.keys())
+
         with db_engine.connect() as conn:
-            result = conn.execute(text(
-                "SELECT COUNT(*) FROM chunks WHERE embedding IS NULL"
-            ))
+            # Count chunks for expected files that have NULL embeddings
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM chunks WHERE file_path = ANY(:paths) AND embedding IS NULL"),
+                {"paths": expected_files}
+            )
             null_embeddings = result.fetchone()[0]
-            
-            result = conn.execute(text(
-                "SELECT COUNT(*) FROM chunks WHERE summary IS NULL OR summary = ''"
-            ))
+
+            # Count chunks for expected files that have NULL or empty summaries
+            result = conn.execute(
+                text("SELECT COUNT(*) FROM chunks WHERE file_path = ANY(:paths) AND (summary IS NULL OR summary = '')"),
+                {"paths": expected_files}
+            )
             null_summaries = result.fetchone()[0]
-        
-        assert null_embeddings == 0, f"All chunks should have embeddings, {null_embeddings} missing"
-        assert null_summaries == 0, f"All chunks should have summaries, {null_summaries} missing"
+
+        assert null_embeddings == 0, f"All chunks for expected files should have embeddings, {null_embeddings} missing"
+        assert null_summaries == 0, f"All chunks for expected files should have summaries, {null_summaries} missing"
 
     @pytest.mark.asyncio
-    async def test_no_orphan_files_in_db(self, db_engine):
+    async def test_no_orphan_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """DB should not contain files that don't exist in workspace"""
+        import os
         from sqlalchemy import text
-        
+
+        # Get workspace root from env (host path)
+        host_workspace = os.getenv('PROJECT_ROOT', '/sda/sokatov/own/perslad-1/workspace')
+        if not host_workspace or not os.path.isdir(host_workspace):
+            pytest.skip("PROJECT_ROOT not set, cannot check workspace files")
+
+        # Build set of files currently in workspace (relative paths)
+        workspace_files = set()
+        for root, dirs, files in os.walk(host_workspace):
+            for fname in files:
+                full = os.path.join(root, fname)
+                rel = os.path.relpath(full, host_workspace)
+                workspace_files.add(rel)
+
+        # Get files in DB
         with db_engine.connect() as conn:
             result = conn.execute(text("SELECT file_path FROM file_summaries"))
             db_files = set(row[0] for row in result.fetchall())
-        
-        expected_files = set(EXPECTED_VALID_FILES.keys()) | set(EXPECTED_INVALID_FILES.keys())
-        unexpected_files = db_files - expected_files
-        
-        unexpected_non_test = [f for f in unexpected_files if not f.startswith('test_') and not f.startswith('perf_')]
-        
-        assert len(unexpected_non_test) == 0, \
-            f"Unexpected files in DB (non-test): {unexpected_non_test}"
+
+        # Orphan = in DB but not in workspace
+        orphans = db_files - workspace_files
+
+        # Ignore expected files that may be missing due to not created yet? Actually they should be in workspace.
+        # So any orphan is a problem.
+        assert len(orphans) == 0, f"Orphaned files in DB (not in workspace): {orphans}"
 
 
 @pytest.mark.integration

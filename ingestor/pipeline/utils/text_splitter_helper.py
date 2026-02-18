@@ -120,6 +120,9 @@ class TextSplitterHelper:
             try:
                 async with aiofiles.open(file_path, 'r', encoding=encoding, errors='strict') as f:
                     content = await f.read()
+                # Binary file detection: NULL bytes are not valid in text files
+                if '\x00' in content:
+                    return None, f"binary file (contains null bytes): {relative_path}"
                 return content, None
             except UnicodeDecodeError:
                 continue
@@ -133,6 +136,8 @@ class TextSplitterHelper:
         try:
             async with aiofiles.open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = await f.read()
+            if '\x00' in content:
+                return None, f"binary file (contains null bytes): {relative_path}"
             return content, None
         except Exception as e:
             return None, f"Failed to read {relative_path}: {e}"

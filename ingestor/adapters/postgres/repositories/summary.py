@@ -40,57 +40,6 @@ class FileSummaryRepository:
             fetch=None
         )
 
-    async def get_all(self) -> List[FileSummary]:
-        log.info("postgres.get_all_file_summaries.start")
-        rows = await self._conn.execute_query(
-            "SELECT file_path, summary, metadata::text as metadata_json, mtime, checksum FROM file_summaries",
-            fetch='all',
-            timeout=5.0
-        )
-        log.info("postgres.get_all_file_summaries.fetched", count=len(rows))
-        
-        results = []
-        for row in rows:
-            try:
-                # Manually map here because the query casts metadata to text
-                meta = json.loads(row["metadata_json"]) if row.get("metadata_json") else {}
-                if "mtime" in row:
-                    meta["mtime"] = row["mtime"]
-                if "checksum" in row:
-                    meta["checksum"] = row["checksum"]
-                    
-                results.append(FileSummary(
-                    file_path=row["file_path"],
-                    summary=row["summary"],
-                    metadata=meta,
-                ))
-            except Exception as e:
-                log.warning("postgres.map_file_summary.failed", file=row.get("file_path"), error=str(e))
-                continue
-        
-        return results
-
-    async def update_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
-        meta = {
-            "mtime": mtime,
-            "checksum": checksum,
-            "size": 0 
-        }
-        await self._conn.execute_query(
-             """
-            INSERT INTO file_summaries (file_path, summary, metadata, mtime, checksum)
-            VALUES ($1, '', $2, $3, $4)
-            ON CONFLICT (file_path) DO UPDATE SET
-                metadata = file_summaries.metadata || $2,
-                mtime = EXCLUDED.mtime,
-                checksum = EXCLUDED.checksum
-            """,
-            file_path,
-            json.dumps(meta),
-            mtime,
-            checksum
-        )
-
     async def get(self, file_path: str) -> Optional[FileSummary]:
         row = await self._conn.execute_query(
             "SELECT * FROM file_summaries WHERE file_path = $1",
@@ -138,6 +87,13 @@ class FileSummaryRepository:
             file_paths
         )
         log.info("postgres.delete_file_summaries", paths=file_paths)
+
+    async def delete(self, file_path: str) -> None:
+        await self._conn.execute_query(
+            "DELETE FROM file_summaries WHERE file_path = $1",
+            file_path
+        )
+        log.info("postgres.delete_file_summary", path=file_path)
 
     async def update_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
         meta = {

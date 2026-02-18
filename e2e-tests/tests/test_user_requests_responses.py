@@ -262,11 +262,12 @@ class TestMCPEndpoints:
             "method": "tools/list",
             "params": {}
         }
-        
+
         response = await mcp_bash_client.post(MCP.MCP, json=payload)
         assert response.status_code == 200
-        
-        data = response.json()
+
+        # MCP returns Server-Sent Events, parse the data line
+        data = mcp_bash_client._parse_sse_response(response.text)
         assert "result" in data
         assert "tools" in data["result"]
 

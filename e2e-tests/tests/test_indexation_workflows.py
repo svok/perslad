@@ -80,38 +80,38 @@ class TestInitialScan:
     """Tests for initial scan results"""
 
     @pytest.mark.asyncio
-    async def test_expected_valid_files_in_db(self, db_engine):
+    async def test_expected_valid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected valid files should be indexed with chunks"""
         for file_path, expected in EXPECTED_VALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert metadata.get("valid") == True, f"File {file_path} should be valid"
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count >= expected["min_chunks"]
 
     @pytest.mark.asyncio
-    async def test_expected_invalid_files_in_db(self, db_engine):
+    async def test_expected_invalid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected invalid files should have invalid_reason and 0 chunks"""
         for file_path, expected in EXPECTED_INVALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert "invalid_reason" in metadata
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count == 0
 
     @pytest.mark.asyncio
-    async def test_valid_files_have_metadata(self, db_engine):
+    async def test_valid_files_have_metadata(self, db_engine, ensure_test_sample_indexed):
         """Valid files should have mtime and checksum"""
         for file_path in EXPECTED_VALID_FILES:
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} not found"
-            
+
             metadata = summary["metadata"]
             assert "mtime" in metadata
             assert "checksum" in metadata
@@ -320,11 +320,12 @@ class TestEmptyAndBinaryFiles:
         unique_id = uuid.uuid4().hex[:8]
         rel_file_path = f"test_binary_{unique_id}.bin"
         container_file_path = f"{get_container_workspace()}/{rel_file_path}"
-        
+
         try:
+            # Use octal escapes for binary bytes: \000 \001 \002 \003 \377 \376
             subprocess.run([
                 "docker", "exec", INGESTOR_CONTAINER,
-                "sh", "-c", f"printf '\\x00\\x01\\x02\\x03\\xFF\\xFE' > {container_file_path}"
+                "sh", "-c", f"printf '\\000\\001\\002\\003\\377\\376' > {container_file_path}"
             ], check=True, capture_output=True, timeout=10)
         except subprocess.CalledProcessError:
             pytest.skip("Could not create binary file in container")

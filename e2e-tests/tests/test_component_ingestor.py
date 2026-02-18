@@ -107,45 +107,45 @@ class TestInitialScanState:
     """Tests for initial scan results"""
 
     @pytest.mark.asyncio
-    async def test_expected_valid_files_in_db(self, db_engine):
+    async def test_expected_valid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected valid files should be indexed with chunks"""
         for file_path, expected in EXPECTED_VALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert metadata.get("valid") == True, f"File {file_path} should be valid"
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count >= expected["min_chunks"], \
                 f"File {file_path} should have >= {expected['min_chunks']} chunks"
 
     @pytest.mark.asyncio
-    async def test_expected_invalid_files_in_db(self, db_engine):
+    async def test_expected_invalid_files_in_db(self, db_engine, ensure_test_sample_indexed):
         """All expected invalid files should have invalid_reason and 0 chunks"""
         for file_path, expected in EXPECTED_INVALID_FILES.items():
             summary = get_file_summary(db_engine, file_path)
             assert summary is not None, f"File {file_path} should be in file_summaries"
-            
+
             metadata = summary["metadata"]
             assert "invalid_reason" in metadata, f"File {file_path} should have invalid_reason"
-            
+
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count == 0, f"Invalid file {file_path} should have 0 chunks"
 
     @pytest.mark.asyncio
-    async def test_chunks_have_required_fields(self, db_engine):
+    async def test_chunks_have_required_fields(self, db_engine, ensure_test_sample_indexed):
         """All chunks should have required fields"""
         from sqlalchemy import text
-        
+
         with db_engine.connect() as conn:
             result = conn.execute(text(
                 "SELECT id, file_path, content, chunk_type FROM chunks LIMIT 10"
             ))
             chunks = result.fetchall()
-        
+
         assert len(chunks) > 0, "Should have chunks"
-        
+
         for chunk_id, file_path, content, chunk_type in chunks:
             assert chunk_id is not None
             assert file_path is not None

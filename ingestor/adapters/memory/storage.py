@@ -100,6 +100,10 @@ class MemoryStorage(BaseStorage):
             for path in file_paths:
                 self._file_summaries.pop(path, None)
 
+    async def delete_file_summary(self, file_path: str) -> None:
+        async with self._lock:
+            self._file_summaries.pop(file_path, None)
+
     async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
         async with self._lock:
             summary = self._file_summaries.get(file_path)
