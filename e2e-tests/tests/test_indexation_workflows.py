@@ -15,7 +15,7 @@ For inotify tests, files must be created inside the container.
 
 import asyncio
 import os
-import subprocess
+
 import uuid
 
 import pytest
@@ -30,7 +30,7 @@ from conftest import (
 
 
 INDEXATION_WAIT = 8
-INGESTOR_CONTAINER = "perslad-1-ingestor-1"
+INGESTOR_CONTAINER = ""
 
 EXPECTED_VALID_FILES = {
     "test_sample.py": {"min_chunks": 1},
@@ -46,31 +46,23 @@ EXPECTED_INVALID_FILES = {
 
 def create_file_in_container(container_name: str, file_path: str, content: str) -> bool:
     try:
-        escaped_content = content.replace("'", "'\\''")
-        subprocess.run([
-            "docker", "exec", container_name,
-            "sh", "-c", f"echo '{escaped_content}' > {file_path}"
-        ], check=True, capture_output=True, timeout=10)
+        with open(file_path, 'w') as f:
+            f.write(content)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to create file in container: {e}")
+    except OSError:
         return False
 
 
 def delete_file_in_container(container_name: str, file_path: str) -> bool:
     try:
-        subprocess.run([
-            "docker", "exec", container_name,
-            "rm", "-f", file_path
-        ], check=True, capture_output=True, timeout=10)
+        os.remove(file_path)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to delete file in container: {e}")
+    except OSError:
         return False
 
 
 def get_container_workspace() -> str:
-    return "/workspace"
+    return os.getenv('WORKSPACE_ROOT', '/workspace')
 
 
 @pytest.mark.integration
@@ -322,13 +314,11 @@ class TestEmptyAndBinaryFiles:
         container_file_path = f"{get_container_workspace()}/{rel_file_path}"
 
         try:
-            # Use octal escapes for binary bytes: \000 \001 \002 \003 \377 \376
-            subprocess.run([
-                "docker", "exec", INGESTOR_CONTAINER,
-                "sh", "-c", f"printf '\\000\\001\\002\\003\\377\\376' > {container_file_path}"
-            ], check=True, capture_output=True, timeout=10)
-        except subprocess.CalledProcessError:
-            pytest.skip("Could not create binary file in container")
+            # Write binary content directly
+            with open(container_file_path, 'wb') as f:
+                f.write(b'\x00\x01\x02\x03\xff\xfe')
+        except OSError:
+            pytest.skip("Could not create binary file")
         
         try:
             await asyncio.sleep(INDEXATION_WAIT)

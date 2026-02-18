@@ -406,33 +406,30 @@ def db_engine(config):
 async def ensure_test_sample_indexed(db_engine, config):
     """Ensure that expected test files are indexed in the database."""
     import time
-    import subprocess
+    import os
 
     # All static test files that must be indexed
     expected_files = [
         "test_sample.py", "test_sample.md", "test_sample.txt",
         "test_empty.txt", "test_binary.bin"
     ]
-    container_workspace = "/workspace"  # inside ingestor container
-    container_name = "perslad-1-ingestor-1"
+    workspace_root = config.get('workspace_root')
 
-    # Clean up any existing data to ensure isolation
-    with db_engine.connect() as conn:
-        # Delete chunks first (in case no cascade)
-        conn.execute(text("DELETE FROM chunks"))
-        conn.execute(text("DELETE FROM file_summaries"))
-        conn.commit()
+    # # Clean up any existing data to ensure isolation
+    # with db_engine.connect() as conn:
+    #     # Delete chunks first (in case no cascade)
+    #     conn.execute(text("DELETE FROM chunks"))
+    #     conn.execute(text("DELETE FROM file_summaries"))
+    #     conn.commit()
 
     # Touch files to trigger inotify MODIFY/CREATE events
     for fname in expected_files:
-        container_path = f"{container_workspace}/{fname}"
+        file_path = os.path.join(workspace_root, fname)
         try:
-            subprocess.run(
-                ["docker", "exec", container_name, "touch", container_path],
-                check=True,
-                capture_output=True,
-            )
-        except subprocess.CalledProcessError:
+            # Update modification time to trigger inotify
+            os.utime(file_path, None)
+        except OSError:
+            # If file doesn't exist or can't access, skip
             continue
 
     # Wait for indexing to complete

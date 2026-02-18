@@ -12,7 +12,7 @@ Key concepts:
 
 import asyncio
 import os
-import subprocess
+
 import uuid
 
 import pytest
@@ -26,34 +26,29 @@ from conftest import (
 
 
 INDEXATION_WAIT = 8
-INGESTOR_CONTAINER = "perslad-1-ingestor-1"
+INGESTOR_CONTAINER = ""
 
 
 def create_file_in_container(container_name: str, file_path: str, content: str) -> bool:
+    # container_name is ignored because we write directly to the shared workspace
     try:
-        escaped_content = content.replace("'", "'\\''")
-        subprocess.run([
-            "docker", "exec", container_name,
-            "sh", "-c", f"echo '{escaped_content}' > {file_path}"
-        ], check=True, capture_output=True, timeout=10)
+        with open(file_path, 'w') as f:
+            f.write(content)
         return True
-    except subprocess.CalledProcessError:
+    except OSError:
         return False
 
 
 def delete_file_in_container(container_name: str, file_path: str) -> bool:
     try:
-        subprocess.run([
-            "docker", "exec", container_name,
-            "rm", "-f", file_path
-        ], check=True, capture_output=True, timeout=10)
+        os.remove(file_path)
         return True
-    except subprocess.CalledProcessError:
+    except OSError:
         return False
 
 
 def get_container_workspace() -> str:
-    return "/workspace"
+    return os.getenv('WORKSPACE_ROOT', '/workspace')
 
 
 @pytest.mark.integration

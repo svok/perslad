@@ -15,7 +15,7 @@ For inotify tests, files must be created inside the container.
 
 import asyncio
 import os
-import subprocess
+
 import uuid
 
 import pytest
@@ -26,8 +26,7 @@ from conftest import (
 )
 from infra.config import Ingestor, LangGraph
 
-INDEXATION_WAIT = 8
-INGESTOR_CONTAINER = "perslad-1-ingestor-1"
+INDEXATION_WAIT = 3
 
 EXPECTED_VALID_FILES = {
     "test_sample.py": {"min_chunks": 1},
@@ -41,36 +40,23 @@ EXPECTED_INVALID_FILES = {
 }
 
 
-def create_file_in_container(container_name: str, file_path: str, content: str) -> bool:
+def create_file_in_workspace(file_path: str, content: str) -> bool:
     """Create file inside Docker container for inotify testing"""
     try:
-        escaped_content = content.replace("'", "'\\''")
-        subprocess.run([
-            "docker", "exec", container_name,
-            "sh", "-c", f"echo '{escaped_content}' > {file_path}"
-        ], check=True, capture_output=True, timeout=10)
+        with open(file_path, 'w') as f:
+            f.write(content)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to create file in container: {e}")
+    except OSError:
         return False
 
 
-def delete_file_in_container(container_name: str, file_path: str) -> bool:
+def delete_file_in_workspace(file_path: str) -> bool:
     """Delete file inside Docker container"""
     try:
-        subprocess.run([
-            "docker", "exec", container_name,
-            "rm", "-f", file_path
-        ], check=True, capture_output=True, timeout=10)
+        os.remove(file_path)
         return True
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to delete file in container: {e}")
+    except OSError:
         return False
-
-
-def get_container_workspace() -> str:
-    """Get workspace path inside container"""
-    return "/workspace"
 
 
 @pytest.mark.integration
@@ -146,13 +132,13 @@ class TestInitialScan:
         assert null_summaries == 0, f"All chunks for expected files should have summaries, {null_summaries} missing"
 
     @pytest.mark.asyncio
-    async def test_no_orphan_files_in_db(self, db_engine, ensure_test_sample_indexed):
+    async def test_no_orphan_files_in_db(self, db_engine, ensure_test_sample_indexed, config):
         """DB should not contain files that don't exist in workspace"""
         import os
         from sqlalchemy import text
 
         # Get workspace root from env (host path)
-        host_workspace = os.getenv('PROJECT_ROOT', '/sda/sokatov/own/perslad-1/workspace')
+        host_workspace = config['workspace_root']
         if not host_workspace or not os.path.isdir(host_workspace):
             pytest.skip("PROJECT_ROOT not set, cannot check workspace files")
 
@@ -184,16 +170,17 @@ class TestFileCreation:
     """Tests for file creation and inotify indexing"""
 
     @pytest.mark.asyncio
-    async def test_file_created_in_container_indexed(self, db_engine):
+    async def test_file_created_in_container_indexed(self, db_engine, config):
         """File created inside container should be indexed via inotify"""
         unique_id = uuid.uuid4().hex[:8]
+        workspace_root = config['workspace_root']
         rel_file_path = f"test_inotify_create_{unique_id}.txt"
-        container_file_path = f"{get_container_workspace()}/{rel_file_path}"
+        container_file_path = f"{workspace_root}/{rel_file_path}"
         
         content = f"Test content for inotify {unique_id}"
         
         try:
-            success = create_file_in_container(INGESTOR_CONTAINER, container_file_path, content)
+            success = create_file_in_workspace(container_file_path, content)
             if not success:
                 pytest.skip("Could not create file in container")
             
@@ -205,17 +192,18 @@ class TestFileCreation:
             chunks_count = get_chunks_count_for_file(db_engine, rel_file_path)
             assert chunks_count > 0, f"File should have chunks, got {chunks_count}"
         finally:
-            delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+            delete_file_in_workspace(container_file_path)
 
     @pytest.mark.asyncio
-    async def test_empty_file_created_in_container(self, db_engine):
+    async def test_empty_file_created_in_container(self, db_engine, config):
         """Empty file created in container should be indexed with error"""
         unique_id = uuid.uuid4().hex[:8]
         rel_file_path = f"test_inotify_empty_{unique_id}.txt"
-        container_file_path = f"{get_container_workspace()}/{rel_file_path}"
+        workspace_root = config['workspace_root']
+        container_file_path = f"{workspace_root}/{rel_file_path}"
         
         try:
-            success = create_file_in_container(INGESTOR_CONTAINER, container_file_path, "")
+            success = create_file_in_workspace(container_file_path, "")
             if not success:
                 pytest.skip("Could not create file in container")
             
@@ -230,7 +218,7 @@ class TestFileCreation:
             chunks_count = get_chunks_count_for_file(db_engine, rel_file_path)
             assert chunks_count == 0, f"Empty file should have 0 chunks"
         finally:
-            delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+            delete_file_in_workspace(container_file_path)
 
 
 @pytest.mark.integration
@@ -240,16 +228,17 @@ class TestFileDeletion:
     """Tests for file deletion and DB cleanup"""
 
     @pytest.mark.asyncio
-    async def test_file_deleted_in_container_removed_from_db(self, db_engine):
+    async def test_file_deleted_in_container_removed_from_db(self, db_engine, config):
         """File deleted in container should be removed from DB"""
+        workspace_root = config['workspace_root']
         unique_id = uuid.uuid4().hex[:8]
         rel_file_path = f"test_inotify_delete_{unique_id}.txt"
-        container_file_path = f"{get_container_workspace()}/{rel_file_path}"
+        container_file_path = f"{workspace_root}/{rel_file_path}"
         
         content = f"Test content for deletion {unique_id}"
         
         try:
-            success = create_file_in_container(INGESTOR_CONTAINER, container_file_path, content)
+            success = create_file_in_workspace(container_file_path, content)
             if not success:
                 pytest.skip("Could not create file in container")
             
@@ -259,7 +248,7 @@ class TestFileDeletion:
             if summary is None:
                 pytest.skip("File was not indexed, cannot test deletion")
             
-            success = delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+            success = delete_file_in_workspace(container_file_path)
             if not success:
                 pytest.skip("Could not delete file in container")
             
@@ -271,7 +260,7 @@ class TestFileDeletion:
             chunks_count = get_chunks_count_for_file(db_engine, rel_file_path)
             assert chunks_count == 0, f"Deleted file should have 0 chunks"
         finally:
-            delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+            delete_file_in_workspace(container_file_path)
 
 
 @pytest.mark.integration
