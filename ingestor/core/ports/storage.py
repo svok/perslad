@@ -111,6 +111,11 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    async def delete_file_summary(self, file_path: str) -> None:
+        """Delete a file summary by path."""
+        pass
+
+    @abstractmethod
     async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
         """Update file metadata in database."""
         pass

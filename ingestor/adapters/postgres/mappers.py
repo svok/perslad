@@ -65,7 +65,6 @@ class PostgresMapper:
         return FileSummary(
             file_path=row["file_path"],
             summary=row["summary"],
-            chunk_ids=list(row["chunk_ids"]) if row["chunk_ids"] else [],
             metadata=meta,
         )
 

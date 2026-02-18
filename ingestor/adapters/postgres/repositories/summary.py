@@ -21,11 +21,10 @@ class FileSummaryRepository:
         metadata = summary.metadata
         
         query = """
-            INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO file_summaries (file_path, summary, metadata, mtime, checksum)
+            VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (file_path) DO UPDATE SET
                 summary = EXCLUDED.summary,
-                chunk_ids = EXCLUDED.chunk_ids,
                 metadata = EXCLUDED.metadata,
                 mtime = EXCLUDED.mtime,
                 checksum = EXCLUDED.checksum
@@ -35,10 +34,9 @@ class FileSummaryRepository:
             query,
             summary.file_path,        # $1
             summary.summary,          # $2
-            summary.chunk_ids,        # $3
-            json.dumps(summary.metadata), # $4
-            metadata.get("mtime", 0), # $5
-            metadata.get("checksum", ""), # $6
+            json.dumps(summary.metadata), # $3
+            metadata.get("mtime", 0), # $4
+            metadata.get("checksum", ""), # $5
             fetch=None
         )
 
@@ -89,6 +87,13 @@ class FileSummaryRepository:
             file_paths
         )
         log.info("postgres.delete_file_summaries", paths=file_paths)
+
+    async def delete(self, file_path: str) -> None:
+        await self._conn.execute_query(
+            "DELETE FROM file_summaries WHERE file_path = $1",
+            file_path
+        )
+        log.info("postgres.delete_file_summary", path=file_path)
 
     async def update_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
         meta = {

@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from pydantic import SecretStr
 
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 
@@ -40,11 +39,14 @@ async def test_text_splitter_helper():
     
     # Test 2: Chunk a simple text
     test_text = "This is a simple test. We want to split this into chunks."
-    chunks = helper.chunk_text(
+    chunks, error = await helper.chunk_text(
         text=test_text,
         splitter=helper.create_splitter(".txt")[1],
         chunk_type="test"
     )
+    if error:
+        print(f"✗ Error chunking text: {error}")
+        return
     print(f"✓ Chunked text into {len(chunks)} parts")
     for i, chunk in enumerate(chunks):
         print(f"  Chunk {i}: {chunk['content'][:50]}...")
@@ -56,12 +58,14 @@ async def test_text_splitter_helper():
 def goodbye():
     print("Goodbye world")"""
     
-    chunks = helper.chunk_file(
+    chunks, error = await helper.chunk_file(
         file_path="/tmp/test.py",
         relative_path="test.py",
         extension=".py",
-        text_splitter_helper=helper
     )
+    if error:
+        print(f"✗ Error chunking file: {error}")
+        return
     print(f"✓ Chunked file into {len(chunks)} parts")
     for i, chunk in enumerate(chunks):
         print(f"  Chunk {i}: {chunk['content'][:50]}...")
@@ -172,7 +176,6 @@ async def test_search_pipeline():
 
     class MockEmbeddingModel:
         async def get_embedding(self, text: str):
-            import numpy as np
             # Return random embedding for testing
             return [0.1, 0.2, 0.3] if "simple" in text else [0.4, 0.5, 0.6]
         
@@ -190,8 +193,7 @@ async def test_search_pipeline():
         storage=storage,
         llm=None,
         lock_manager=None,
-        embed_url="http://localhost:8000",
-        embed_api_key=SecretStr("sk-test"),
+        embed_model=mock_embedder,
         config={'embed_workers': 1},
         text_splitter_helper=TextSplitterHelper(),
     )

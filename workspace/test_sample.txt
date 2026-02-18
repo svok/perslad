@@ -1,0 +1,15 @@
+Sample Text Document
+
+This is a sample text file for testing the initial workspace scan.
+It contains multiple paragraphs of text to ensure proper chunking.
+
+Paragraph 1: The quick brown fox jumps over the lazy dog.
+This sentence contains all letters of the English alphabet.
+
+Paragraph 2: Python is a popular programming language.
+It is used for web development, data science, and automation.
+
+Paragraph 3: The indexing system processes files and creates chunks.
+Each chunk is then embedded and stored in the database.
+
+End of sample document.

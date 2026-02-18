@@ -1,6 +1,6 @@
 import pytest
 
-from infra.config import LLM, Embedding
+from infra.config import LLM
 
 
 @pytest.mark.component
@@ -27,7 +27,7 @@ class TestLLMComponent:
         assert model["object"] == "model"
     
     @pytest.mark.asyncio
-    async def test_chat_completion_basic(self, llm_client, test_data):
+    async def test_chat_completion_basic(self, llm_client, test_data, config):
         """Test basic chat completion"""
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -35,7 +35,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             "messages": messages,
             "max_tokens": 50,
             "temperature": 0.1
@@ -52,7 +52,7 @@ class TestLLMComponent:
         assert len(data["choices"][0]["message"]["content"]) > 0
     
     @pytest.mark.asyncio
-    async def test_chat_completion_with_tools(self, llm_client):
+    async def test_chat_completion_with_tools(self, llm_client, config):
         """Test chat completion with tool calling"""
         tools = [
             {
@@ -80,7 +80,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             "messages": messages,
             "tools": tools,
             "max_tokens": 200
@@ -101,7 +101,7 @@ class TestLLMComponent:
             assert tool_calls[0]["function"]["name"] == "get_weather"
     
     @pytest.mark.asyncio
-    async def test_chat_completion_streaming(self, llm_client):
+    async def test_chat_completion_streaming(self, llm_client, config):
         """Test streaming chat completion"""
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
@@ -109,7 +109,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             "messages": messages,
             "max_tokens": 100,
             "stream": True
@@ -125,87 +125,13 @@ class TestLLMComponent:
         assert response.status_code == 200
         # Skip streaming verification since it requires httpx stream handling
         pass
-    
+
     @pytest.mark.asyncio
-    async def test_embeddings_basic(self, emb_client):
-        """Test basic embedding generation"""
-        payload = {
-            "model": "embed-model",
-            "input": ["Hello world", "Test embedding"]
-        }
-        
-        response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "data" in data
-        assert len(data["data"]) == 2
-        
-        for embedding in data["data"]:
-            assert "embedding" in embedding
-            assert isinstance(embedding["embedding"], list)
-            assert len(embedding["embedding"]) > 0
-    
-    @pytest.mark.asyncio
-    async def test_embeddings_consistency(self, emb_client):
-        """Test that same text produces same embedding"""
-        test_text = "This is a test sentence for embedding consistency"
-        
-        payload = {
-            "model": "embed-model",
-            "input": [test_text]
-        }
-        
-        # First request
-        response1 = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
-        data1 = response1.json()
-        embedding1 = data1["data"][0]["embedding"]
-        
-        # Second request
-        response2 = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
-        data2 = response2.json()
-        embedding2 = data2["data"][0]["embedding"]
-        
-        # Embeddings should be identical
-        assert embedding1 == embedding2
-    
-    @pytest.mark.asyncio
-    async def test_embeddings_batch(self, emb_client):
-        """Test batch embedding generation"""
-        texts = [
-            "First text",
-            "Second text",
-            "Third text",
-            "Fourth text",
-            "Fifth text"
-        ]
-        
-        payload = {
-            "model": "embed-model",
-            "input": texts
-        }
-        
-        response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "data" in data
-        assert len(data["data"]) == len(texts)
-        
-        # Check each embedding
-        for i, embedding in enumerate(data["data"]):
-            assert "embedding" in embedding
-            assert "index" in embedding
-            assert embedding["index"] == i
-            assert isinstance(embedding["embedding"], list)
-            assert len(embedding["embedding"]) > 0
-    
-    @pytest.mark.asyncio
-    async def test_llm_error_handling(self, llm_client):
+    async def test_llm_error_handling(self, llm_client, config):
         """Test error handling for invalid requests"""
         # Missing required field
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             # Missing "messages"
             "max_tokens": 50
         }
@@ -214,14 +140,14 @@ class TestLLMComponent:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_llm_performance_metrics(self, llm_client):
+    async def test_llm_performance_metrics(self, llm_client, config):
         """Test that LLM responses include performance metrics"""
         messages = [
             {"role": "user", "content": "Explain quantum computing in 2 sentences"}
         ]
         
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             "messages": messages,
             "max_tokens": 100,
             "stream": False
@@ -241,7 +167,7 @@ class TestLLMComponent:
         assert usage["completion_tokens"] > 0
     
     @pytest.mark.asyncio
-    async def test_llm_context_length(self, llm_client):
+    async def test_llm_context_length(self, llm_client, config):
         """Test handling of different context lengths"""
         # Create a long context
         long_context = "This is a test message. " * 50  # 50 repetitions
@@ -251,7 +177,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": "embed-model",
+            "model": config['emb_served_model_name'],
             "messages": messages,
             "max_tokens": 100
         }

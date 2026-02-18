@@ -16,13 +16,6 @@ class StorageConfig(BaseSettings):
     USE_PGVECTOR: bool = Field(default=True)
     PGVECTOR_DIMENSIONS: int = Field(default=1536) # The number MUST differ from real to track possible errors
 
-    # Model Config
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "extra": "ignore",
-    }
-
     def to_dict(self) -> dict:
         """Возвращает полный конфиг как словарь."""
         return self.model_dump()
@@ -32,4 +25,4 @@ class StorageConfig(BaseSettings):
         return self.model_dump(exclude={"POSTGRES_PASSWORD"})
 
 
-storage = StorageConfig()
+storage_config = StorageConfig()

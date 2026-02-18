@@ -10,15 +10,12 @@ Ingestor Main Entry Point
 import asyncio
 import signal
 import sys
-import os
 from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
-from pydantic import SecretStr
 
-from ingestor.config.runtime import runtime
-from ingestor.config.storage import storage as storage_config
+from ingestor.config import emb_config, llm_config, runtime_config, storage_config
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.services.indexer import IndexerOrchestrator
@@ -63,10 +60,10 @@ async def run_api_server(api: IngestorAPI, port: int):
 
 
 async def main() -> None:
-    env = runtime.ENV
-    workspace = runtime.WORKSPACE_PATH
-    api_port = runtime.INGESTOR_PORT
-    log_level = runtime.LOG_LEVEL
+    env = runtime_config.ENV
+    workspace = runtime_config.WORKSPACE_PATH
+    api_port = runtime_config.INGESTOR_PORT
+    log_level = runtime_config.LOG_LEVEL
 
     setup_logging(log_level=log_level)
     log = get_logger("ingestor")
@@ -84,9 +81,9 @@ async def main() -> None:
     # === Инициализация компонентов ===
 
     llm = LLMManager(
-        api_base=os.getenv("OPENAI_API_BASE", "http://llm:8000/v1"),
-        api_key=SecretStr(os.getenv("OPENAI_API_KEY", "sk-dummy")),
-        model_name=os.getenv("MODEL_NAME", "default-model"),
+        api_base=llm_config.LLM_URL,
+        api_key=llm_config.LLM_API_KEY,
+        model_name=llm_config.LLM_SERVED_MODEL_NAME,
     )
     lock_manager = LLMLockManager()
     storage = get_storage()
@@ -96,7 +93,11 @@ async def main() -> None:
     log.info("ingestor.storage.initialized")
 
     # Shared embedding model
-    embed_model = EmbeddingModel(runtime.EMBED_URL, runtime.EMBED_API_KEY)
+    embed_model = EmbeddingModel(
+        emb_config.EMB_URL,
+        emb_config.EMB_API_KEY,
+        emb_config.EMB_SERVED_MODEL_NAME
+    )
 
     # VALIDATE — will retry indefinitely
     log.info("dimension_validator.validation.started")
@@ -111,9 +112,8 @@ async def main() -> None:
         llm=llm,
         lock_manager=lock_manager,
         storage=storage,
-        embed_url=runtime.EMBED_URL,
-        embed_api_key=runtime.EMBED_API_KEY,
         text_splitter_helper=TextSplitterHelper(),
+        embed_model=embed_model,
         config={},
     )
 

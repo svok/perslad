@@ -1,7 +1,8 @@
 **/.idea/
 /.volumes/
 /out*.txt
-.env
+**/.env
+**/.env.local
 
 **/*.iml
 
@@ -12,3 +13,12 @@
 /.idea/
 /.gigaide/
 /logs/
+
+# Workspace test files (ignore all except sample files)
+/workspace/*
+!/workspace/.gitignore
+!/workspace/test_sample.py
+!/workspace/test_sample.md
+!/workspace/test_sample.txt
+!/workspace/test_empty.txt
+!/workspace/test_binary.bin

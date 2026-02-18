@@ -7,10 +7,10 @@ Supports memory and PostgreSQL storage backends.
 from typing import Optional
 
 from infra.logger import get_logger
+from ingestor.config import storage_config
 from ingestor.core.ports.storage import BaseStorage
 from ingestor.adapters.memory.storage import MemoryStorage
 from ingestor.adapters.postgres.storage import PostgreSQLStorage
-from ingestor.config.storage import storage as storage_config
 
 log = get_logger("ingestor.storage.factory")
 

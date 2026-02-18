@@ -14,7 +14,7 @@ from tenacity import (
 )
 
 from infra.logger import get_logger
-from ingestor.config.storage import storage as storage_config
+from ingestor.config import storage_config
 
 log = get_logger("ingestor.storage.postgres.connection")
 
@@ -96,7 +96,25 @@ class PostgresConnection:
         """Create database tables."""
         log.info("postgres.create_schema.start")
 
-        # Chunks table
+        # 1. File summaries table (Parent table)
+        # Note: chunk_ids removed as per new architecture
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS file_summaries (
+                file_path TEXT PRIMARY KEY,
+                summary TEXT NOT NULL,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                checksum TEXT DEFAULT '',
+                mtime FLOAT DEFAULT 0
+            );
+        """)
+        
+        # Migration: Drop chunk_ids column if it exists (for existing DBs)
+        try:
+            await conn.execute("ALTER TABLE file_summaries DROP COLUMN IF EXISTS chunk_ids;")
+        except Exception as e:
+            log.warning("postgres.schema.migration.drop_chunk_ids.failed", error=str(e))
+
+        # 2. Chunks table
         await conn.execute(f"""
             CREATE TABLE IF NOT EXISTS chunks (
                 id TEXT PRIMARY KEY,
@@ -109,22 +127,37 @@ class PostgresConnection:
                 purpose TEXT,
                 embedding vector({storage_config.PGVECTOR_DIMENSIONS})
             );
-            CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
         """)
+        
+        # Migration: Add Foreign Key constraint if not exists
+        # try:
+        #     fk_exists = await conn.fetchval("""
+        #         SELECT EXISTS (
+        #             SELECT 1 FROM pg_constraint WHERE conname = 'fk_chunks_file_path'
+        #         );
+        #     """)
+        #     if not fk_exists:
+        #         log.info("postgres.schema.migration.add_fk.start")
+        #         # Remove orphan chunks that don't have a corresponding file_summary
+        #         await conn.execute("""
+        #             DELETE FROM chunks
+        #             WHERE file_path NOT IN (SELECT file_path FROM file_summaries);
+        #         """)
+        #         # Add FK constraint
+        #         await conn.execute("""
+        #             ALTER TABLE chunks
+        #             ADD CONSTRAINT fk_chunks_file_path
+        #             FOREIGN KEY (file_path) REFERENCES file_summaries(file_path)
+        #             ON DELETE CASCADE;
+        #         """)
+        #         log.info("postgres.schema.migration.add_fk.complete")
+        # except Exception as e:
+        #     log.error("postgres.schema.migration.add_fk.failed", error=str(e))
 
-        # File summaries table
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS file_summaries (
-                file_path TEXT PRIMARY KEY,
-                summary TEXT NOT NULL,
-                chunk_ids TEXT[],
-                metadata JSONB DEFAULT '{}'::jsonb,
-                checksum TEXT DEFAULT '',
-                mtime FLOAT DEFAULT 0
-            );
-        """)
+        # Index on file_path for faster lookups/deletes
+        await conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);")
 
-        # Module summaries table
+        # 3. Module summaries table
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS module_summaries (
                 module_path TEXT PRIMARY KEY,

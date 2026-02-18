@@ -2,7 +2,7 @@ import asyncio
 from abc import abstractmethod
 from typing import Optional, Any
 
-from ingestor.pipeline.indexation.queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 from ingestor.pipeline.base.base_stage import BaseStage
 
 

@@ -101,6 +101,9 @@ class PostgreSQLStorage(BaseStorage):
     async def get_file_metadata(self, file_path: str) -> Optional[Dict]:
         return await self._file_summaries.get_metadata(file_path)
 
+    async def delete_file_summary(self, file_path: str) -> None:
+        await self._file_summaries.delete(file_path)
+
     async def update_file_metadata(self, file_path: str, mtime: float, checksum: str) -> None:
         await self._file_summaries.update_metadata(file_path, mtime, checksum)
 

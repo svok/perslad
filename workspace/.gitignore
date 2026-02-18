@@ -1,2 +1,7 @@
-/test-2.txt
-/test/test-1.txt
+# This gitignore is in workspace directory
+# The parent .gitignore controls what files are tracked
+
+# Local development files
+__pycache__
+
+# Ignore everything else (controlled by parent .gitignore)

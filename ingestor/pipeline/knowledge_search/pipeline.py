@@ -3,12 +3,10 @@ Knowledge Search Pipeline - Pipeline for searching indexed knowledge using stage
 """
 
 import asyncio
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from ingestor.core.ports.storage import BaseStorage
 from ingestor.pipeline.base.base_pipeline import BasePipeline
-from ingestor.pipeline.indexation.queues import ThrottledQueue
+from ingestor.pipeline.base.queues import ThrottledQueue
 from .builder import KnowledgeSearchPipelineBuilder
 from ..models.pipeline_context import PipelineContext
 from ..stages.query_source_stage import QuerySourceStage

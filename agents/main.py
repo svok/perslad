@@ -3,9 +3,9 @@ import asyncio
 from contextlib import asynccontextmanager
 from typing import Dict, Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, APIRouter
 
-from infra.config.endpoints import LangGraph, LLM
+from infra.config.endpoints import LangGraph
 from .app.api.chat import ChatHandler
 from .app.api.health import HealthHandler
 from .app.logger import logger, setup_logging
@@ -51,9 +51,10 @@ async def lifespan(app: FastAPI):
     logger.info("🛑 Stopping system...")
     await system.close()
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, )
+router = APIRouter(prefix="/v1")
 
-@app.get("/")
+@router.get(LangGraph.ROOT)
 async def root() -> Dict[str, Any]:
     status = system.get_status()
     return {
@@ -61,15 +62,15 @@ async def root() -> Dict[str, Any]:
         "status": status
     }
 
-@app.get(LangGraph.HEALTH)
+@router.get(LangGraph.HEALTH)
 async def health_check() -> Dict[str, Any]:
     return health_handler.get_status()
 
-@app.get(LLM.MODELS)
+@router.get(LangGraph.MODELS)
 async def list_models() -> Dict[str, Any]:
     return {"object": "list", "data": [{"id": "langgraph-agent", "object": "model"}]}
 
-@app.post(LangGraph.CHAT_COMPLETIONS)
+@router.post(LangGraph.CHAT_COMPLETIONS)
 async def chat_completions(request: ChatRequest):
     if not request.messages:
         raise HTTPException(status_code=400, detail="Messages are required")
@@ -80,7 +81,7 @@ async def chat_completions(request: ChatRequest):
         return await chat_handler.stream_response(request.messages)
     return await chat_handler.direct_response(request.messages)
 
-@app.get("/debug/tools")
+@router.get(LangGraph.DEBUG_TOOLS)
 async def debug_tools() -> Dict[str, Any]:
     """Отладочная информация о инструментах."""
     tools = await system.tools.get_tools()
@@ -90,3 +91,5 @@ async def debug_tools() -> Dict[str, Any]:
         "llm_has_tools": system.llm.model is not None and hasattr(system.llm.model, 'bind_tools'),
         "mcp_ready": system.mcp.is_ready()
     }
+
+app.include_router(router)

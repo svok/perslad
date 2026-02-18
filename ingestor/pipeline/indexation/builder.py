@@ -1,7 +1,7 @@
 from typing import List
 
 from ingestor.pipeline.models.stage_def import StageDef
-from ingestor.pipeline.stages.embed_stage import EmbedChunksStage
+from ingestor.pipeline.stages.embed_chunks_stage import EmbedChunksStage
 from ingestor.pipeline.stages.enrich_chunks_stage import EnrichChunksStage
 from ingestor.pipeline.stages.enrich_stage import EnrichStage
 from ingestor.pipeline.stages.file_summary_stage import FileSummaryStage
@@ -43,8 +43,6 @@ class IndexationPipelineBuilder:
                 name="embed",
                 stage_class=EmbedChunksStage,
                 factory=lambda ctx: EmbedChunksStage(
-                    ctx.embed_url, 
-                    ctx.embed_api_key, 
                     max_workers=ctx.config.get("embed_workers", 2),
                     embed_model=ctx.embed_model
                 )

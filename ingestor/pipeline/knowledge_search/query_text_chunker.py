@@ -51,10 +51,13 @@ class QueryTextChunker:
         if not query or not query.strip():
             return []
 
-        chunks = self.helper.split_query_by_sentences(
+        chunks, error = self.helper.split_query_by_sentences(
             query,
             max_chars=self.chunk_size
         )
+
+        if error:
+            return [{"content": query, "metadata": metadata or {}, "chunk_type": "query"}]
 
         if not chunks:
             chunks = [query]
@@ -90,9 +93,14 @@ class QueryTextChunker:
 
         splitter = self.helper.create_splitter(".txt")[1]
 
-        return self.helper.chunk_text(
+        chunks, error = await self.helper.chunk_text(
             text=query,
             splitter=splitter,
             chunk_type="query",
             metadata=metadata,
         )
+
+        if error:
+            return [{"content": query, "metadata": metadata or {}, "chunk_type": "query"}]
+
+        return chunks

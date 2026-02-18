@@ -1,11 +1,11 @@
 import asyncio
-from dataclasses import asdict, replace
-from pathlib import Path
-from typing import List, Optional, Any
+from dataclasses import replace
+from typing import List, Optional
 
 from infra.logger import get_logger
 from ingestor.pipeline.models.pipeline_context import PipelineContext
-from ..indexation.queues import ThrottledQueue
+from .processor_stage import ProcessorStage
+from ingestor.pipeline.base.queues import ThrottledQueue
 from ..utils.text_splitter_helper import TextSplitterHelper
 
 
@@ -31,7 +31,7 @@ class BasePipeline:
         )
 
         self._queues: List[ThrottledQueue] = []
-        self._processors: List[Any] = []
+        self._processors: List[ProcessorStage] = []
         self._running = False
         self._monitor_task: Optional[asyncio.Task] = None
 

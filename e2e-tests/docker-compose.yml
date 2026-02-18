@@ -53,7 +53,7 @@ services:
       - TEST_MODE=true
     command: >
       sh -c "
-        pytest --tb=short -v --strict-markers --junitxml=reports/junit.xml
+        sleep 8 && pytest --tb=short -v --strict-markers --junitxml=reports/junit.xml
       "
     volumes:
       - ..:/app

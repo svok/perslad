@@ -5,4 +5,5 @@ from dataclasses import dataclass
 
 @dataclass
 class Embedding:
-    EMBEDDINGS: str = "/v1/embeddings"
+    MODELS: str = "/models"
+    EMBEDDINGS: str = "/embeddings"
