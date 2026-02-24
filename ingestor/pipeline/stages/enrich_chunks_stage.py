@@ -78,8 +78,8 @@ class EnrichChunksStage(ProcessorStage):
     async def _enrich_node(self, node: TextNode) -> None:
         """Enrich a single TextNode with summary and purpose."""
         text = node.text
-        if not text or len(text.strip()) < 10:
-            # Skip very short texts
+        if not text or not text.strip():
+            # Skip empty/whitespace-only texts
             node.metadata["summary"] = ""
             node.metadata["purpose"] = ""
             return
@@ -93,9 +93,16 @@ class EnrichChunksStage(ProcessorStage):
             # Call LLM
             response = await self.llm.acomplete(prompt)
             response_text = response.text if hasattr(response, 'text') else str(response)
+            self.log.debug("enrich.raw_response", response=response_text)
             
             # Parse response
             summary, purpose = self._parse_llm_response(response_text)
+            
+            # Fallback if summary is empty
+            if not summary:
+                summary = text[:100]
+            if not purpose:
+                purpose = "generated from content"
             
             # Add to metadata
             node.metadata["summary"] = summary
@@ -103,9 +110,9 @@ class EnrichChunksStage(ProcessorStage):
             
         except Exception as e:
             self.log.warning("enrich.llm.failed", text_preview=text[:100], error=str(e))
-            # Set empty values on failure
-            node.metadata["summary"] = ""
-            node.metadata["purpose"] = ""
+            # Set fallback values on failure (non-empty)
+            node.metadata["summary"] = text[:100]
+            node.metadata["purpose"] = "content excerpt"
     
     def _parse_llm_response(self, response: str) -> tuple[str, str]:
         """Parse LLM response to extract summary and purpose."""

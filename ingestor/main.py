@@ -11,22 +11,21 @@ import signal
 from pathlib import Path
 
 import uvicorn
-from dotenv import load_dotenv
+from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-from llama_index.embeddings.openai import OpenAIEmbedding
-from llama_index.vector_stores.postgres import PGVectorStore
-from llama_index.core.vector_stores.simple import SimpleVectorStore
-
+from infra.logger import setup_logging, get_logger
+from ingestor.adapters import get_storage
+from ingestor.adapters.embedding_model import EmbeddingModel
+from ingestor.adapters.llama_index_embedding_adapter import EmbeddingModelAdapter
+from ingestor.api.server import IngestorAPI
 from ingestor.config import emb_config, llm_config, runtime_config, storage_config
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.services.indexer import IndexerOrchestrator
-from ingestor.adapters import get_storage
-from ingestor.api.server import IngestorAPI
-from ingestor.services.validator import DimensionValidator
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
-from infra.logger import setup_logging, get_logger
+from ingestor.services.validator import DimensionValidator
 
 _shutdown = asyncio.Event()
 
@@ -81,45 +80,30 @@ async def main() -> None:
     lock_manager = LLMLockManager()
 
     # === Vector Store ===
-    if hasattr(storage, '_vector_store') and storage._vector_store is not None:
-        vector_store = storage._vector_store
-        log.info("ingestor.vector_store.reused_from_storage")
-    else:
-        if storage_config.STORAGE_TYPE == "postgres":
-            conn_str = f"postgresql://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.POSTGRES_HOST}:{storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
-            vector_store = PGVectorStore(
-                connection_string=conn_str,
-                table_name=storage_config.VECTOR_STORE_TABLE_NAME,
-                embed_dim=storage_config.PGVECTOR_DIMENSIONS,
-            )
-        elif storage_config.STORAGE_TYPE == "memory":
-            vector_store = SimpleVectorStore()
-        else:
-            raise ValueError(f"Unknown storage type: {storage_config.STORAGE_TYPE}")
-        log.info("ingestor.vector_store.created_separately")
+    # Get vector store from storage adapter
+    if storage._vector_store is None:
+        raise RuntimeError(f"Storage {type(storage).__name__} does not provide a vector store")
+    vector_store = storage._vector_store
+    log.info("ingestor.vector_store.reused_from_storage")
 
     # === Embedding Model ===
-    # Subclass OpenAIEmbedding to add get_embedding_dimension() method
-    class OpenAIEmbeddingWithDimension(OpenAIEmbedding):
-        def __init__(self, *args, dim: int = 768, **kwargs):
-            super().__init__(*args, **kwargs)
-            self._custom_dim = dim
-        
-        async def get_embedding_dimension(self) -> int:
-            return self._custom_dim
-    
-    embed_model = OpenAIEmbeddingWithDimension(
-        api_base=emb_config.EMB_URL,
+    # Create embedding model (async adapter for embedding service)
+    embed_model_raw = EmbeddingModel(
+        embed_url=emb_config.EMB_URL,
         api_key=emb_config.EMB_API_KEY,
-        model_name=emb_config.EMB_SERVED_MODEL_NAME,
-        timeout=30.0,
-        dim=storage_config.PGVECTOR_DIMENSIONS,
+        served_model_name=emb_config.EMB_SERVED_MODEL_NAME,
+        rate_limit_rpm=100,
+        max_chars=8000,
+        batch_size=10
     )
+    
+    # Wrap with adapter to provide BaseEmbedding interface for llama_index
+    embed_model = EmbeddingModelAdapter(embed_model_raw)
 
     # === Validate dimensions (must match exactly) ===
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
-        embed_model=embed_model, storage=storage, lock_manager=lock_manager
+        embed_model=embed_model_raw, storage=storage, lock_manager=lock_manager
     )
     try:
         await dimension_validator.validate_dimensions()
@@ -133,11 +117,20 @@ async def main() -> None:
     knowledge_index = KnowledgeIndex(vector_store, embed_model)
     log.info("knowledge_index.created")
 
+    # === LLM (for chunk enrichment) ===
+    # Use MODEL_NAME from env (set in docker-compose) or fallback to config default
+    llm = OpenAILike(
+        api_base=llm_config.LLM_URL,
+        api_key=llm_config.LLM_API_KEY,
+        model=llm_config.LLM_SERVED_MODEL_NAME,
+        is_chat_model=True,
+        is_function_calling_model=True,
+    )
     # === Pipeline Context ===
     pipeline_context = PipelineContext(
         workspace_path=Path(workspace),
         storage=storage,
-        llm=None,  # LLM not used (enrich disabled)
+        llm=llm,
         lock_manager=lock_manager,
         embed_model=embed_model,
         vector_store=vector_store,
@@ -151,6 +144,14 @@ async def main() -> None:
     
     # === Indexer Orchestrator ===
     indexer = IndexerOrchestrator(pipeline_context)
+    
+    async def start_and_scan():
+        await indexer.start()
+        await indexer.start_full_scan()
+        await indexer.start_watching()
+    
+    indexer_task = asyncio.create_task(start_and_scan())
+    log.info("ingestor.indexer.started")
     
     # === HTTP API ===
     api = IngestorAPI(
@@ -173,6 +174,11 @@ async def main() -> None:
         # Shutdown
         log.info("ingestor.shutdown.start")
         await indexer.stop()
+        indexer_task.cancel()
+        try:
+            await indexer_task
+        except asyncio.CancelledError:
+            pass
         api_task.cancel()
         try:
             await api_task

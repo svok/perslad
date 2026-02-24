@@ -43,12 +43,15 @@ class PostgreSQLStorage(BaseStorage):
         
         # Initialize vector store if pgvector enabled
         if storage_config.USE_PGVECTOR:
-            conn_str = f"postgresql://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.POSTGRES_HOST}:{storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
-            embed_dim = storage_config.PGVECTOR_DIMENSIONS
+            sync_conn_str = f"postgresql://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.POSTGRES_HOST}:{
+            storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
+            async_conn_str = f"postgresql+asyncpg://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.
+            POSTGRES_HOST}:{storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
             self._vector_store = PGVectorStore(
-                connection_string=conn_str,
+                connection_string=sync_conn_str,
+                async_connection_string=async_conn_str,
                 table_name=storage_config.VECTOR_STORE_TABLE_NAME,
-                embed_dim=embed_dim,
+                embed_dim=storage_config.PGVECTOR_DIMENSIONS,
             )
         else:
             self._vector_store = None
@@ -135,14 +138,6 @@ class PostgreSQLStorage(BaseStorage):
         
         return chunks
 
-    async def get_embedding_dimension(self) -> int:
-        """Get embedding dimension from config or vector store."""
-        if self._vector_store is not None:
-            # Return from config if known
-            return storage_config.PGVECTOR_DIMENSIONS
-        # Fallback: try to get from chunk repository (if it still has method) or return 0
-        return 0
-
     # === File Summaries ===
 
     async def save_file_summary(self, summary: FileSummary) -> None:
@@ -185,11 +180,31 @@ class PostgreSQLStorage(BaseStorage):
 
     async def get_files_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
         return await self._file_summaries.get_batch_metadata(file_paths)
+    
+    async def get_embedding_dimension(self) -> int:
+        """
+        Get embedding dimension from configuration.
         
+        For PostgreSQL, this is the dimension specified for the vector store.
+        """
+        return storage_config.PGVECTOR_DIMENSIONS
+         
     # === Stats & Lifecycle ===
 
     async def get_stats(self) -> Dict:
         return await self._stats.get_stats()
 
     async def clear(self) -> None:
-        await self._stats.clear_all()
+        """Clear all storage (chunks, file_summaries, module_summaries, stats)."""
+        await self._chunks.clear()
+        await self._file_summaries.clear()
+        await self._module_summaries.clear()
+        await self._stats.clear()
+
+    async def get_embedding_dimension(self) -> int:
+        """
+        Get embedding dimension from configuration.
+        
+        For PostgreSQL, this is the dimension specified in PGVectorStore.
+        """
+        return storage_config.PGVECTOR_DIMENSIONS

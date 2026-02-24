@@ -5,6 +5,8 @@ from ingestor.pipeline.stages.enrich_stage import EnrichStage
 from ingestor.pipeline.stages.parse_stage import ParseProcessorStage
 from ingestor.pipeline.stages.indexing_stage import IndexingStage
 from ingestor.pipeline.stages.incremental_filter_stage import IncrementalFilterStage
+from ingestor.pipeline.stages.file_summary_stage import FileSummaryStage
+from ingestor.pipeline.stages.enrich_chunks_stage import EnrichChunksStage
 
 
 class IndexationPipelineBuilder:
@@ -31,7 +33,16 @@ class IndexationPipelineBuilder:
                     text_splitter_helper=ctx.text_splitter_helper
                 )
             ),
-            # Chunk enrichment disabled for now (requires LLM)
+            # Enrich chunks with LLM-generated summaries
+            StageDef(
+                name="enrich_chunks",
+                stage_class=EnrichChunksStage,
+                factory=lambda ctx: EnrichChunksStage(
+                    llm=ctx.llm,
+                    lock_manager=ctx.lock_manager,
+                    max_workers=ctx.config.get("chunk_enrich_workers", 2)
+                )
+            ),
             StageDef(
                 name="indexing",
                 stage_class=IndexingStage,
@@ -39,9 +50,18 @@ class IndexationPipelineBuilder:
                     vector_store=ctx.vector_store,
                     embed_model=ctx.embed_model,
                     storage=ctx.storage,
-                    batch_size=100,  # TODO: move to config
+                    batch_size=100,
                     max_workers=ctx.config.get("indexing_workers", 2)
                 )
             ),
-            # File summary creation moved out of pipeline (handled separately)
+            # File summary stage - creates file_summary records
+            StageDef(
+                name="file_summary",
+                stage_class=FileSummaryStage,
+                factory=lambda ctx: FileSummaryStage(
+                    storage=ctx.storage,
+                    workspace_path=ctx.workspace_path,
+                    max_workers=ctx.config.get("file_summary_workers", 2)
+                )
+            ),
         ]

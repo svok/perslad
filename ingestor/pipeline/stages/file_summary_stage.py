@@ -25,7 +25,9 @@ class FileSummaryStage(ProcessorStage):
             if not abs_path.exists() and context.event_type != "delete":
                 self.log.warning(f"File not found for file_summary: {file_path} (event_type={context.event_type})")
             await self.storage.delete_file_summary(file_path)
-            self.log.info(f"FileSummary deleted: {file_path}")
+            # Также удаляем все чанки файла из БД
+            await self.storage.delete_chunks_by_file_paths([file_path])
+            self.log.info(f"FileSummary and chunks deleted: {file_path}")
             return context
 
         try:
@@ -36,6 +38,9 @@ class FileSummaryStage(ProcessorStage):
             if context.has_errors or not context.nodes:
                 error_reasons = context.errors if context.errors else ["unknown error"]
                 reason = "; ".join(error_reasons)
+                
+                # Удаляем чанки, если они есть (файл стал невалидным или был ранее валиден)
+                await self.storage.delete_chunks_by_file_paths([file_path])
                 
                 summary = FileSummary(
                     file_path=file_path,

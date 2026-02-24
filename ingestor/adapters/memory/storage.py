@@ -12,6 +12,7 @@ from ingestor.core.ports.storage import BaseStorage
 from ingestor.core.models.chunk import Chunk
 from ingestor.core.models.file_summary import FileSummary
 from ingestor.core.models.module_summary import ModuleSummary
+from llama_index.core.vector_stores.simple import SimpleVectorStore
 
 
 @dataclass
@@ -25,6 +26,7 @@ class MemoryStorage(BaseStorage):
         self._file_summaries: Dict[str, FileSummary] = {}
         self._module_summaries: Dict[str, ModuleSummary] = {}
         self._lock = asyncio.Lock()
+        self._vector_store = SimpleVectorStore()
 
     async def initialize(self) -> None:
         """Explicitly initialize the storage (no-op for memory)."""

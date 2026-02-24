@@ -222,6 +222,12 @@ class EmbeddingModel:
             log.error("embedding_model.get_embeddings.http_error", error=str(e))
             raise map_httpx_error_to_exception(e, "Embedding model")
 
+    async def aget_text_embedding(self, text: str) -> List[float]:
+        """
+        Get embedding for a single text (async). Compatible with llama_index BaseEmbedding interface.
+        """
+        return await self.get_embedding(text)
+
     async def close(self) -> None:
         """Close the underlying HTTP client."""
         await self._client.aclose()
