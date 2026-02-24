@@ -5,9 +5,9 @@ Pipeline File Context
 Наследуется от BasePipelineContext.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 import time
 
 from ingestor.core.models.chunk import Chunk
@@ -22,10 +22,10 @@ class PipelineFileContext(PipelineBaseContext):
     Контекст для индексационного пайплайна.
 
     Наследует поля:
-    - chunks: список чанков
+    - chunks: список чанков (устаревает, используйте nodes)
     - status: статус обработки
     - error: сообщение об ошибке
-    - has_errors/erros: флаги ошибок
+    - has_errors/errors: флаги ошибок
     - created_at/updated_at: временные метки
 
     Добавляет специфичные поля:
@@ -35,6 +35,7 @@ class PipelineFileContext(PipelineBaseContext):
     - size: размер файла
     - mtime: время модификации
     - raw_event: исходное событие (опционально)
+    - nodes: список TextNode объектов (новый формат)
     """
 
     # Специфичные поля для file pipeline
@@ -44,6 +45,12 @@ class PipelineFileContext(PipelineBaseContext):
     size: int = 0
     mtime: float = 0
     raw_event: Optional[dict] = None
+    
+    # New: TextNode objects (preferred)
+    nodes: List["TextNode"] = field(default_factory=list)
+    
+    # Legacy: Chunk objects (for backwards compatibility, to be removed)
+    chunks: List[Chunk] = field(default_factory=list)
 
     def mark_success(self) -> None:
         """Отметить успешную обработку."""

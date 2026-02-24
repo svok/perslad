@@ -2,35 +2,31 @@
 Ingestor Main Entry Point
 
 Запускает:
-1. HTTP API (для LLM lock и статистики)
-2. Indexer Pipeline (scanner + enrich)
-3. LLM reconnect (background)
+1. HTTP API (для knowledge search)
+2. Indexer Pipeline (scanner + parse + enrich + indexing)
 """
 
 import asyncio
 import signal
-import sys
 from pathlib import Path
 
 import uvicorn
 from dotenv import load_dotenv
 
+from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.vector_stores.postgres import PGVectorStore
+from llama_index.core.vector_stores.simple import SimpleVectorStore
+
 from ingestor.config import emb_config, llm_config, runtime_config, storage_config
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.services.indexer import IndexerOrchestrator
-
-# Load env vars BEFORE config imports
-load_dotenv(dotenv_path="../.env", override=False)
-
-from infra.managers.llm import LLMManager
-from infra.logger import setup_logging, get_logger
 from ingestor.adapters import get_storage
-from ingestor.adapters.embedding_model import EmbeddingModel
 from ingestor.api.server import IngestorAPI
 from ingestor.services.validator import DimensionValidator
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
+from infra.logger import setup_logging, get_logger
 
 _shutdown = asyncio.Event()
 
@@ -76,112 +72,120 @@ async def main() -> None:
         storage_type=storage_config.STORAGE_TYPE,
     )
 
-    _install_signal_handlers(log)
-
-    # === Инициализация компонентов ===
-
-    llm = LLMManager(
-        api_base=llm_config.LLM_URL,
-        api_key=llm_config.LLM_API_KEY,
-        model_name=llm_config.LLM_SERVED_MODEL_NAME,
-    )
-    lock_manager = LLMLockManager()
+    # === Storage ===
     storage = get_storage()
-
-    # Initialize storage tables immediately (explicitly)
     await storage.initialize()
     log.info("ingestor.storage.initialized")
 
-    # Shared embedding model
-    embed_model = EmbeddingModel(
-        emb_config.EMB_URL,
-        emb_config.EMB_API_KEY,
-        emb_config.EMB_SERVED_MODEL_NAME
+    # === Lock Manager ===
+    lock_manager = LLMLockManager()
+
+    # === Vector Store ===
+    if hasattr(storage, '_vector_store') and storage._vector_store is not None:
+        vector_store = storage._vector_store
+        log.info("ingestor.vector_store.reused_from_storage")
+    else:
+        if storage_config.STORAGE_TYPE == "postgres":
+            conn_str = f"postgresql://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.POSTGRES_HOST}:{storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
+            vector_store = PGVectorStore(
+                connection_string=conn_str,
+                table_name=storage_config.VECTOR_STORE_TABLE_NAME,
+                embed_dim=storage_config.PGVECTOR_DIMENSIONS,
+            )
+        elif storage_config.STORAGE_TYPE == "memory":
+            vector_store = SimpleVectorStore()
+        else:
+            raise ValueError(f"Unknown storage type: {storage_config.STORAGE_TYPE}")
+        log.info("ingestor.vector_store.created_separately")
+
+    # === Embedding Model ===
+    # Subclass OpenAIEmbedding to add get_embedding_dimension() method
+    class OpenAIEmbeddingWithDimension(OpenAIEmbedding):
+        def __init__(self, *args, dim: int = 768, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._custom_dim = dim
+        
+        async def get_embedding_dimension(self) -> int:
+            return self._custom_dim
+    
+    embed_model = OpenAIEmbeddingWithDimension(
+        api_base=emb_config.EMB_URL,
+        api_key=emb_config.EMB_API_KEY,
+        model_name=emb_config.EMB_SERVED_MODEL_NAME,
+        timeout=30.0,
+        dim=storage_config.PGVECTOR_DIMENSIONS,
     )
 
-    # VALIDATE — will retry indefinitely
+    # === Validate dimensions (must match exactly) ===
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
         embed_model=embed_model, storage=storage, lock_manager=lock_manager
     )
-    await dimension_validator.validate_dimensions()
-    log.info("dimension_validator.validation.complete")
+    try:
+        await dimension_validator.validate_dimensions()
+        log.info("dimension_validator.validation.complete")
+    except Exception as e:
+        log.error("dimension_validator.validation.failed", error=str(e))
+        raise  # Exit immediately - dimension mismatch is fatal
 
+    # === Knowledge Index ===
+    from ingestor.search.knowledge_index import KnowledgeIndex
+    knowledge_index = KnowledgeIndex(vector_store, embed_model)
+    log.info("knowledge_index.created")
+
+    # === Pipeline Context ===
     pipeline_context = PipelineContext(
         workspace_path=Path(workspace),
-        llm=llm,
-        lock_manager=lock_manager,
         storage=storage,
-        text_splitter_helper=TextSplitterHelper(),
+        llm=None,  # LLM not used (enrich disabled)
+        lock_manager=lock_manager,
         embed_model=embed_model,
+        vector_store=vector_store,
+        text_splitter_helper=TextSplitterHelper(),
         config={},
     )
-
-    knowledge_port = KnowledgePort(pipeline_context)
-
-    # Indexer orchestrator
+    
+    # === Knowledge Port ===
+    knowledge_port = KnowledgePort(pipeline_context, knowledge_index=knowledge_index)
+    log.info("knowledge_port.ready")
+    
+    # === Indexer Orchestrator ===
     indexer = IndexerOrchestrator(pipeline_context)
+    
+    # === HTTP API ===
+    api = IngestorAPI(
+        lock_manager=lock_manager,
+        storage=storage,
+        knowledge_port=knowledge_port,
+        embedding_model=embed_model,
+    )
 
-    # HTTP API
-    api = IngestorAPI(lock_manager, storage, knowledge_port, embed_model)
-
-    # === Запуск фоновых задач ===
-
-    # 1. LLM reconnect (background loop started by initialize)
-    await llm.initialize()
-    log.info("ingestor.llm.started")
-
-    # 2. HTTP API server
+    # === Background Tasks ===
     api_task = asyncio.create_task(run_api_server(api, api_port))
     log.info("ingestor.api.started", port=api_port)
 
-    # 3. Ждём готовности LLM перед запуском indexer
-    log.info("ingestor.waiting_llm")
-    await llm.wait_ready()
-    log.info("ingestor.llm.ready")
-
-    # 4. Запускаем indexer (full scan при старте)
-    log.info("ingestor.indexer.starting")
-    try:
-        await indexer.start()
-        await indexer.start_full_scan()  # Полный скан
-        await indexer.start_watching()  # Добавляем inotify watch
-        log.info("ingestor.indexer.started")
-    except Exception as e:
-        log.error("ingestor.indexer.error", error=str(e), exc_info=True)
-        raise
-
-    # === Основной цикл ===
-
-    log.info("ingestor.running")
-
-    # Ждём сигнала остановки
-    await _shutdown.wait()
-
-    # Останавливаем indexer
-    if "indexer" in locals():
-        log.info("ingestor.indexer.stopping")
-        try:
-            await indexer.stop()
-        except Exception as e:
-            log.error("ingestor.indexer.stop.error", error=str(e), exc_info=True)
-
-    # Останавливаем API
-    api_task.cancel()
+    # Wait for API server
     try:
         await api_task
     except asyncio.CancelledError:
         pass
-
-    await llm.close()
-
-    log.info("ingestor.shutdown.complete")
+    finally:
+        # Shutdown
+        log.info("ingestor.shutdown.start")
+        await indexer.stop()
+        api_task.cancel()
+        try:
+            await api_task
+        except asyncio.CancelledError:
+            pass
+        if hasattr(embed_model, 'close') and callable(getattr(embed_model, 'close')):
+            try:
+                await embed_model.close()
+            except Exception:
+                pass
+        await storage.close()
+        log.info("ingestor.shutdown.complete")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception:
-        raise
+    asyncio.run(main())

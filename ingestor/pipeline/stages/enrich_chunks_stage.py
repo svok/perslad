@@ -1,141 +1,144 @@
+"""
+Enriches TextNode objects with LLM-generated metadata.
+
+Adds summary and purpose to node.metadata.
+"""
+
 import asyncio
 from typing import List
 
+from llama_index.core.schema import TextNode
+from llama_index.core.llms import LLM
+
 from ingestor.pipeline.base.processor_stage import ProcessorStage
-from ingestor.core.models.chunk import Chunk
-from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
+from ingestor.services.lock import LLMLockManager
 
-ENRICHMENT_PROMPT_TEMPLATE = """You are analyzing a code/documentation chunk.
 
-File: {file_path}
-Type: {chunk_type}
+ENRICHMENT_PROMPT_TEMPLATE = """Analyze this code/documentation chunk and provide:
 
-Content:
-```
+1. SUMMARY: 1-2 sentences describing what this code does
+2. PURPOSE: The likely purpose of this code in the project
+
+Text chunk:
 {content}
-```
 
-Provide a brief analysis using the following format:
-Summary: <1-2 sentences describing what this code does>
-Purpose: <what is the purpose of this code/function?>
+Respond in this exact format:
+SUMMARY: <your summary>
+PURPOSE: <your purpose>
 
-Keep it concise and factual.
-"""
+Keep it concise and factual."""
 
 
 class EnrichChunksStage(ProcessorStage):
-
-    def __init__(self, llm, lock_manager, max_workers: int = 2):
+    """
+    Enriches TextNode objects with LLM-generated metadata.
+    """
+    
+    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2):
         super().__init__("chunk_enrich", max_workers)
         self.llm = llm
         self.lock_manager = lock_manager
-
-    async def process(self, context: PipelineFileContext) -> PipelineFileContext:
-        # Пропускаем skipped или пустые
-        if context.status != "success" or not context.chunks:
+        self._semaphore = asyncio.Semaphore(max_workers)
+    
+    async def process(self, context):
+        """Process file context and enrich nodes."""
+        if not context.nodes:
             return context
         
-        # Запускаем обогащение (изменяет chunks in-place)
-        await self.run(context.chunks)
-        return context
-
-    async def run(self, chunks: List[Chunk]) -> None:
-        """
-        Обогащает чанки summaries с параллелизмом.
-        Изменяет chunks на месте.
-        """
-        if not chunks:
-            return
-
-        self.log.info("enrich.start", chunks_count=len(chunks))
-
-        # Проверка лока раз в файл/группу файлов
+        # Check LLM lock
         if await self.lock_manager.is_locked():
-            self.log.info("enrich.llm_locked.waiting")
+            self.log.info("enrich.waiting_for_llm_unlock", file_path=context.file_path)
             await self.lock_manager.wait_unlocked()
-
-        # Запускаем все чанки из этого сообщения параллельно
-        tasks = [self._enrich_chunk(chunk) for chunk in chunks]
-
-        # Обязательно добавляем timeout, чтобы LLM не вешала пайплайн навсегда
-        try:
-            await asyncio.gather(*tasks, return_exceptions=True)
-        except Exception as e:
-            self.log.error(f"Critical error in gather: {e}")
-
-    async def _enrich_chunk(self, chunk: Chunk) -> None:
+        
+        # Enrich all nodes
+        await self._enrich_nodes(context.nodes)
+        
+        return context
+    
+    async def _enrich_nodes(self, nodes: List[TextNode]) -> None:
+        """Enrich multiple nodes with LLM, respecting semaphore."""
+        tasks = []
+        for node in nodes:
+            task = self._enrich_node_with_semaphore(node)
+            tasks.append(task)
+        
+        # Gather with return_exceptions to handle failures gracefully
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Log any errors
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                self.log.error("enrich.node.failed", node_index=i, error=str(result))
+    
+    async def _enrich_node_with_semaphore(self, node: TextNode) -> None:
+        """Enrich single node with semaphore protection."""
+        async with self._semaphore:
+            await self._enrich_node(node)
+    
+    async def _enrich_node(self, node: TextNode) -> None:
+        """Enrich a single TextNode with summary and purpose."""
+        text = node.text
+        if not text or len(text.strip()) < 10:
+            # Skip very short texts
+            node.metadata["summary"] = ""
+            node.metadata["purpose"] = ""
+            return
+        
+        # Build prompt
         prompt = ENRICHMENT_PROMPT_TEMPLATE.format(
-            file_path=chunk.file_path,
-            chunk_type=chunk.chunk_type,
-            content=chunk.content[:1000],
+            content=text[:2000],
         )
-
-        model = self.llm.get_model()
-        if not model:
-            self.log.warning("enrich.llm_not_ready", chunk_id=chunk.id)
-            return
-
+        
         try:
-            response = await model.ainvoke(prompt)
-            result = response.content
+            # Call LLM
+            response = await self.llm.acomplete(prompt)
+            response_text = response.text if hasattr(response, 'text') else str(response)
+            
+            # Parse response
+            summary, purpose = self._parse_llm_response(response_text)
+            
+            # Add to metadata
+            node.metadata["summary"] = summary
+            node.metadata["purpose"] = purpose
+            
         except Exception as e:
-            self.log.error(f"Enrichment LLM call failed: {e}")
-            return
-
-        # Если result пришел как байты, декодируем их ОДИН раз
-        if isinstance(result, bytes):
-            result = result.decode('utf-8', errors='strict')
-
-        # УБИРАЕМ любые .encode().decode(unicode-escape),
-        # если данные уже в нормальном UTF-8.
-        self.log.info("enrich.chunk.raw_response", chunk_id=chunk.id, response=result[:200])
-
-        # Парсим результат
-        lines = result.strip().split("\n")
-
+            self.log.warning("enrich.llm.failed", text_preview=text[:100], error=str(e))
+            # Set empty values on failure
+            node.metadata["summary"] = ""
+            node.metadata["purpose"] = ""
+    
+    def _parse_llm_response(self, response: str) -> tuple[str, str]:
+        """Parse LLM response to extract summary and purpose."""
+        lines = response.strip().split('\n')
         summary_lines = []
         purpose_lines = []
-        in_summary_section = False
-        in_purpose_section = False
-
+        in_summary = False
+        in_purpose = False
+        
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-
-            # Если строка начинается с "Summary:" - начинаем секцию summary
-            if line.lower().startswith("summary:"):
-                in_summary_section = True
-                in_purpose_section = False
-                # Извлекаем текст summary (убираем префикс "Summary:")
-                summary_text = line.replace("Summary:", "", 1).strip()
+            
+            line_lower = line.lower()
+            if line_lower.startswith("summary:"):
+                in_summary = True
+                in_purpose = False
+                summary_text = line[8:].strip()
                 if summary_text:
                     summary_lines.append(summary_text)
-                continue
-
-            # Если строка начинается с "Purpose:" - начинаем секцию purpose
-            elif line.lower().startswith("purpose:"):
-                in_purpose_section = True
-                in_summary_section = False
-                # Извлекаем текст purpose (убираем префикс "Purpose:")
-                purpose_text = line.replace("Purpose:", "", 1).strip()
+            elif line_lower.startswith("purpose:"):
+                in_purpose = True
+                in_summary = False
+                purpose_text = line[8:].strip()
                 if purpose_text:
                     purpose_lines.append(purpose_text)
-                continue
-
-            # Если мы внутри секции, добавляем строку
-            if in_summary_section:
+            elif in_summary and not line_lower.startswith("purpose:"):
                 summary_lines.append(line)
-            elif in_purpose_section:
+            elif in_purpose:
                 purpose_lines.append(line)
-
-        # Если не найден отдельный purpose, берем первый line summary как purpose
-        chunk.summary = " ".join(summary_lines) if summary_lines else None
-        chunk.purpose = " ".join(purpose_lines) if purpose_lines else (summary_lines[0] if summary_lines else None)
-
-        self.log.info("enrich.chunk.parsed",
-                 chunk_id=chunk.id,
-                 summary_len=len(chunk.summary) if chunk.summary else 0,
-                 purpose_len=len(chunk.purpose) if chunk.purpose else 0,
-                 summary_preview=chunk.summary[:100] if chunk.summary else None,
-                 purpose_preview=chunk.purpose[:100] if chunk.purpose else None)
+        
+        summary = " ".join(summary_lines) if summary_lines else ""
+        purpose = " ".join(purpose_lines) if purpose_lines else ""
+        
+        return summary, purpose

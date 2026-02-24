@@ -14,7 +14,8 @@ class StorageConfig(BaseSettings):
 
     # Vector storage
     USE_PGVECTOR: bool = Field(default=True)
-    PGVECTOR_DIMENSIONS: int = Field(default=1536) # The number MUST differ from real to track possible errors
+    PGVECTOR_DIMENSIONS: int = Field(default=1536)
+    VECTOR_STORE_TABLE_NAME: str = Field(default="chunks_vectors")
 
     def to_dict(self) -> dict:
         """Возвращает полный конфиг как словарь."""

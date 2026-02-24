@@ -117,34 +117,6 @@ class ChunkRepository:
             "DELETE FROM chunks WHERE file_path = ANY($1)", file_paths
         )
 
-    async def search_vector(
-        self, vector: List[float], top_k: int = 10, filter_by_file: Optional[str] = None
-    ) -> List[Chunk]:
-        """
-        Vector similarity search using pgvector.
-        """
-        if filter_by_file:
-            rows = await self._conn.execute_query(
-                """
-                SELECT * FROM chunks 
-                WHERE file_path = $3 
-                ORDER BY embedding <=> $1::vector 
-                LIMIT $2
-                """,
-                vector,
-                top_k,
-                filter_by_file,
-                fetch="all",
-            )
-        else:
-            rows = await self._conn.execute_query(
-                "SELECT * FROM chunks ORDER BY embedding <=> $1::vector LIMIT $2",
-                vector,
-                top_k,
-                fetch="all",
-            )
-        return [PostgresMapper.map_chunk(row) for row in rows]
-
     async def get_embedding_dimension(self) -> int:
         """
         Get the dimension of embeddings from the database.

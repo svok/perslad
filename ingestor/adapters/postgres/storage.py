@@ -1,7 +1,7 @@
 """
 PostgreSQL storage adapter facade.
 
-Delegates to specific repositories.
+Uses vector_store for chunks and repositories for summaries.
 """
 
 from typing import List, Optional, Dict
@@ -15,11 +15,23 @@ from ingestor.adapters.postgres.connection import PostgresConnection
 from ingestor.adapters.postgres.repositories.chunk import ChunkRepository
 from ingestor.adapters.postgres.repositories.summary import FileSummaryRepository, ModuleSummaryRepository
 from ingestor.adapters.postgres.repositories.stats import StatsRepository
+from ingestor.config import storage_config
+
+# Import PGVectorStore - will be available in container where llama-index-vector-stores-postgres is installed
+try:
+    from llama_index.vector_stores.postgres import PGVectorStore
+except ImportError as e:
+    # Provide clear error message
+    import sys
+    print(f"ERROR: Cannot import PGVectorStore. Make sure llama-index-vector-stores-postgres is installed.", file=sys.stderr)
+    print(f"Install with: pip install llama-index-vector-stores-postgres>=0.7.3", file=sys.stderr)
+    raise ImportError(f"PGVectorStore import failed: {e}") from e
 
 
 class PostgreSQLStorage(BaseStorage):
     """
     PostgreSQL storage implementation facade.
+    Uses ChunkRepository for chunk storage and vector_store for similarity search.
     """
 
     def __init__(self, operation_timeout: float = 60.0) -> None:
@@ -28,6 +40,18 @@ class PostgreSQLStorage(BaseStorage):
         self._file_summaries = FileSummaryRepository(self._conn)
         self._module_summaries = ModuleSummaryRepository(self._conn)
         self._stats = StatsRepository(self._conn)
+        
+        # Initialize vector store if pgvector enabled
+        if storage_config.USE_PGVECTOR:
+            conn_str = f"postgresql://{storage_config.POSTGRES_USER}:{storage_config.POSTGRES_PASSWORD}@{storage_config.POSTGRES_HOST}:{storage_config.POSTGRES_PORT}/{storage_config.POSTGRES_DB}"
+            embed_dim = storage_config.PGVECTOR_DIMENSIONS
+            self._vector_store = PGVectorStore(
+                connection_string=conn_str,
+                table_name=storage_config.VECTOR_STORE_TABLE_NAME,
+                embed_dim=embed_dim,
+            )
+        else:
+            self._vector_store = None
 
     async def initialize(self) -> None:
         """Explicitly initialize the storage."""
@@ -42,21 +66,19 @@ class PostgreSQLStorage(BaseStorage):
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
-
-    # === Chunks ===
-
+    
     async def save_chunk(self, chunk: Chunk) -> None:
         await self._chunks.save(chunk)
-
+    
     async def save_chunks(self, chunks: List[Chunk]) -> None:
         await self._chunks.save_batch(chunks)
-
+    
     async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
         return await self._chunks.get(chunk_id)
-
+    
     async def get_chunks_by_file(self, file_path: str) -> List[Chunk]:
         return await self._chunks.get_by_file(file_path)
-
+    
     async def get_all_chunks(self) -> List[Chunk]:
         return await self._chunks.get_all()
 
@@ -66,7 +88,60 @@ class PostgreSQLStorage(BaseStorage):
         top_k: int = 10,
         filter_by_file: Optional[str] = None
     ) -> List[Chunk]:
-        return await self._chunks.search_vector(vector, top_k, filter_by_file)
+        """
+        Vector similarity search using PGVector via llama_index.
+        """
+        if self._vector_store is None:
+            raise RuntimeError("Vector store not initialized. Enable USE_PGVECTOR in config.")
+        
+        # Build filters using MetadataFilters
+        filters = None
+        if filter_by_file:
+            from llama_index.core.vector_stores.types import MetadataFilter, MetadataFilters, FilterOperator
+            metadata_filter = MetadataFilter(
+                key="file_path",
+                operator=FilterOperator.EQ,
+                value=filter_by_file,
+            )
+            filters = MetadataFilters(filters=[metadata_filter])
+        
+        # Build query
+        from llama_index.core.vector_stores.types import VectorStoreQuery
+        query = VectorStoreQuery(
+            query_embedding=vector,
+            similarity_top_k=top_k,
+            filters=filters,
+        )
+        
+        # Query vector store
+        result = await self._vector_store.aquery(query)
+        
+        # Convert TextNode to Chunk for backwards compatibility
+        chunks = []
+        for node in result.nodes:
+            chunk = Chunk(
+                id=node.node_id,
+                file_path=node.metadata.get("file_path", ""),
+                content=node.text,
+                start_line=node.metadata.get("start_line", 0),
+                end_line=node.metadata.get("end_line", 0),
+                chunk_type=node.metadata.get("chunk_type", ""),
+                summary=node.metadata.get("summary"),
+                purpose=node.metadata.get("purpose"),
+                embedding=node.embedding,
+                metadata=node.metadata,
+            )
+            chunks.append(chunk)
+        
+        return chunks
+
+    async def get_embedding_dimension(self) -> int:
+        """Get embedding dimension from config or vector store."""
+        if self._vector_store is not None:
+            # Return from config if known
+            return storage_config.PGVECTOR_DIMENSIONS
+        # Fallback: try to get from chunk repository (if it still has method) or return 0
+        return 0
 
     # === File Summaries ===
 
@@ -93,6 +168,7 @@ class PostgreSQLStorage(BaseStorage):
     # === File Management ===
 
     async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        """Delete chunks for given file paths from ChunkRepository table."""
         await self._chunks.delete_by_files(file_paths)
 
     async def delete_file_summaries(self, file_paths: List[str]) -> None:
@@ -110,9 +186,6 @@ class PostgreSQLStorage(BaseStorage):
     async def get_files_metadata(self, file_paths: List[str]) -> Dict[str, Dict]:
         return await self._file_summaries.get_batch_metadata(file_paths)
         
-    async def get_embedding_dimension(self) -> int:
-        return await self._chunks.get_embedding_dimension()
-
     # === Stats & Lifecycle ===
 
     async def get_stats(self) -> Dict:

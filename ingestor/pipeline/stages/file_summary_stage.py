@@ -32,31 +32,27 @@ class FileSummaryStage(ProcessorStage):
             stat = await asyncio.to_thread(abs_path.stat)
             new_checksum = await self._calc_checksum(abs_path)
             
-            # Проверяем на ошибки
-            if context.has_errors or not context.chunks:
-                # ========== БИТЫЙ ФАЙЛ ==========
+            # Check for errors or empty nodes
+            if context.has_errors or not context.nodes:
                 error_reasons = context.errors if context.errors else ["unknown error"]
                 reason = "; ".join(error_reasons)
                 
                 summary = FileSummary(
                     file_path=file_path,
-                    summary="", # Пустое summary
-                    # chunk_ids removed
+                    summary="",
                     metadata={
                         "size": stat.st_size,
                         "mtime": stat.st_mtime,
                         "checksum": new_checksum,
                         "invalid_reason": reason,
-                        "invalid_timestamp": asyncio.get_running_loop().time(), # Timestamp
-                        "invalid_count": 1 # Можно инкрементировать, если читать старое
+                        "invalid_timestamp": asyncio.get_running_loop().time(),
+                        "invalid_count": 1,
                     }
                 )
             else:
-                # ========== УСПЕШНЫЙ ФАЙЛ ==========
                 summary = FileSummary(
                     file_path=file_path,
-                    summary="", # Summary пока пустое (заполняется другим агентом или позже)
-                    # chunk_ids removed
+                    summary="",
                     metadata={
                         "size": stat.st_size,
                         "mtime": stat.st_mtime,

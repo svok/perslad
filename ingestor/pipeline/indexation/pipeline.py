@@ -15,7 +15,7 @@ class IndexationPipeline(BasePipeline):
     DEFAULT_CONFIG = {
         **BasePipeline.DEFAULT_CONFIG,
         'enrich_workers': 2, 'parse_workers': 1, 'chunk_enrich_workers': 2,
-        'embed_workers': 2, 'persist_workers': 2, 'file_summary_workers': 2,
+        'indexing_workers': 2, 'file_summary_workers': 2,
     }
 
     def __init__(self, pipeline_context: PipelineContext):

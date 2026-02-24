@@ -112,8 +112,8 @@ class InotifySourceStage(SourceStage):
             for wd in list(self._wd_to_path.keys()):
                 try:
                     self.inotify.rm_watch(wd)
-                except:
-                    pass
+                except Exception as e:
+                    self.log.warning("inotify.rm_watch.failed", wd=wd, error=str(e))
             self._wd_to_path.clear()
 
     def _map_mask(self, mask: int) -> Optional[EventTypes]:
