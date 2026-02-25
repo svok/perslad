@@ -22,9 +22,14 @@ log = get_logger("ingestor.storage.postgres.connection")
 class PostgresConnection:
     """Manages PostgreSQL connection pool."""
 
-    def __init__(self, operation_timeout: float = 60.0) -> None:
+    def __init__(self) -> None:
         self._pool: Optional[asyncpg.Pool] = None
-        self._operation_timeout = operation_timeout
+        # Read configuration from storage_config
+        self._operation_timeout = storage_config.POSTGRES_OPERATION_TIMEOUT
+        self._pool_min_size = storage_config.POSTGRES_POOL_MIN_SIZE
+        self._pool_max_size = storage_config.POSTGRES_POOL_MAX_SIZE
+        self._pool_timeout = storage_config.POSTGRES_POOL_TIMEOUT
+        self._acquire_timeout = storage_config.POSTGRES_ACQUIRE_TIMEOUT
 
     @property
     def pool(self) -> asyncpg.Pool:
@@ -65,9 +70,9 @@ class PostgresConnection:
 
             self._pool = await asyncpg.create_pool(
                 conn_string,
-                min_size=2,
-                max_size=10,
-                timeout=30.0,
+                min_size=self._pool_min_size,
+                max_size=self._pool_max_size,
+                timeout=self._pool_timeout,
                 command_timeout=self._operation_timeout,
                 init=init_connection,
             )  # noqa: E501

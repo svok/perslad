@@ -34,8 +34,8 @@ class PostgreSQLStorage(BaseStorage):
     Uses ChunkRepository for chunk storage and vector_store for similarity search.
     """
 
-    def __init__(self, operation_timeout: float = 60.0) -> None:
-        self._conn = PostgresConnection(operation_timeout)
+    def __init__(self) -> None:
+        self._conn = PostgresConnection()
         self._chunks = ChunkRepository(self._conn)
         self._file_summaries = FileSummaryRepository(self._conn)
         self._module_summaries = ModuleSummaryRepository(self._conn)

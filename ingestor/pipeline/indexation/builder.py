@@ -18,12 +18,19 @@ class IndexationPipelineBuilder:
             StageDef(
                 name="filter",
                 stage_class=IncrementalFilterStage,
-                factory=lambda ctx: IncrementalFilterStage(ctx.storage, batch_size=100, max_wait=3.0)
+                factory=lambda ctx: IncrementalFilterStage(
+                    storage=ctx.storage,
+                    batch_size=ctx.config.get("filter_batch_size", 100),
+                    max_wait=ctx.config.get("filter_max_wait", 3.0)
+                )
             ),
             StageDef(
                 name="enrich",
                 stage_class=EnrichStage,
-                factory=lambda ctx: EnrichStage(ctx.workspace_path, ctx.config.get("enrich_workers", 2))
+                factory=lambda ctx: EnrichStage(
+                    ctx.workspace_path,
+                    max_workers=ctx.config.get("enrich_workers", 2)
+                )
             ),
             StageDef(
                 name="parse",
@@ -40,7 +47,7 @@ class IndexationPipelineBuilder:
                 factory=lambda ctx: EnrichChunksStage(
                     llm=ctx.llm,
                     lock_manager=ctx.lock_manager,
-                    max_workers=ctx.config.get("chunk_enrich_workers", 2)
+                    max_workers=ctx.config.get("enrich_chunks_workers", 2)
                 )
             ),
             StageDef(
@@ -50,7 +57,7 @@ class IndexationPipelineBuilder:
                     vector_store=ctx.vector_store,
                     embed_model=ctx.embed_model,
                     storage=ctx.storage,
-                    batch_size=100,
+                    batch_size=ctx.config.get("indexing_batch_size", 100),
                     max_workers=ctx.config.get("indexing_workers", 2)
                 )
             ),

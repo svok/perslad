@@ -25,6 +25,7 @@ class IncrementalFilterStage(BaseStage):
         self.input_queue: Optional[ThrottledQueue] = None
         self.output_queue: Optional[ThrottledQueue] = None
         self._workers: List[asyncio.Task] = []
+        self.max_workers = 2  # Two background tasks: main_loop + flush_loop
 
     async def start(self, input_queue: ThrottledQueue, output_queue: Optional[ThrottledQueue] = None) -> None:
         self.input_queue = input_queue

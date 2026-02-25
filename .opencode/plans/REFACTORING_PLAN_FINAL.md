@@ -1,977 +1,506 @@
-# ПЛАН РЕФАКТОРИНГА: переход на llama_index (Финальная версия)
+# АКТУАЛИЗИРОВАННЫЙ ПЛАН РЕФАКТОРИНГА
 
-## КРИТИЧЕСКОЕ ПРЕДУПРЕЖДЕНИЕ
-
-**Перед началом миграции необходимо выполнить Фазу 0 (Экстренные исправления)**. Эти задачи исправляют опасные проблемы в текущем коде:
-
-- **HTTP client per request** → socket exhaustion风险
-- **Нет retry на embedding** → lost data при transient errors
-- **Нет rate limiting** → API throttling в production
-- **O(n) vector search** → не масштабируется за 1000+ chunks
-- **KeyError risks** → runtime crashes
-- **Безымянные except** → silent failures
-- **Config scattering** → maintenance nightmare
-
-Без Фазы 0 система **непригодна для production**. Выполняем сразу.
+**Дата актуализации:** 2025-02-25  
+**Текущее состояние:** Частичная миграция на llama_index, но с артефактами двойного хранения  
+**Цель:** Убрать техдолг, выбросить велосипеды, подготовить для развития функционала  
 
 ---
 
-## Целевое состояние
+## 📊 ТЕКУЩЕЕ СОСТОЯНИЕ (факт)
 
-Полностью заменить кастомную логику индексации и поиска на компоненты llama_index:
+### ✅ Уже сделано (соответствует исходному плану)
+- PGVectorStore + VectorStoreIndex + VectorIndexRetriever используются
+- IndexingStage с dual-write (vector_store + chunks table)
+- KnowledgeIndex заменяет SearchPipeline для `/v1/knowledge/search`
+- ParseProcessorStage возвращает TextNode
+- EnrichChunksStage обогащает TextNode метаданными (summary, purpose)
+- FileSummaryStage управляет lifecycle file_summaries (НО summary всегда пустой)
 
-- **VectorStore**: PGVectorVectorStore (PostgreSQL) + FaissVectorStore (memory)
-- **Index**: VectorStoreIndex для управления индексом
-- **Retrieval**: VectorIndexRetriever для поиска
-- **LLM/Embeddings**: Стандартные адаптеры llama_index с retry, rate limit, circuit breaker
-- **Pipeline**: Упрощенный пайплайн, эффективный асинхронный батчинг
+### ❌ Критические отличия от исходного плана (не сделано, но активно используется)
+- **ChunkRepository и Chunk model НЕ удалены** — используются для:
+  - `storage.get_chunks_by_file()` → `/v1/knowledge/file/{path}` endpoint
+  - `storage.search_vector()` → search pipeline
+  - Dual-write pattern для совместимости
+- **FileSummaryStage нельзя удалять** — это **единственный** компонент, создающий file_summary записи
+- **Config scattering** — большинство параметров hard-coded
+- **Нет retry/rate-limit** в EmbeddingModel
 
-**Оставить кастомный код только для**:
-- Файлового сканирования и inotify (специфичная логика ОС)
-- Управления очередями и параллелизацией (если needed)
-- FileSummary хранение (не-векторные операции)
+### 🔍 Обнаружены велосипеды (техдолг)
+1. **Дублирование данных**: Две таблицы `chunks` (реляционная) + `chunks_vectors` (vector store)
+   - Dual-write приводит к риску рассинхронизации
+   - Удаление файлов удаляет только из `chunks`, но не из `chunks_vectors` (баг!)
+2. **Chunk model** — устаревший persistence format, должен быть заменен на TextNode
+3. **File summary не генерируется** — поле `summary=""`, только метаданные
+4. **Module summary** — есть модель и интерфейс, но пустые реализации репозитория
+5. **Конфиг разбросан** — параметры в коде, не настраиваются через env
 
 ---
 
-## ПРИНЦИПЫ РЕФАКТОРИНГА
+## 🎯 ПЕРЕСМОТРЕННЫЕ ПРИОРИТЕТЫ
 
-1. **DRY**: Удалять устаревший код сразу после замены, не оставлять дубли
-2. **Работоспособность**: После каждой задачи система должна проходить тесты и работать
-3. **Безопасность**: Сохранять логику переподключений из `infra.managers.base.BaseManager`
-4. **Производительность**: Не ухудшать latency и throughput (должна улучшиться)
-5. **Тестируемость**: Добавлять tests параллельно с кодом
+### **Стратегическое решение: Chunk model оставить ВРЕМЕННО**
+`get_chunks_by_file()` используется критически:
+- `/v1/knowledge/file/{path}` endpoint (агенты вызывают для чтения полного контекста файла)
+- Тесты проверяют `chunks_count`
+- Удаление нужно для file deletion (исправленный баг)
+
+**Компромисс:** Оставить Chunk как persistence format для file-based lookups, но:
+- Убрать дублирование: отказаться от `chunks` table, читать из `chunks_vectors` через vector_store
+- `get_chunks_by_file()` → query vector_store с metadata filter
+- Сохранить API совместимость (возвращаем Chunk-подобные DTO)
+
+### **File Summary: Синхронная генерация с last_summarized_at**
+- Генерировать при каждом индексации файла (после EnrichChunksStage)
+- Использовать LLM (локальная qwen2.5-7B — быстрая и бесплатная)
+- Добавить поле `last_summarized_at: float` в metadata для отслеживания
+- Формат: агрегировать chunk summaries (первые N=20) → file-level summary (2-3 предложения)
+- **Преимущество**: Простота, синхронность, нет фоновых задач
+
+### **Module Summary: Иерархическое агрегирование по директориям**
+- Граница модуля = директория с `__init__.py` + все поддиректории (рекурсивно)
+- Каждая такая директория = модуль (module_path относительный путь)
+- Генерировать на основе file summaries модуля (только файлы с `valid=True`)
+- Использовать дерево саммаризации: 
+  - Leaf: file summaries (уже есть)
+  - Intermediate: aggregate дочерних модулей → parent module summary
+  - Root: project overview
+- Запускать после FileSummaryStage (в том же пайплайне или фоном)
+
+### **Графовая БД (NebulaGraph/Neo4j) — отдельная фаза**
+- Только учесть в архитектуре: export из vector_store в граф
+- Позже: факты (imports, calls, definitions) → ребра графа
+- Сейчас не реализовывать
 
 ---
 
-## ФАЗА 0: Экстренные исправления (BEFORE MIGRATION)
+## 📋 АКТУАЛИЗИРОВАННЫЙ ПЛАН (практический)
 
-Эти задачи **обязательны** и должны быть выполнены до основной миграции. Они стабилизируют текущую систему.
+### **ФАЗА 0: Экстренные исправления** (1-2 дня)
 
-### Задача 0.1: Добавить shared HTTP client в EmbeddingModel
-**Файл**: `adapters/embedding_model.py`
-**Проблема**: Создает новый `AsyncClient` на КАЖДЫЙ запрос (строки 55, 97, 173) → socket exhaustion
-**Действие**:
+| № | Задача | Файлы | Статус |
+|---|--------|-------|--------|
+| 0.1 | Shared HTTP client + close() | `adapters/embedding_model.py` | ❌ |
+| 0.2 | Retry (tenacity) на embedding | `adapters/embedding_model.py` | ❌ |
+| 0.3 | Rate limiting (semaphore) | `adapters/embedding_model.py` | ❌ |
+| 0.4 | KeyError: `.get()` в builder | `pipeline/indexation/builder.py` | ⚠️ Частично |
+| 0.5 | Graceful shutdown в main.py | `main.py` | ❌ |
+| 0.6 | Bare except → Exception | `pipeline/stages/inotify_source.py:115` | ⚠️ |
+| 0.7 | Central config activation | `main.py` + `config/base.py` | ❌ |
+| 0.8 | PGVECTOR_DIMENSIONS hack | `config/storage.py` | ❌ |
+| 0.9 | Вынести hard-coded в config | builder, stages, main.py | ❌ |
+| 0.10 | Bare except везде | все stage'ы | ⚠️ |
+
+**Критерий:** Все e2e-тесты проходят, нет socket exhaustion, корректный shutdown.
+
+---
+
+### **ФАЗА 1: Убрать велосипед — консолидация хранилища** (2-3 дня)
+
+**Цель:** Оставить только `chunks_vectors` (PGVectorStore) как единый источник истины.
+
+#### 1.1 Удалить `chunks` table и `ChunkRepository`
+- Удалить `adapters/postgres/repositories/chunk.py` целиком
+- Удалить `adapters/postgres/mappers.py` (не нужен без Chunk)
+- Удалить CREATE TABLE `chunks` из `adapters/postgres/connection.py`
+- Оставить: `file_summaries`, `module_summaries`, `stats` таблицы
+
+#### 1.2 Убрать dual-write в IndexingStage
+- Удалить блок `if self.storage is not None: ... save_chunks()` (строки 62-86 в `indexing_stage.py`)
+- Оставить только `await self.vector_store.async_add(batch)`
+
+#### 1.3 Переделать `PostgreSQLStorage`: убрать chunk-методы из интерфейса
+Удалить из `BaseStorage` и реализаций:
+- `save_chunk()`, `save_chunks()`
+- `get_chunk()`, `get_all_chunks()`
+- `get_chunks_by_file()` → **сохранить, но изменить реализацию** (см. 1.5)
+- `delete_chunks_by_file_paths()` → переделать на vector_store.delete()
+
+#### 1.4 Настроить PGVectorStore с `indexed_metadata_keys`
 ```python
-class EmbeddingModel:
-    def __init__(self, embed_url: str, api_key: str, served_model_name: str):
-        self._client = httpx.AsyncClient(timeout=30.0)  # ← добавить
-        # ... остальные поля
-    
-    async def close(self):
-        await self._client.aclose()  # ← добавить
-```
-И использовать `self._client` во всех методах вместо `async with httpx.AsyncClient(...)`.
-**Проверка**: Один клиент используется для множества запросов, соединения пулятся.
-
-### Задача 0.2: Добавить retry с экспоненциальной задержкой в EmbeddingModel
-**Файл**: `adapters/embedding_model.py`
-**Проблема**: Нет retry при временных сбоях (502, 503, network timeouts)
-**Действие**: Использовать `tenacity` (уже есть в `postgres/connection.py:40-44`)
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception(lambda e: isinstance(e, (httpx.HTTPError, TimeoutError)))
+PGVectorStore(
+    connection_string=...,
+    table_name="chunks_vectors",
+    embed_dim=1536,
+    index_metadata_keys=["file_path"]  # B-tree индекс для быстрой фильтрации
 )
-async def get_embedding(self, text: str): ...
 ```
-Применить ко всем HTTP методам: `get_embedding()`, `get_embeddings()`, `get_embedding_dimension()`
-**Проверка**: Temporary failures автоматически ретраятся, не падает пайплайн
+Это позволит эффективно выполнять `get_chunks_by_file()` через metadata filter.
 
-### Задача 0.3: Добавить rate limiting для embedding API
-**Файл**: `config/emb.py`
-**Действие**: Добавить `EMB_RATE_LIMIT_RPM: int = 100` (или из .env)
-**Файл**: `adapters/embedding_model.py`
+#### 1.5 Реализовать `get_chunks_by_file()` через vector_store
 ```python
-from asyncio import Semaphore
-
-def __init__(self, ...):
-    self._rate_limiter = Semaphore(emb_config.EMB_RATE_LIMIT_RPM // 60)
+async def get_chunks_by_file(self, file_path: str) -> List[Chunk]:
+    from llama_index.core.vector_stores import Filter, MetadataFilters
     
-async def get_embeddings(self, texts: List[str]):
-    async with self._rate_limiter:  # ← ограничиваем
-        # ... HTTP запрос
+    filters = MetadataFilters(
+        filters=[Filter(key="file_path", operator=FilterOperator.EQ, value=file_path)]
+    )
+    query = VectorStoreQuery(
+        query_embedding=None,  # нет query, просто фильтр
+        similarity_top_k=1000,  # достаточное число
+        filters=filters,
+    )
+    result = await self._vector_store.query(query)
+    
+    # Конвертация TextNode → Chunk (для совместимости)
+    return [
+        Chunk(
+            id=node.node_id,
+            file_path=node.metadata.get("file_path", ""),
+            content=node.text,
+            start_line=node.metadata.get("start_line", 0),
+            end_line=node.metadata.get("end_line", 0),
+            chunk_type=node.metadata.get("chunk_type", ""),
+            summary=node.metadata.get("summary", ""),
+            purpose=node.metadata.get("purpose", ""),
+            embedding=node.embedding,
+            metadata=node.metadata,
+        )
+        for node in result.nodes
+    ]
 ```
-**Проверка**: Не превышает лимит даже при высокой нагрузке
 
-### Задача 0.4: Исправить KeyError risks в builder'ах
-**Файлы**:
-- `pipeline/indexation/builder.py` (строки 22,27,33,40,46,53,58)
-- `pipeline/knowledge_search/builder.py` (строки 19,26,34)
-**Проблема**: `ctx.config["enrich_workers"]` упадет если ключ отсутствует
-**Действие**: Заменить все на `.get()` с дефолтами:
+#### 1.6 Исправить удаление векторов
+`delete_chunks_by_file_paths()` должно удалять и из vector_store:
 ```python
-factory=lambda ctx: EnrichStage(
-    ctx.workspace_path,
-    ctx.config.get("enrich_workers", 2)  # ← безопасно
-)
+async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+    # Удаляем из vector_store (через метаданные)
+    for file_path in file_paths:
+        filters = MetadataFilters(
+            filters=[Filter(key="file_path", operator=FilterOperator.EQ, value=file_path)]
+        )
+        await self._vector_store.delete(filters=filters)
+    
+    # Удаляем из репозиториев (file_summaries, module_summaries также)
+    await self._file_summaries.delete_by_files(file_paths)
 ```
-**Проверка**: При старте без конфига пайплайн использует default values
 
-### Задача 0.5: Добавить close() вызовы в main.py
-**Файл**: `main.py`
-**Проблема**: `EmbeddingModel` и другие адаптеры не закрываются → утечки соединений
-**Действие**: В `finally` блоке или graceful shutdown:
+---
+
+### **ФАЗА 2: File & Module Summary Generation** (2-3 дня)
+
+#### 2.1 Добавить `last_summarized_at` в FileSummary
+`core/models/file_summary.py`:
+```python
+@dataclass
+class FileSummary:
+    file_path: str
+    summary: str  # БУДЕТ генерироваться
+    metadata: Dict:
+        size: int
+        mtime: float
+        checksum: str
+        valid: bool | None  # или invalid_reason
+        last_summarized_at: float | None  # NEW: время последней генерации
+```
+
+#### 2.2 FileSummaryStage: синхронная генерация summary
+`pipeline/stages/file_summary_stage.py`:
+```python
+async def process(self, context):
+    file_path = str(context.file_path)
+    abs_path = Path(self.workspace_path) / file_path
+    
+    # Удаление файла
+    if context.event_type == "delete" or not abs_path.exists():
+        await self.storage.delete_file_summary(file_path)
+        await self.storage.delete_chunks_by_file_paths([file_path])
+        return context
+    
+    # Проверка валидности
+    if context.has_errors or not context.nodes:
+        # Невалидный файл: summary пустой
+        summary = FileSummary(
+            file_path=file_path,
+            summary="",
+            metadata={
+                "size": stat.st_size,
+                "mtime": stat.st_mtime,
+                "checksum": new_checksum,
+                "valid": False,
+                "invalid_reason": reason,
+                "last_summarized_at": None,
+            }
+        )
+    else:
+        # Генерация file-level summary из chunk summaries
+        chunk_summaries = [
+            n.metadata.get("summary", "") 
+            for n in context.nodes 
+            if n.metadata.get("summary")
+        ]
+        # Ограничиваем количеством чанков для экономии токенов
+        combined_summaries = "\n".join(chunk_summaries[:20])
+        
+        prompt = FILE_SUMMARY_PROMPT_TEMPLATE.format(
+            file_path=file_path,
+            chunk_summaries=combined_summaries,
+            total_chunks=len(chunk_summaries),
+        )
+        
+        try:
+            response = await self.llm.acomplete(prompt)
+            file_summary_text = response.text.strip()[:500]  # лимит
+        except Exception as e:
+            self.log.error("file_summary.generation_failed", file=file_path, error=str(e))
+            file_summary_text = ""  # fallback
+        
+        summary = FileSummary(
+            file_path=file_path,
+            summary=file_summary_text,
+            metadata={
+                "size": stat.st_size,
+                "mtime": stat.st_mtime,
+                "checksum": new_checksum,
+                "valid": True,
+                "last_summarized_at": time.time(),
+            }
+        )
+    
+    await self.storage.save_file_summary(summary)
+    return context
+```
+
+#### 2.3 Module Summary: обнаружение модулей и генерация
+**Новый stage:** `ModuleSummaryStage`
+
+**Модуль detection algorithm:**
+```python
+def discover_modules(workspace_path: Path) -> List[Path]:
+    """Найти все директории с __init__.py (Python packages)"""
+    modules = []
+    for root, dirs, files in os.walk(workspace_path):
+        if "__init__.py" in files:
+            module_path = Path(root).relative_to(workspace_path)
+            modules.append(module_path)
+    return modules
+```
+
+**ModuleSummaryStage логика:**
+- Триггер: после `FileSummaryStage` или по расписанию (если много файлов)
+- Собрать все `file_summary` для файлов в модуле (и подмодулях)
+- Отфильтровать `valid=True` файлы
+- Агрегировать:
+  - Список file_paths
+  - Статистика: total_files, total_chunks, total_lines
+  - Combined summaries → LLM prompt для модульного overview
+- Сохранить `ModuleSummary(module_path, summary, metadata)`
+
+**Иерархия:**
+- Последовательная генерация: file → submodule → module → top-level
+- Или параллельная с кэшированием
+
+---
+
+### **ФАЗА 3: Конфиг + Reliability** (1-2 дня)
+
+#### 3.1 Активировать PipelineConfig.from_env()
+В `main.py`:
+```python
+from ingestor.config.base import PipelineConfig
+
+config = PipelineConfig.from_env()  # читает из .env
+pipeline_context = PipelineContext(config=config)
+```
+
+#### 3.2 Перенести ВСЕ hard-coded параметры в PipelineConfig
+Добавить в `config/base.py`:
+```python
+class PipelineConfig(BaseModel):
+    # Workers
+    enrich_workers: int = 2
+    parse_workers: int = 1
+    indexing_workers: int = 2
+    file_summary_workers: int = 2
+    module_summary_workers: int = 2
+    
+    # Batch sizes
+    filter_batch_size: int = 100
+    filter_max_wait: float = 3.0
+    indexing_batch_size: int = 100
+    collector_batch_size: int = 10
+    collector_max_wait: float = 0.5
+    
+    # Text splitter
+    python_chunk_lines: int = 40
+    python_chunk_overlap: int = 15
+    python_max_chars: int = 1500
+    doc_chunk_size: int = 512
+    doc_chunk_overlap: int = 50
+    config_chunk_size: int = 512
+    config_chunk_overlap: int = 50
+    
+    # Embedding & LLM
+    embed_rate_limit_rpm: int = 100
+    embed_max_chars: int = 8000
+    embed_batch_size: int = 10
+    file_summary_max_chunks: int = 20  # лимит для aggregation
+    
+    # Timeouts
+    postgres_operation_timeout: float = 60.0
+    postgres_query_timeout: float = 10.0
+    postgres_acquire_timeout: float = 5.0
+    search_timeout: float = 30.0
+```
+
+Удалить все hard-coded из stages, builder, connection, main.py.
+
+#### 3.3 Tenacity retry + rate limit + shared client
+- `EmbeddingModel`: shared `AsyncClient` + `@retry` + `Semaphore`
+- `PostgreSQLStorage`: retry на все DB операции
+- `PGVectorStoreAdapter`: обертка с retry
+
+#### 3.4 Graceful shutdown
+`main.py`:
 ```python
 try:
     await app.run()
 finally:
-    await embed_model.close()
-    await llm_manager.close()
-    await storage.close()
+    await embed_model.aclose()
+    await llm_manager.aclose()
+    await storage.aclose()
 ```
-**Проверка**: Все AsyncClient и connection pools корректно закрываются
-
-### Задача 0.6: Убрать bare except: везде
-**Файлы**:
-- `pipeline/stages/inotify_source.py:115`
-- `pipeline/stages/incremental_filter_stage.py:118`
-- другие места с `except:`
-**Действие**: Заменить на конкретные исключения или `except Exception as e:` с логированием
-**Проверка**: Нет "TypeError: catching classes that do not inherit from BaseException"
-
-### Задача 0.7: Вынести все hard-coded значения в конфиг
-**Файлы**:
-- `pipeline/indexation/builder.py:22` (batch_size=100, max_wait=3.0)
-- `pipeline/indexation/pipeline.py:17-18` (worker counts)
-- `knowledge_search/pipeline.py:76` (timeout=30.0)
-- `embedding_model.py:91` (MAX_CHARS=8000), `:141` (batch_size=10)
-- `postgres/connection.py:66` (pool min=2, max=10)
-**Действие**: Добавить соответствующие поля в конфиг-файлы с default values
-**Проверка**: Все tuning параметры настраиваются через env/config, не через код
-
-### Задача 0.8: Исправить PGVECTOR_DIMENSIONS hack
-**Файл**: `config/storage.py:17`
-**Проблема**: Comment: "The number MUST differ from real to track possible errors" - опасная практика
-**Действие**: 
-- Либо удалить и использовать реальную dim (1536)
-- Либо сделать `Optional[int] = None` и автоопределение
-**Проверка**: DimensionValidator сопоставляет dim корректно
-
-### Задача 0.9: Создать единую конфигурационную модель
-**Файлы**: `config/base.py` (новый), обновить `config/llm.py`, `config/emb.py`, `config/storage.py`, `config/runtime.py`
-**Действие**:
-```python
-# config/base.py
-from pydantic import BaseModel, Field
-from typing import Optional
-
-class BaseServiceConfig(BaseModel):
-    url: str
-    api_key: str | None = None
-    model_name: str | None = None
-    timeout: float = 30.0
-    batch_size: int = 10
-    max_workers: int = 2
-
-class LLMConfig(BaseServiceConfig):
-    temperature: float = 0.1
-    max_retries: int = 2
-
-class EmbeddingConfig(BaseServiceConfig):
-    rate_limit_rpm: int = 100
-    max_chars: int = 8000
-
-class StorageConfig(BaseServiceConfig):
-    type: str = "postgres"  # or "memory"
-    vector_dim: Optional[int] = None  # auto-detect if None
-
-# объединить в один PipelineConfig
-class PipelineConfig(BaseModel):
-    llm: LLMConfig
-    embedding: EmbeddingConfig
-    storage: StorageConfig
-    enrich_workers: int = 2
-    parse_workers: int = 1
-    indexing_workers: int = 2
-    queue_size: int = 1000
-```
-**Проверка**: Конфиг валидируется при старте, типизирован
-
-### Задача 0.10: Добавить missing get_embedding_dimension в BaseStorage интерфейс
-**Файл**: `core/ports/storage.py`
-**Проблема**: Уже есть метод (line 131-133), но `services/validator.py:49` использует `hasattr()` вместо строгого интерфейса. Это указывает на плохое adherence.
-**Действие**: Удалить `hasattr` check в `validator.py`, полагаться на abstract method
-**Проверка**: Все storage implementations имеют `get_embedding_dimension()`
 
 ---
 
-## ФАЗА 1: Векторное хранилище на llama_index (КРИТИЧЕСКАЯ МИГРАЦИЯ)
+### **ФАЗА 4: Graph DB подготовка** (отдельно, но проектировать)
 
-**Цель**: Удалить кастомный векторный поиск (O(n) linear scan) и заменить на `VectorStore` с HNSW indexing.
+**Не реализовывать сейчас, только спроектировать:**
 
-### Задача 1.1: Добавить зависимости llama_index vector stores
-**Файл**: `requirements.txt`
-**Действие**: Добавить
-```
-llama-index-vector-stores-postgres>=0.1.4
-llama-index-vector-stores-simple>=0.1.4  # for memory (faiss/annoy)
-```
-**Проверка**: `pip install -r requirements.txt` успешно
+#### 4.1 NebulaGraph schema design
+- **Vertices**: File, Module, Class, Function, Variable
+- **Edges**: BELONGS_TO (File→Module), IMPORTS, CALLS, DEFINES, REFERENCES
+- **Properties**: Для каждой вершины — атрибуты (summary, checksum, line count)
 
-### Задача 1.2: Создать VectorStoreAdapter с retry
-**Файл**: `adapters/vector_store.py` (новый)
-**Действие**:
-```python
-from llama_index.core.vector_stores import VectorStore, VectorStoreQuery, VectorStoreQueryResult
-from llama_index.core.schema import TextNode
-from tenacity import retry, wait_exponential, stop_after_attempt
+#### 4.2 Exporter architecture
+- Модуль `graph/exporter.py` (не в repo yet)
+- Источник: `vector_store` (metadatafilter → all nodes)
+- Трансформация: AST parsing + LLM extraction для фактов
+- Нагрузка: bulk upsert через NebulaGraph client
+- Триггеры: по событию file_indexed, или по cron
 
-class LlamaPostgresVectorStore(VectorStore):
-    """Adapter over PGVectorVectorStore with retry logic."""
-    
-    def __init__(self, connection_string: str, table_name: str = "chunks"):
-        from llama_index.vector_stores.postgres import PGVectorStore
-        self._store = PGVectorStore(
-            connection_string=connection_string,
-            table_name=table_name,
-            embed_dim=1536,  # from config
-        )
-    
-    @retry(wait=wait_exponential(min=2, max=30), stop=stop_after_attempt(3))
-    async def add_nodes(self, nodes: list[TextNode]) -> list[str]:
-        return await self._store.async_add(nodes)
-    
-    @retry(wait=wait_exponential(min=2, max=30), stop=stop_after_attempt(3))
-    async def query(self, query: VectorStoreQuery) -> VectorStoreQueryResult:
-        return await self._store.async_query(query)
-    
-    # ... другие методы: delete, get, etc.
-```
-**Проверка**: Может добавлять узлы и делать векторный поиск с retry
-
-### Задача 1.3: Создать InMemoryVectorStore с Faiss
-**Файл**: `adapters/vector_store.py` (дополняем)
-**Действие**:
-```python
-from llama_index.vector_stores.simple import SimpleVectorStore
-
-class LlamaMemoryVectorStore(VectorStore):
-    """In-memory vector store using Faiss/HNSW for O(log n) search."""
-    
-    def __init__(self):
-        self._store = SimpleVectorStore()
-    
-    async def add_nodes(self, nodes: list[TextNode]) -> list[str]:
-        return self._store.add(nodes)
-    
-    async def query(self, query: VectorStoreQuery) -> VectorStoreQueryResult:
-        return self._store.query(query)
-```
-**Проверка**: Поиск по 10,000 chunks выполняется за <10ms (вместо 50-200ms)
-
-### Задача 1.4: Удалить кастомный векторный поиск из PostgreSQLStorage
-**Файлы**:
-- `adapters/postgres/repositories/chunk.py` → удалить метод `search_vector()` (строки 120-146)
-- `adapters/postgres/storage.py` → удалить метод `search_vector()` (строки 63-69)
-**Действие**: Векторный поиск теперь через VectorStoreAdapter
-**Проверка**: Компиляция проходит, storage методы search_vector пока не используются
-
-### Задача 1.5: Обновить PostgreSQLStorage как фасад
-**Файл**: `adapters/postgres/storage.py`
-**Действие**:
-```python
-class PostgreSQLStorage(BaseStorage):
-    def __init__(self, connection_string: str, operation_timeout: float = 60.0):
-        self._conn = PostgresConnection(operation_timeout)
-        self._vector_store = LlamaPostgresVectorStore(connection_string)
-        # файловые summaries остаются через репозитории (не-векторные)
-    
-    async def search_vector(self, vector, top_k=10, filter_by_file=None):
-        from llama_index.core.vector_stores import FilterOperator, Filter
-        filters = None
-        if filter_by_file:
-            filters = Filter.from_dict({"file_path": {"$eq": filter_by_file}})
-        
-        query = VectorStoreQuery(
-            query_embedding=vector,
-            similarity_top_k=top_k,
-            filters=filters,
-        )
-        result = await self._vector_store.query(query)
-        # Конвертация VectorStoreNode → Chunk
-        return [self._node_to_chunk(node) for node in result.nodes]
-```
-**Проверка**: search_vector возвращает те же данные, что и раньше (или лучше с фильтрацией)
-
-### Задача 1.6: Удалить ChunkRepository полностью
-**Файлы**:
-- `adapters/postgres/repositories/chunk.py` - УДАЛИТЬ ВЕСЬ ФАЙЛ
-- `adapters/postgres/storage.py`: удалить импорт и использование `ChunkRepository`
-- `adapters/postgres/mappers.py`: удалить или упростить (оставить только для FileSummary/ModuleSummary если нужно)
-**Действие**: Все CRUD для chunks теперь через `vector_store.add_nodes()` и `vector_store.delete()`
-**Проверка**: Ни один файл не импортирует ChunkRepository
-
-### Задача 1.7: Упростить MemoryStorage
-**Файл**: `adapters/memory/storage.py`
-**Действие**:
-- Удалить метод `search_vector` (весь векторный поиск, строки 145-176)
-- Оставить только `save_chunk`, `save_chunks`, `get_chunk`, `get_chunks_by_file` для совместимости (или удалить если не используются)
-- Или заменить на `LlamaMemoryVectorStore` прокси
-**Проверка**: Тесты (если есть) проходят
+**Примечание:** Это тема на отдельный рефакторинг, только зафиксировать идею.
 
 ---
 
-## ФАЗА 2: Перепроектирование пайплайна индексации
+### **ФАЗА 5: Очистка legacy** (1 день)
 
-**Цель**: Убрать EmbedChunksStage и PersistChunksStage, заменить на IndexingStage с авто-эмбеддингом.
+#### 5.1 Удалить неиспользуемые классы
+- `ChunkRepository` (уже в 1.1)
+- `Chunk` model (оставить только для DTO возвратов, но упростить)
+- `adapters/postgres/mappers.py`
+- `KnowledgeSearchPipeline` (все равно не используется, есть KnowledgeIndex)
 
-### Задача 2.1: Создать LlamaEmbedding adapter с retry и rate limiting
-**Файл**: `adapters/embeddings.py` (новый)
-**Действие**:
-```python
-from llama_index.core.embeddings import BaseEmbedding
-from llama_index.embeddings.openai import OpenAIEmbedding
-from tenacity import retry, wait_exponential, stop_after_attempt
+#### 5.2 Упростить storage интерфейс
+Оставить только:
+- FileSummary: `save/get/get_all/delete`
+- ModuleSummary: `save/get/get_all/delete`
+- Vector search: `search_vector()` (делегирует vector_store)
+- Metadata: `get_file_metadata/update_file_metadata/get_files_metadata`
 
-class LlamaEmbedding(BaseEmbedding):
-    """Embedding adapter with retry and rate limiting."""
-    
-    def __init__(self, config: EmbeddingConfig):
-        self._config = config
-        self._rate_limiter = asyncio.Semaphore(config.rate_limit_rpm // 60)
-        self._embedder = OpenAIEmbedding(
-            api_base=config.url,
-            api_key=config.api_key,
-            model_name=config.model_name,
-        )
-    
-    @retry(wait=wait_exponential(min=2, max=30), stop=stop_after_attempt(3))
-    async def _get_text_embedding(self, text: str) -> List[float]:
-        async with self._rate_limiter:
-            return await self._embedder.aget_text_embedding(text)
-    
-    @retry(wait=wait_exponential(min=2, max=30), stop=stop_after_attempt(3))
-    async def _get_query_embedding(self, query: str) -> List[float]:
-        async with self._rate_limiter:
-            return await self._embedder.aget_query_embedding(query)
-```
-**Проверка**: Генерация эмбеддингов с теми же параметрами, что и старый EmbeddingModel
-
-### Задача 2.2: Удалить старый EmbeddingModel
-**Файл**: `adapters/embedding_model.py` - УДАЛИТЬ
-**Файлы** для обновления импортов:
-- `main.py`, `services/validator.py`, `pipeline/stages/` - заменить импорты
-**Действие**: Во всех местах использовать `LlamaEmbedding`
-**Проверка**: Никаких `from adapters.embedding_model import EmbeddingModel` не осталось
-
-### Задача 2.3: Удалить EmbedChunksStage
-**Файлы**:
-- `pipeline/stages/embed_chunks_stage.py` - УДАЛИТЬ
-- `pipeline/indexation/builder.py` - удалить стадию `embed`
-**Действие**: Эмбеддинги генерируются автоматически при `vector_store.add_nodes()` если передан embed_model
-**Проверка**: Пайтелайн без embed стадии компилируется (пока без эмбеддингов в БД)
-
-### Задача 2.4: Обновить ParseProcessorStage для TextNode
-**Файл**: `pipeline/stages/parse_stage.py`
-**Действие**:
-```python
-from llama_index.core.schema import TextNode
-
-async def process(self, context: PipelineFileContext) -> PipelineFileContext:
-    # ... чтение файла
-    nodes = splitter.get_nodes_from_documents([Document(text=content, metadata={"file_path": rel_path})])
-    
-    context.nodes = []
-    for node in nodes:
-        # enrich node metadata
-        node.metadata["file_path"] = rel_path
-        node.metadata["extension"] = ext
-        # node.id будет автоматически сгенерирован в vector_store
-        context.nodes.append(node)
-    
-    return context
-```
-**Проверка**: Stage возвращает `List[TextNode]` с правильной metadata
-
-### Задача 2.5: Обновить EnrichChunksStage для TextNode
-**Файл**: `pipeline/stages/enrich_chunks_stage.py`
-**Действие**:
-```python
-from llama_index.core.llms import LLM
-from pydantic import BaseModel, Field
-
-class EnrichmentResult(BaseModel):
-    summary: str = Field(..., description="1-2 sentences")
-    purpose: str = Field(..., description="code purpose")
-
-class EnrichChunksStage(ProcessorStage):
-    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2):
-        super().__init__("chunk_enrich", max_workers)
-        self.llm = llm
-        self.lock_manager = lock_manager
-    
-    async def process(self, context: PipelineFileContext) -> PipelineFileContext:
-        if context.status != "success" or not context.nodes:
-            return context
-        
-        await self._enrich_nodes(context.nodes)
-        return context
-    
-    async def _enrich_nodes(self, nodes: List[TextNode]) -> None:
-        if await self.lock_manager.is_locked():
-            await self.lock_manager.wait_unlocked()
-        
-        tasks = [self._enrich_node(node) for node in nodes]
-        await asyncio.gather(*tasks, return_exceptions=True)
-    
-    async def _enrich_node(self, node: TextNode) -> None:
-        prompt = f"""..."""  # как раньше
-        try:
-            result = await self.llm.astructured_predict(
-                EnrichmentResult,
-                prompt  # или использовать chat с JSON mode
-            )
-            node.metadata["summary"] = result.summary
-            node.metadata["purpose"] = result.purpose
-        except Exception as e:
-            self.log.error("enrich.failed", node_id=node.node_id, error=str(e))
-```
-**Проверка**: Nodes получают enrichment в metadata без кастомного парсинга
-
-### Задача 2.6: Создать IndexingStage
-**Файл**: `pipeline/stages/indexing_stage.py` (новый)
-**Действие**:
-```python
-class IndexingStage(ProcessorStage):
-    def __init__(self, vector_store: VectorStore, embed_model: BaseEmbedding, batch_size: int = 100, max_workers: int = 2):
-        super().__init__("indexing", max_workers)
-        self.vector_store = vector_store
-        self.embed_model = embed_model
-        self.batch_size = batch_size
-    
-    async def process(self, context: PipelineFileContext) -> PipelineFileContext:
-        if context.status != "success" or not context.nodes:
-            return context
-        
-        # Басе ritmis: удалить старые ноды для этого файла (если нужно)
-        # await self._delete_existing_nodes(context.nodes)
-        
-        # Добавить nodes батчами
-        for i in range(0, len(context.nodes), self.batch_size):
-            batch = context.nodes[i:i+self.batch_size]
-            try:
-                # Embeddings добавятся автоматически если vector_store имеет embed_model
-                node_ids = await self.vector_store.add_nodes(batch)
-                self.log.info("indexing.batch.success", count=len(batch), first_id=node_ids[0] if node_ids else None)
-            except Exception as e:
-                self.log.error("indexing.batch.failed", batch_start=i, error=str(e))
-                #Decision: fail-fast или continue?
-                raise  # fail-fast
-        
-        return context
-```
-**Проверка**: Nodes сохраняются в vector store с эмбеддингами
-
-### Задача 2.7: Удалить PersistChunksStage и FileSummaryStage
-**Файлы**:
-- `pipeline/stages/persist_stage.py` - УДАЛИТЬ
-- `pipeline/stages/file_summary_stage.py` - УДАЛИТЬ
-**Файл**: `pipeline/indexation/builder.py` - удалить эти стадии
-**Действие**: FileSummary сохранять отдельно (не в пайплайне). Можно создать background task или отдельный пайплайн.
-**Проверка**: Индексация работает без этих стадий
-
-### Задача 2.8: Перестроить IndexationPipelineBuilder
-**Файл**: `pipeline/indexation/builder.py`
-**Новый порядок**:
-1. `IncrementalFilterStage` (no change)
-2. `EnrichStage` (no change - enrich file metadata)
-3. `ParseProcessorStage` (returns List[TextNode])
-4. `EnrichChunksStage` (enriches TextNode.metadata)
-5. `IndexingStage` (new - persists to vector store)
-**Убрать stays**: embed, persist
-**Обновить конфиг**: убрать `embed_workers`, `persist_workers`; добавить `indexing_workers`
-**Проверка**: `IndexationPipelineBuilder.get_default_definitions()` возвращает 5 стадий
-
-### Задача 2.9: Удалить модель Chunk
-**Файл**: `core/models/chunk.py` - УДАЛИТЬ ВЕСЬ ФАЙЛ
-**Файлы** для обновления:
-- Везде, где импортировали `Chunk`, заменить на `TextNode` из `llama_index.core.schema`
-- `adapters/postgres/storage.py` - методы `save_chunk`, `save_chunks` больше не нужны (весь CRUD через vector store)
-- `adapters/postgres/storage.py`: оставить только file_summary, module_summary методы
-**Проверка**: Никаких `Chunk` импортов не осталось
-
-### Задача 2.10: Обновить TextSplitterHelper
-**Файл**: `pipeline/utils/text_splitter_helper.py`
-**Действие**:
-```python
-from llama_index.core.schema import TextNode
-
-@staticmethod
-async def chunk_file(...) -> Tuple[List[TextNode], Optional[str]]:
-    # ... читаем файл
-    nodes = splitter.get_nodes_from_documents([Document(text=content, metadata={"file_path": rel_path, "extension": ext})])
-    
-    # Дополняем metadata
-    for idx, node in enumerate(nodes):
-        node.metadata["file_path"] = rel_path
-        node.metadata["extension"] = ext
-        node.metadata["chunk_index"] = idx
-    
-    return nodes, None  # ← возвращаем TextNode, не dicts
-```
-Удалить `generate_chunk_id()` - не нужно, vector store сам сгенерирует ID.
-**Проверка**: Splitter возвращает `List[TextNode]` с полной metadata
+Убрать методы прямого доступа к chunks (кроме `get_chunks_by_file`, который теперь через vector_store).
 
 ---
 
-## ФАЗА 3: Замена Search Pipeline
+### **ФАЗА 6: Тестирование** (2-3 дня)
 
-### Задача 3.1: Создать KnowledgeIndex
-**Файл**: `ingestor/search/knowledge_index.py` (новый)
-**Действие**:
-```python
-from llama_index.core import VectorStoreIndex, StorageContext
-from llama_index.core.retrievers import VectorIndexRetriever
-from llama_index.core.vector_stores import Filter, FilterOperator
+#### 6.1 Переписать тесты, зависящие от chunks table
+Поскольку удаляется `chunks` table, тесты должны использовать storage layer:
 
-class KnowledgeIndex:
-    def __init__(self, vector_store: VectorStore, embed_model: BaseEmbedding):
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        self._index = VectorStoreIndex(
-            nodes=[],
-            storage_context=storage_context,
-            embed_model=embed_model,
-        )
-    
-    async def search(self, query: str, top_k: int = 10, filter_by_file: Optional[str] = None) -> List[Dict]:
-        retriever = VectorIndexRetriever(
-            index=self._index,
-            similarity_top_k=top_k * 2,  # больше для дедупликации
-        )
-        
-        # Фильтрация по file_path
-        if filter_by_file:
-            retriever._filters = Filter.from_dict({"file_path": {"$eq": filter_by_file}})
-        
-        nodes = await retriever.aretrieve(query)
-        
-        # Дедупликация по файлам (как раньше в pipeline/knowledge_search/pipeline.py:87-105)
-        seen_files = set()
-        results = []
-        for node in nodes:
-            file_path = node.metadata.get("file_path")
-            if file_path and file_path not in seen_files:
-                seen_files.add(file_path)
-                results.append({
-                    "file_path": file_path,
-                    "content": node.text,
-                    "score": node.score if hasattr(node, 'score') else None,
-                    "metadata": node.metadata,
-                    "start_line": node.metadata.get("start_line", 0),
-                    "end_line": node.metadata.get("end_line", 0),
-                })
-                if len(results) >= top_k:
-                    break
-        
-        return results
-```
-**Проверка**: Поиск возвращает до `top_k` уникальных файлов с правильными полями
+**Что изменить:**
+- `e2e-tests/tests/conftest.py`:
+  - `get_chunks_count_for_file()` → `len(await storage.get_chunks_by_file(file_path))`
+  - `get_chunks_count()` → агрегация по всем file_summaries или vector_store
+  
+- `test_db_operations.py`: 
+  - **Удалить полностью** (это были низкоуровневые тесты SQL, теперь абстрагированы)
+  - Или переписать на тесты vector_store operations
 
-### Задача 3.2: Удалить KnowledgeSearchPipeline полностью
-**Файлы** на удаление:
-- `pipeline/knowledge_search/pipeline.py`
-- `pipeline/knowledge_search/builder.py`
-- `pipeline/stages/query_source_stage.py`
-- `pipeline/stages/search_result_sink_stage.py`
-- `pipeline/stages/search_db_stage.py` (если есть)
-**Проверка**: Все импорты заменены на `KnowledgeIndex`
+**Тесты, требующие изменений:**
+- Все, что проверяют `chunks_count == 0` для invalid/deleted files
+- Все, что проверяют `chunks_count > 0` для valid files
+- `test_chunks_have_embeddings_and_summaries` → query через storage
+- `test_chunks_have_required_fields` → validate на результате `get_chunks_by_file`
 
-### Задача 3.3: Обновить services/knowledge.py
-**Файл**: `services/knowledge.py`
-**Действие**:
-```python
-class KnowledgeService:
-    def __init__(self, knowledge_index: KnowledgeIndex):
-        self._index = knowledge_index
-    
-    async def search(self, query: str, top_k: int = 10, filter_by_file: Optional[str] = None):
-        return await self._index.search(query, top_k, filter_by_file)
-```
-Удалить весь код, связанный с `KnowledgeSearchPipeline`.
-**Проверка**: Сервис работает
+#### 6.2 Добавить тесты для нового поведения
+- Интеграционный: file summary генерируется и сохраняется
+- Интеграционный: module summary агрегируется из file summaries
+- Интеграционный: удаление файла очищает и vector_store, и file_summary
+- Unit: `get_chunks_by_file()` через vector_store с фильтром
 
-### Задача 3.4: Обновить API endpoints
-**Файл**: `api/server.py`
-**Действие**: Вместо создания `KnowledgeSearchPipeline` передавать `KnowledgeIndex` в конструкторе `IngestorAPI`
-**Проверка**: `POST /v1/knowledge/search` возвращает те же поля (status, results/error)
+#### 6.3 Бенчмарки
+- Сравнить latency индексации до/после (убрана dual-write)
+- Проверить correctness: один source of truth
 
 ---
 
-## ФАЗА 4: Конфигурация и инициализация
+## 📊 МАТРИЦА ЗАВИСИМОСТЕЙ
 
-### Задача 4.1: Создать ComponentFactory
-**Файл**: `ingestor/factory.py` (новый)
-**Действие**:
-```python
-class ComponentFactory:
-    @staticmethod
-    def create_vector_store(config: StorageConfig) -> VectorStore:
-        if config.type == "postgres":
-            return LlamaPostgresVectorStore(config.connection_string, config.table_name)
-        elif config.type == "memory":
-            return LlamaMemoryVectorStore()
-        else:
-            raise ValueError(f"Unknown vector store type: {config.type}")
-    
-    @staticmethod
-    def create_embedding(config: EmbeddingConfig) -> BaseEmbedding:
-        return LlamaEmbedding(config)
-    
-    @staticmethod
-    def create_llm(config: LLMConfig) -> LLM:
-        # InfraLLMAdapter или LlamaOpenAI
-        from adapters.llama_llm import InfraLLMAdapter
-        llm_manager = LLMManager(...)
-        return InfraLLMAdapter(llm_manager, context_window=8192, model_name=config.model_name)
-    
-    @staticmethod
-    def create_knowledge_index(vector_store: VectorStore, embed_model: BaseEmbedding) -> KnowledgeIndex:
-        return KnowledgeIndex(vector_store, embed_model)
 ```
-**Проверка**: Все компоненты создаются через factory
+IndexationPipeline:
+  IncrementalFilterStage → EnrichStage → ParseProcessorStage → EnrichChunksStage → 
+  IndexingStage → FileSummaryStage → [ModuleSummaryStage] → IndexerSinkStage
 
-### Задача 4.2: Обновить main.py
-**Файл**: `main.py`
-**Действие**:
-```python
-async def main():
-    config = PipelineConfig.from_env()  # или из файла
-    
-    # Инициализация
-    storage = PostgreSQLStorage(config.storage.connection_string)
-    await storage.initialize()
-    
-    vector_store = ComponentFactory.create_vector_store(config.storage)
-    embed_model = ComponentFactory.create_embedding(config.embedding)
-    llm = ComponentFactory.create_llm(config.llm)
-    knowledge_index = ComponentFactory.create_knowledge_index(vector_store, embed_model)
-    
-    # Pipeline context (устареет в будущем)
-    pipeline_context = PipelineContext(
-        workspace_path=config.runtime.workspace_path,
-        storage=storage,
-        llm=llm,
-        embed_model=embed_model,
-        # ...
-    )
-    
-    # Services
-    indexer = IndexerService(
-        storage=storage,
-        knowledge_index=knowledge_index,
-        pipeline_context=pipeline_context,
-    )
-    
-    api = IngestorAPI(
-        knowledge_index=knowledge_index,
-        storage=storage,
-        # ...
-    )
-    
-    await api.run()
+Storage:
+  PostgreSQLStorage:
+    - vector_store (PGVectorStore) → chunks_vectors table (основное)
+    - FileSummaryRepository → file_summaries table
+    - ModuleSummaryRepository → module_summaries table
+    - stats repository
+  
+  MemoryStorage:
+    - SimpleVectorStore (in-memory)
+    - in-memory file/module summaries
+
+API:
+  GET /v1/knowledge/file/{path} → KnowledgePort.get_file_context() → 
+    storage.get_chunks_by_file() (из vector_store) + file_summary
+  
+  POST /v1/knowledge/search → KnowledgeIndex.search() → vector_store.query()
+  
+  GET /v1/knowledge/overview → KnowledgePort.get_project_overview() → 
+    file_summaries + module_summaries
+
+Agents:
+  read_file_context tool → GET /v1/knowledge/file/{path}
 ```
-**Проверка**: Приложение запускается с новыми компонентами
-
-### Задача 4.3: Обновить PipelineContext (упростить или удалить)
-**Файл**: `pipeline/models/pipeline_context.py`
-**Действие**: Постепенно упрощать, в перспективе удалить в пользу прямого DI
-**Проверка**: Контекст создается, если еще используется
 
 ---
 
-## ФАЗА 5: Оптимизация и бесшовный переход
-
-### Задача 5.1: Интегрировать эмбеддинги в vector_store.add_nodes()
-**Вопрос**: Как transferred nodes получают embeddings?
-**Решение**: `VectorStore.add_nodes()` должно:
-1. Проверить, есть ли у nodes уже embeddings
-2. Если нет, использовать embed_model для генерации (батчево)
-3. Затем сохранить в store
-
-```python
-# В LlamaPostgresVectorStore.add_nodes():
-async def add_nodes(self, nodes: list[TextNode]) -> list[str]:
-    # Фильтруем nodes без embedding
-    nodes_with_emb = [n for n in nodes if n.embedding]
-    nodes_without_emb = [n for n in nodes if not n.embedding]
-    
-    if nodes_without_emb:
-        # Генерируем батчем
-        texts = [n.get_text() for n in nodes_without_emb]
-        embeddings = await self.embed_model.aget_text_embeddings(texts)
-        for node, emb in zip(nodes_without_emb, embeddings):
-            node.embedding = emb
-    
-    # Теперь все nodes имеют embeddings, добавляем
-    return await self._store.async_add(nodes)
-```
-**Проверка**: Эмбеддинги генерируются автоматически при индексации
-
-### Задача 5.2: Добавить circuit breaker для embedding и vector_store
-**Файлы**: `adapters/embeddings.py`, `adapters/vector_store.py`
-**Действие**: Использовать библиотеку `circuitbreaker` или свой на `tenacity`:
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
-
-def circuit_breaker_aware():
-    def decorator(func):
-        @retry(
-            stop=stop_after_attempt(3),
-            wait=wait_exponential(multiplier=1, min=1, max=10),
-            retry=retry_if_exception(lambda e: isinstance(e, ServiceUnavailableError))
-        )
-        async def wrapper(*args, **kwargs):
-            return await func(*args, **kwargs)
-        return wrapper
-    return decorator
-```
-**Проверка**: При падении embedding service пайплайн продолжает с деградацией (логирует ошибки)
-
-### Задача 5.3: Добавить embedding cache (опционально)
-**Файл**: `adapters/embeddings.py`
-**Действие**:
-```python
-from cachetools import TTLCache
-
-class LlamaEmbedding(BaseEmbedding):
-    def __init__(self, config: EmbeddingConfig):
-        # ...
-        self._cache = TTLCache(maxsize=10000, ttl=3600)  # 1 hour
-    
-    async def _get_text_embedding(self, text: str) -> List[float]:
-        if text in self._cache:
-            return self._cache[text]
-        emb = await self._real_get_embedding(text)
-        self._cache[text] = emb
-        return emb
-```
-**Проверка**: Повторные тексты не вызывают HTTP запросы
-
-### Задача 5.4: Добавить OpenTelemetry callbacks
-**Файл**: `main.py` или новый `ingestor/observability.py`
-**Действие**:
-```python
-from llama_index.core.callbacks import CallbackManager, OpenInferenceCallbackHandler
-from opentelemetry import trace
-
-tracer = trace.get_tracer(__name__)
-callback_handler = OpenInferenceCallbackHandler(tracer)
-Settings.callback_manager = CallbackManager([callback_handler])
-```
-**Проверка**: Трассировка этапов пайплайна в Jaeger/Zipkin
-
----
-
-## ФАЗА 6: Очистка legacy кода
-
-### Задача 6.1: Удалить адаптер embedding_model.py (уже сделано в 2.2)
-**Проверка**: Очистка
-
-### Задача 6.2: Удалить InfraLLMAdapter (опционально)
-**Файл**: `adapters/llama_llm.py`
-**Дилемма**: 
-- InfraLLMAdapter сохраняет переподключения через LLMManager (ценность)
-- Но это layer между llama_index LLM и LLMManager
-
-**Варианты**:
-1. Оставить как есть (проще)
-2. Заменить на `LlamaOpenAI` напрямую и делегировать переподключения `tenacity` (дублирование!)
-3. Вынести reconnect logic в отдельный mixin, который используют и InfraLLMAdapter, и embedding
-
-**Рекомендация**: Оставить InfraLLMAdapter, он уже корректно делегирует переподключения LLMManager. Не трогать.
-
-### Задача 6.3: Удалить TextSplitterHelper после полного перехода
-**Файл**: `pipeline/utils/text_splitter_helper.py` - УДАЛИТЬ
-**Действие**: Использовать `Settings.node_parser` глобально:
-```python
-from llama_index.core import Settings
-
-def get_splitter_for_extension(ext: str):
-    if ext == ".py":
-        return CodeSplitter(chunk_lines=40, chunk_lines_overlap=15, max_chars=1500)
-    elif ext == ".md":
-        return MarkdownNodeParser()
-    else:
-        return SentenceSplitter(chunk_size=512, chunk_overlap=50)
-
-# В ParseProcessorStage:
-splitter = get_splitter_for_extension(ext)
-nodes = splitter.get_nodes_from_documents([...])
-```
-**Проверка**: Сплиттинг работает без helper
-
-### Задача 6.4: Удалить PipelineContext (долгосрочная цель)
-**Файл**: `pipeline/models/pipeline_context.py` - УДАЛИТЬ
-**Действие**: Передавать зависимости явно через конструкторы stage
-**Проверка**: DI через factory
-
-### Задача 6.5: Удалить pipeline/base/ если не используется
-**Файлы**:
-- После перехода на simplified pipeline, проверить используются ли:
-  - `pipeline/base/base_pipeline.py`
-  - `pipeline/base/processor_stage.py`
-  - `pipeline/base/source_stage.py`
-  - `pipeline/base/base_stage.py`
-  - `pipeline/base/queues.py`
-- Если `IndexationPipeline` все еще наследуется от `BasePipeline` и использует очереди - оставить.
-- Если можно упростить до `asyncio.TaskGroup` - удалить.
-
-**Проверка**: Импорты не ломаются
-
-### Задача 6.6: Удалить Postgres маппинг и репозитории (уже сделано в 1.6)
-**Проверка**: Чистота
-
----
-
-## ФАЗА 7: Тестирование и верификация
-
-### Задача 7.1: Добавить unit tests для новых адаптеров
-**Директория**: `.opencode/skills/ingestor/tests/` или `tests/`
-**Файлы**:
-- `test_vector_store.py` - мокаем PGVectorStore, тестируем retry logic
-- `test_embeddings.py` - мокаем HTTP, тестируем rate limiting, cache
-- `test_llama_llm.py` - тесты для InfraLLMAdapter
-- `test_knowledge_index.py` - тесты поиска с фильтрами
-
-**Действие**: Покрытие >80%
-**Проверка**: `pytest` проходят
-
-### Задача 7.2: Добавить integration tests
-**Файлы**:
-- `tests/integration/test_full_indexing.py`: 
-  - Индексируем тестовый workspace (10+ файлов)
-  - Проверяем, что все chunks сохранились
-  - Выполняем поиск, проверяем результаты
-- `tests/integration/test_retry.py`: мокаем embedding API, симулируем 500 errors, проверяем retry
-- `tests/integration/test_rate_limiting.py`: запускаем параллельные запросы, проверяем limit
-**Проверка**: Интеграционные тесты проходят
-
-### Задача 7.3: Бенчмарк производительности
-**Файл**: `tests/benchmark/benchmark.py`
-**Действие**:
-```python
-import time
-
-# Before/after сравнение:
-# - Индексация 1000 файлов
-# - Поиск по 10,000 чанков
-# - Memory usage
-```
-**Проверка**: Результаты не хуже (ожидается улучшение в памяти и скорость поиска)
-
-### Задача 7.4: Migration существующих данных (если нужно)
-**Проблема**: В PostgreSQL есть таблица `chunks` с эмбеддингами от старого формата Chunk.
-**Решение**: 
-1. Написать migration script, который конвертирует старые Chunk записи в TextNode format
-2. ИЛИ: оставить обратную совместимость в `LlamaPostgresVectorStore` для чтения обоих форматов
-3. При следующей полной реиндексации данные перезапишутся
-
-**Файл**: `scripts/migrate_chunks.py` (новый)
-**Проверка**: Существующие данные доступны после миграции
-
----
-
-## КРИТЕРИИ УСПЕШНОГО ЗАВЕРШЕНИЯ
-
-1. ✅ **Фаза 0 выполнена**: Все экстренные исправления применены
-2. ✅ **Векторный поиск**: Заменен на VectorStore (O(log n) вместо O(n))
-3. ✅ **Embedding**: Использует LlamaEmbedding с retry, rate limit, shared client
-4. ✅ **Pipeline**: Упрощен до 5 стадий (filter → enrich → parse → enrich_nodes → indexing)
-5. ✅ **Search**: Заменен на KnowledgeIndex (прямой вызов вместо 4-стадийного пайплайна)
-6. ✅ **Код**: Удален весь дублирующийся код (EmbeddingModel, PersistStage, Chunk model, и т.д.)
-7. ✅ **Конфиг**: Централизован в Pydantic моделях, нет hard-coded values
-8. ✅ **Тесты**: Есть unit + integration coverage >80%
-9. ✅ **Производительность**: Latency индексации и поиска не ухудшилась (ожидается улучшение)
-10. ✅ **Безопасность**: Обработка ошибок корректна, нет bare except, есть retry
-11. ✅ **Переподключения**: Сохранена вся логика из BaseManager (через LLMManager → InfraLLMAdapter)
-12. ✅ **DRY**: Нет дублирования функционала
-13. ✅ **Количество строк**: Сократилось на 30%+ (удалены ~1000 строк кастомного кода)
-
----
-
-## РИСКИ И МИТИГАЦИИ
+## ⚠️ КРИТИЧЕСКИЕ РИСКИ
 
 | Риск | Вероятность | Влияние | Митигация |
 |------|-------------|---------|-----------|
-| Миграция данных несовместима | Средняя | Высокое | Сделать dual-read поддержку в VectorStoreAdapter на переходный период |
-| Производительность упадет | Низкая | Среднее | Бенчмарк на каждом этапе, оптимизация |
-| LLMManager API changes сломает InfraLLMAdapter | Средняя | Среднее | Изолировать InfraLLMAdapter, писать адаптер с запасом |
-| Tenacity retry conflicts с пайплайном таймаутами | Низкая | Среднее | Настраивать retry timeout < пайплайн timeout |
-| PGVector version incompatibility | Низкая | Высокое | Зафиксировать версии в requirements, тестировать перед деплоем |
-| Потеря file_summaries при удалении FileSummaryStage | Высокая | Среднее | Вынести file summary создание в background task, НЕ в пайплайн |
+| Тесты ломаются после удаления `chunks` table | Высокая | Высокое | Переписать тесты на storage API (Фаза 6) |
+| `get_chunks_by_file()` через vector_store медленный | Средняя | Среднее | `index_metadata_keys=["file_path"]` + B-tree индекс |
+| Удаление файлов не очищает vector_store (текущий баг) | Высокая | Высокое | Исправить в 1.6: `delete_chunks_by_file_paths` вызывает vector_store.delete() |
+| File summary generation добавит latency | Средняя | Среднее | Локальная модель (qwen2.5) быстрая; ограничить N чанков |
+| Module detection сработает неправильно | Низкая | Среднее | Конфиг для ручного указания modules (fallback) |
+| Dual-write inconsistency до миграции | Высокая | Среднее | Сначала исправить deletion bug, потом мигрировать |
 
 ---
 
-## ОТВЕТЫ НА КЛЮЧЕВЫЕ ВОПРОСЫ
+## ✅ КРИТЕРИИ УСПЕХА
 
-### Q: "Где еще недосмотры? Список всех проблем?"
-**A**: Найдены следующие (см. comprehensive analysis):
-1. O(n) vector search в memory storage (критично)
-2. HTTP client per request в embedding (критично)
-3. Нет retry на embedding operations (критично)
-4. Нет rate limiting (высоко)
-5. Config scattering + magic numbers (высоко)
-6. KeyError в builder (высоко)
-7. Bare except (средне)
-8. Duplicate error handling (средне)
-9. Нет tests (высоко)
-10. No circuit breaker (средне)
-11. No embedding cache (низко)
-12. Custom pipeline vs IngestionPipeline (средне) - но оставляем для контроля
-
-Все они адресованы в Фазе 0 и основной миграции.
-
-### Q: "Как сохранить переподключения из BaseManager?"
-**A**: InfraLLMAdapter уже правильно использует LLMManager. Не трогаем. Для embedding и vector_store используем `tenacity` retry decorator (как в `postgres/connection.py`). Это эквивалентно reconnect logic для stateless HTTP/DB queries.
-
-### Q: "Оставлять ли Langchain в ingestor?"
-**A**: НЕТ. После миграции ingestor должен зависеть только от:
-- `llama-index` (core)
-- `llama-index-vector-stores-postgres`
-- `llama-index-vector-stores-simple`
-- `llama-index-embeddings-openai`
-- `llama-index-llms-openai` (опционально, если не используем InfraLLMAdapter)
-
-`LLMManager` (langchain) используется только для `InfraLLMAdapter`, которыйadaptiert его к llama_index интерфейсу. Но сам `ChatOpenAI` остается. Это ОК - адаптер скрывает зависимость.
-
-**Идеально**: Если убрать langchain полностью, нужно переписать `LLMManager` на `llama_index.llms.openai.OpenAI` напрямую. Но это рискованно, если agents зависят от LLMManager. **Оставляем как есть** - InfraLLMAdapter изолирует.
+1. **Единое хранилище**: Только `chunks_vectors` table (plus file/module summaries)
+2. **Нет дублирования**: Данные в одном месте, no dual-write
+3. **File summaries реальные**: `summary` поле заполнено LLM, есть `last_summarized_at`
+4. **Module summaries иерархические**: Агрегация по директориям
+5. **Config centralized**: Все tunable параметры в `PipelineConfig` из .env
+6. **Reliability**: Retry, rate-limit, graceful shutdown
+7. **Тесты проходят**: Все e2e-тесты работают с новым storage
+8. **Графовая БД**: Архитектура спроектирована, готова к реализации (отдельно)
 
 ---
 
-## ПОРЯДОК ВЫПОЛНЕНИЯ (обновленный)
+## 📅 ПОРЯДОК ВЫПОЛНЕНИЯ
 
-**Критически важно**: Фаза 0 → Фаза 1 → Фаза 2 → Фаза 3 → Фаза 4 → Фаза 5 → Фаза 6 → Фаза 7
+**Фаза 0 → Фаза 1 → Фаза 2 → Фаза 3 → Фаза 5 → Фаза 6** (Фаза 4 — отдельно)
 
-1. **Фаза 0** (Экстренные исправления) - задачи 0.1-0.10
-2. **Фаза 1** (VectorStore) - задачи 1.1-1.7
-3. **Фаза 2** (Pipeline Indexation) - задачи 2.1-2.10
-4. **Фаза 3** (Search) - задачи 3.1-3.4
-5. **Фаза 4** (Configuration) - задачи 4.1-4.3
-6. **Фаза 5** (Optimization) - задачи 5.1-5.4
-7. **Фаза 6** (Cleanup) - задачи 6.1-6.6
-8. **Фаза 7** (Testing) - задачи 7.1-7.4
-
-Каждую задачу:
-- Внести изменения
-- Запустить `pytest` (или существующие тесты)
-- Запустить smoke test (индексация 1-2 файлов + поиск)
+**Важно**: После каждой задачи:
+- Запустить `pytest` (e2e-tests)
+- Smoke test: проиндексировать 1-2 файла, проверить search и file context
 - Commit с ясным сообщением
-- Если сломалось → immediate fix или revert
 
 ---
 
-## ЗАКЛЮЧЕНИЕ
-
-Этот план учитывает:
-1. **Все критические недосмотры** (выявлены deep analysis)
-2. **Логику переподключений** (сохраняем через BaseManager + tenacity)
-3. **DRY** (удаляем весь дублирующийся код)
-4. **Постепенный переход** (каждая задача оставляет работающую систему)
-5. **Производительность** (O(n) → O(log n), shared clients, rate limiting, caching)
-6. **Тестируемость** (добавляем tests параллельно)
-7. **Безопасность** (proper error handling, no bare except, retry, circuit breaker)
-
-Готов приступить к реализации. Рекомендую начать с **Фазы 0** немедленно.
+**Готов к реализации при вашем OK.**

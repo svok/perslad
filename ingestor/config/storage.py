@@ -12,6 +12,14 @@ class StorageConfig(BaseSettings):
     POSTGRES_USER: str = Field(default="rag")
     POSTGRES_PASSWORD: str = Field(default="rag")
 
+    # Connection pool
+    POSTGRES_POOL_MIN_SIZE: int = Field(default=2)
+    POSTGRES_POOL_MAX_SIZE: int = Field(default=10)
+    POSTGRES_POOL_TIMEOUT: float = Field(default=30.0)
+    POSTGRES_OPERATION_TIMEOUT: float = Field(default=60.0)
+    POSTGRES_QUERY_TIMEOUT: float = Field(default=10.0)
+    POSTGRES_ACQUIRE_TIMEOUT: float = Field(default=5.0)
+
     # Vector storage
     USE_PGVECTOR: bool = Field(default=True)
     PGVECTOR_DIMENSIONS: int = Field(default=1536)

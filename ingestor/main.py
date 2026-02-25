@@ -19,7 +19,8 @@ from ingestor.adapters import get_storage
 from ingestor.adapters.embedding_model import EmbeddingModel
 from ingestor.adapters.llama_index_embedding_adapter import EmbeddingModelAdapter
 from ingestor.api.server import IngestorAPI
-from ingestor.config import emb_config, llm_config, runtime_config, storage_config
+from ingestor.config import runtime_config, storage_config
+from ingestor.config.base import PipelineConfig
 from ingestor.pipeline.models.pipeline_context import PipelineContext
 from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
 from ingestor.services.indexer import IndexerOrchestrator
@@ -71,6 +72,10 @@ async def main() -> None:
         storage_type=storage_config.STORAGE_TYPE,
     )
 
+    # === Load central config ===
+    config = PipelineConfig.from_env()
+    log.info("pipeline.config.loaded", workers=config.enrich_workers)
+
     # === Storage ===
     storage = get_storage()
     await storage.initialize()
@@ -87,16 +92,16 @@ async def main() -> None:
     log.info("ingestor.vector_store.reused_from_storage")
 
     # === Embedding Model ===
-    # Create embedding model (async adapter for embedding service)
+    # Create embedding model using config values
     embed_model_raw = EmbeddingModel(
-        embed_url=emb_config.EMB_URL,
-        api_key=emb_config.EMB_API_KEY,
-        served_model_name=emb_config.EMB_SERVED_MODEL_NAME,
-        rate_limit_rpm=100,
-        max_chars=8000,
-        batch_size=10
+        embed_url=config.embedding.url,
+        api_key=config.embedding.api_key,
+        served_model_name=config.embedding.model_name,
+        rate_limit_rpm=config.embedding.rate_limit_rpm,
+        max_chars=config.embedding.max_chars,
+        batch_size=config.embedding.batch_size,
     )
-    
+
     # Wrap with adapter to provide BaseEmbedding interface for llama_index
     embed_model = EmbeddingModelAdapter(embed_model_raw)
 
@@ -118,14 +123,15 @@ async def main() -> None:
     log.info("knowledge_index.created")
 
     # === LLM (for chunk enrichment) ===
-    # Use MODEL_NAME from env (set in docker-compose) or fallback to config default
+    # Use MODEL_NAME from config
     llm = OpenAILike(
-        api_base=llm_config.LLM_URL,
-        api_key=llm_config.LLM_API_KEY,
-        model=llm_config.LLM_SERVED_MODEL_NAME,
+        api_base=config.llm.url,
+        api_key=config.llm.api_key,
+        model=config.llm.model_name,
         is_chat_model=True,
         is_function_calling_model=True,
     )
+
     # === Pipeline Context ===
     pipeline_context = PipelineContext(
         workspace_path=Path(workspace),
@@ -134,25 +140,33 @@ async def main() -> None:
         lock_manager=lock_manager,
         embed_model=embed_model,
         vector_store=vector_store,
-        text_splitter_helper=TextSplitterHelper(),
-        config={},
+        text_splitter_helper=TextSplitterHelper(
+            python_chunk_lines=config.python_chunk_lines,
+            python_chunk_overlap=config.python_chunk_overlap,
+            python_max_chars=config.python_max_chars,
+            doc_chunk_size=config.doc_chunk_size,
+            doc_chunk_overlap=config.doc_chunk_overlap,
+            config_chunk_size=config.config_chunk_size,
+            config_chunk_overlap=config.config_chunk_overlap,
+        ),
+        config=config.model_dump(),
     )
-    
+
     # === Knowledge Port ===
     knowledge_port = KnowledgePort(pipeline_context, knowledge_index=knowledge_index)
     log.info("knowledge_port.ready")
-    
+
     # === Indexer Orchestrator ===
     indexer = IndexerOrchestrator(pipeline_context)
-    
+
     async def start_and_scan():
         await indexer.start()
         await indexer.start_full_scan()
         await indexer.start_watching()
-    
+
     indexer_task = asyncio.create_task(start_and_scan())
     log.info("ingestor.indexer.started")
-    
+
     # === HTTP API ===
     api = IngestorAPI(
         lock_manager=lock_manager,
@@ -165,31 +179,55 @@ async def main() -> None:
     api_task = asyncio.create_task(run_api_server(api, api_port))
     log.info("ingestor.api.started", port=api_port)
 
-    # Wait for API server
+    # Wait for API server (this is the main foreground task)
     try:
         await api_task
     except asyncio.CancelledError:
         pass
     finally:
-        # Shutdown
+        # === Graceful Shutdown ===
         log.info("ingestor.shutdown.start")
+        _shutdown.set()
+
+        # Stop indexer
         await indexer.stop()
         indexer_task.cancel()
         try:
             await indexer_task
         except asyncio.CancelledError:
             pass
+
+        # Cancel API task if still running
         api_task.cancel()
         try:
             await api_task
         except asyncio.CancelledError:
             pass
-        if hasattr(embed_model, 'close') and callable(getattr(embed_model, 'close')):
+
+        # Close embedding model
+        if hasattr(embed_model_raw, 'close') and callable(getattr(embed_model_raw, 'close')):
             try:
-                await embed_model.close()
-            except Exception:
-                pass
-        await storage.close()
+                await embed_model_raw.close()
+                log.info("embedding_model.closed")
+            except Exception as e:
+                log.error("embedding_model.close.failed", error=str(e))
+
+        # Close LLM if it has close method
+        if hasattr(llm, 'aclose') and callable(getattr(llm, 'aclose')):
+            try:
+                await llm.aclose()
+                log.info("llm.closed")
+            except Exception as e:
+                log.error("llm.close.failed", error=str(e))
+
+        # Close storage
+        if hasattr(storage, 'close') and callable(getattr(storage, 'close')):
+            try:
+                await storage.close()
+                log.info("storage.closed")
+            except Exception as e:
+                log.error("storage.close.failed", error=str(e))
+
         log.info("ingestor.shutdown.complete")
 
 
