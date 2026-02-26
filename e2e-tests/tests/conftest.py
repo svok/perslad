@@ -54,25 +54,27 @@ def get_file_summary(db_engine, file_path: str, project_root: str | None = None)
 
 
 def get_chunks_count_for_file(db_engine, file_path: str, project_root: str | None = None) -> int:
-    """Количество chunks для файла"""
+    """Количество chunks для файла (из vector store)"""
     if project_root is not None:
         file_path = get_relative_path(file_path, project_root)
     with db_engine.connect() as conn:
+        # Query vector store table (data_chunks_vectors) with JSON metadata filter
         result = conn.execute(text(
-            "SELECT COUNT(*) FROM chunks WHERE file_path = :path"
+            "SELECT COUNT(*) FROM data_chunks_vectors WHERE metadata_->>'file_path' = :path"
         ), {"path": file_path})
         return result.fetchone()[0]
 
 
 def get_chunks_count(db_engine, file_pattern: str | None = None) -> int:
-    """Подсчитать chunks в БД"""
+    """Подсчитать chunks в БД (из vector store)"""
     with db_engine.connect() as conn:
         if file_pattern:
+            # For pattern matching, we need to use ILIKE on file_path in metadata
             result = conn.execute(text(
-                "SELECT COUNT(*) FROM chunks WHERE file_path LIKE :pattern"
+                "SELECT COUNT(*) FROM data_chunks_vectors WHERE metadata_->>'file_path' ILIKE :pattern"
             ), {"pattern": f"%{file_pattern}%"})
         else:
-            result = conn.execute(text("SELECT COUNT(*) FROM chunks"))
+            result = conn.execute(text("SELECT COUNT(*) FROM data_chunks_vectors"))
         return result.fetchone()[0]
 
 

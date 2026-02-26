@@ -1,7 +1,7 @@
 """
 Indexing stage - persists nodes to vector store.
 
-Replaces PersistChunksStage. Uses vector_store.async_add() with batching.
+Uses vector_store.async_add() with batching. No dual-write to chunks table.
 """
 
 from typing import Any
@@ -18,11 +18,10 @@ class IndexingStage(ProcessorStage):
     Handles batching and error reporting.
     """
     
-    def __init__(self, vector_store: Any, embed_model: BaseEmbedding, storage: Any, batch_size: int = 100, max_workers: int = 2):
+    def __init__(self, vector_store: Any, embed_model: BaseEmbedding, batch_size: int = 100, max_workers: int = 2):
         super().__init__("indexing", max_workers)
         self.vector_store = vector_store
         self.embed_model = embed_model
-        self.storage = storage
         self.batch_size = batch_size
     
     async def process(self, context):
@@ -51,39 +50,13 @@ class IndexingStage(ProcessorStage):
                 context.errors.append(f"embedding generation failed: {str(e)}")
                 return context  # Cannot index without embeddings
         
-        # Process in batches
+         # Process in batches
         for i in range(0, total, self.batch_size):
             batch = nodes[i:i + self.batch_size]
             try:
                 # Add nodes to vector store
                 node_ids = await self.vector_store.async_add(batch)
                 self.log.debug("indexing.batch.success", batch_start=i, batch_size=len(batch), node_ids_count=len(node_ids))
-                
-                # Also save to storage (dual-write) for get_chunks_by_file compatibility
-                if self.storage is not None:
-                    from ingestor.core.models.chunk import Chunk
-                    chunks_to_save = []
-                    for idx, node in enumerate(batch):
-                        chunk_id = node_ids[idx] if idx < len(node_ids) else getattr(node, 'node_id', None)
-                        chunk = Chunk(
-                            id=chunk_id or f"tmp_{hash(node.text)}",
-                            file_path=node.metadata.get("file_path", ""),
-                            content=node.text,
-                            start_line=node.metadata.get("start_line", 0),
-                            end_line=node.metadata.get("end_line", 0),
-                            chunk_type=node.metadata.get("chunk_type", ""),
-                            summary=node.metadata.get("summary"),
-                            purpose=node.metadata.get("purpose"),
-                            embedding=node.embedding,
-                            metadata=node.metadata,
-                        )
-                        chunks_to_save.append(chunk)
-                    try:
-                        await self.storage.save_chunks(chunks_to_save)
-                        self.log.debug("indexing.storage.save.success", batch_start=i, chunks_count=len(chunks_to_save))
-                    except Exception as e:
-                        self.log.error("indexing.storage.save.failed", batch_start=i, error=str(e), exc_info=True)
-                        # Non-critical - continue
             except Exception as e:
                 self.log.error("indexing.batch.failed", batch_start=i, batch_size=len(batch), error=str(e), exc_info=True)
                 context.has_errors = True

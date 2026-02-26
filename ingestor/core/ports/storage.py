@@ -15,33 +15,21 @@ from ingestor.core.models.module_summary import ModuleSummary
 class BaseStorage(ABC):
     """
     Abstract base class for storage implementations.
+
+    Note: Chunks are stored in the vector store (PGVectorStore) directly.
+    The methods get_chunks_by_file and delete_chunks_by_file_paths query
+    the vector store with metadata filters, not a separate chunks table.
     """
 
-    # === Chunks ===
-
-    @abstractmethod
-    async def save_chunk(self, chunk: Chunk) -> None:
-        """Save a single chunk."""
-        pass
-
-    @abstractmethod
-    async def save_chunks(self, chunks: List[Chunk]) -> None:
-        """Save multiple chunks."""
-        pass
-
-    @abstractmethod
-    async def get_chunk(self, chunk_id: str) -> Optional[Chunk]:
-        """Get a single chunk by ID."""
-        pass
+    # === Chunks (via Vector Store) ===
 
     @abstractmethod
     async def get_chunks_by_file(self, file_path: str) -> List[Chunk]:
-        """Get all chunks for a file."""
-        pass
-
-    @abstractmethod
-    async def get_all_chunks(self) -> List[Chunk]:
-        """Get all chunks."""
+        """
+        Get all chunks for a file from the vector store.
+        
+        Implementation should query vector_store with metadata filter on file_path.
+        """
         pass
 
     @abstractmethod
@@ -52,6 +40,15 @@ class BaseStorage(ABC):
         filter_by_file: Optional[str] = None
     ) -> List[Chunk]:
         """Vector similarity search."""
+        pass
+
+    @abstractmethod
+    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
+        """
+        Delete all chunks for given file paths from the vector store.
+        
+        Implementation should delete from vector_store using metadata filters.
+        """
         pass
 
     # === File Summaries ===
@@ -94,11 +91,6 @@ class BaseStorage(ABC):
         pass
 
     # === File Management ===
-
-    @abstractmethod
-    async def delete_chunks_by_file_paths(self, file_paths: List[str]) -> None:
-        """Delete all chunks for given file paths."""
-        pass
 
     @abstractmethod
     async def delete_file_summaries(self, file_paths: List[str]) -> None:

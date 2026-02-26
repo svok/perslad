@@ -22,8 +22,8 @@ class StorageConfig(BaseSettings):
 
     # Vector storage
     USE_PGVECTOR: bool = Field(default=True)
-    PGVECTOR_DIMENSIONS: int = Field(default=1536)
-    VECTOR_STORE_TABLE_NAME: str = Field(default="chunks_vectors")
+    PGVECTOR_DIMENSIONS: int = Field(default=768)  # Changed from 1536 to match embedding model (gte-modernbert-base)
+    VECTOR_STORE_TABLE_NAME: str = Field(default="chunks_vectors")  # Base name; PGVectorStore adds 'data_' prefix
 
     def to_dict(self) -> dict:
         """Возвращает полный конфиг как словарь."""

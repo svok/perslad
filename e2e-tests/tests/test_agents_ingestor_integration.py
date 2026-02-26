@@ -106,7 +106,7 @@ class TestInitialScan:
             assert "checksum" in metadata, f"File {file_path} should have checksum"
 
     @pytest.mark.asyncio
-    async def test_chunks_have_embeddings_and_summaries(self, db_engine, ensure_test_sample_indexed):
+    async def test_chunks_have_embeddings_and_summaries(self, db_engine, ensure_test_sample_indexed, config):
         """All chunks for expected test files should have embeddings and summaries"""
         from sqlalchemy import text
 
@@ -114,16 +114,16 @@ class TestInitialScan:
         expected_files = list(EXPECTED_VALID_FILES.keys()) + list(EXPECTED_INVALID_FILES.keys())
 
         with db_engine.connect() as conn:
-            # Count chunks for expected files that have NULL embeddings
+            # Count chunks for expected files that have NULL embeddings (query vector store)
             result = conn.execute(
-                text("SELECT COUNT(*) FROM chunks WHERE file_path = ANY(:paths) AND embedding IS NULL"),
+                text("SELECT COUNT(*) FROM data_chunks_vectors WHERE metadata_->>'file_path' = ANY(:paths) AND embedding IS NULL"),
                 {"paths": expected_files}
             )
             null_embeddings = result.fetchone()[0]
 
-            # Count chunks for expected files that have NULL or empty summaries
+            # Count chunks for expected files that have NULL or empty summaries in metadata
             result = conn.execute(
-                text("SELECT COUNT(*) FROM chunks WHERE file_path = ANY(:paths) AND (summary IS NULL OR summary = '')"),
+                text("SELECT COUNT(*) FROM data_chunks_vectors WHERE metadata_->>'file_path' = ANY(:paths) AND (metadata_->>'summary' IS NULL OR metadata_->>'summary' = '')"),
                 {"paths": expected_files}
             )
             null_summaries = result.fetchone()[0]

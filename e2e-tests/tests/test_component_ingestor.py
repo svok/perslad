@@ -132,7 +132,7 @@ class TestInitialScanState:
 
         with db_engine.connect() as conn:
             result = conn.execute(text(
-                "SELECT id, file_path, content, chunk_type FROM chunks LIMIT 10"
+                "SELECT id, metadata_->>'file_path' as file_path, text as content, metadata_->>'chunk_type' as chunk_type FROM data_chunks_vectors LIMIT 10"
             ))
             chunks = result.fetchall()
 

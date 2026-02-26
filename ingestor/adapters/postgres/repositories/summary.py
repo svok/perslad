@@ -7,10 +7,33 @@ import json
 from ingestor.core.models.file_summary import FileSummary
 from ingestor.core.models.module_summary import ModuleSummary
 from ingestor.adapters.postgres.connection import PostgresConnection
-from ingestor.adapters.postgres.mappers import PostgresMapper
 from infra.logger import get_logger
 
 log = get_logger("ingestor.storage.postgres.summaries")
+
+
+def map_file_summary(row) -> FileSummary:
+    """Map a database row to FileSummary."""
+    meta = row["metadata"]
+    if isinstance(meta, str):
+        try:
+            meta = json.loads(meta)
+        except json.JSONDecodeError:
+            meta = {}
+    elif meta is None:
+        meta = {}
+
+    # Ensure mtime/checksum are in metadata if present in columns
+    if "mtime" in row:
+        meta["mtime"] = row["mtime"]
+    if "checksum" in row:
+        meta["checksum"] = row["checksum"]
+
+    return FileSummary(
+        file_path=row["file_path"],
+        summary=row["summary"],
+        metadata=meta,
+    )
 
 
 class FileSummaryRepository:
@@ -48,12 +71,12 @@ class FileSummaryRepository:
         )
         if not row:
             return None
-        return PostgresMapper.map_file_summary(row)
+        return map_file_summary(row)
 
     async def get_all(self) -> List[FileSummary]:
         log.info("postgres.get_all_file_summaries.start")
         rows = await self._conn.execute_query(
-            "SELECT file_path, summary, chunk_ids, metadata::text as metadata_json, mtime, checksum FROM file_summaries",
+            "SELECT file_path, summary, metadata, mtime, checksum FROM file_summaries",
             fetch='all',
             timeout=5.0
         )
@@ -62,19 +85,7 @@ class FileSummaryRepository:
         results = []
         for row in rows:
             try:
-                # Manually map here because the query casts metadata to text
-                meta = json.loads(row["metadata_json"]) if row.get("metadata_json") else {}
-                if "mtime" in row:
-                    meta["mtime"] = row["mtime"]
-                if "checksum" in row:
-                    meta["checksum"] = row["checksum"]
-                    
-                results.append(FileSummary(
-                    file_path=row["file_path"],
-                    summary=row["summary"],
-                    chunk_ids=list(row["chunk_ids"]) if row["chunk_ids"] else [],
-                    metadata=meta,
-                ))
+                results.append(map_file_summary(row))
             except Exception as e:
                 log.warning("postgres.map_file_summary.failed", file=row.get("file_path"), error=str(e))
                 continue
@@ -103,8 +114,8 @@ class FileSummaryRepository:
         }
         await self._conn.execute_query(
              """
-            INSERT INTO file_summaries (file_path, summary, chunk_ids, metadata, mtime, checksum)
-            VALUES ($1, '', '{}', $2, $3, $4)
+            INSERT INTO file_summaries (file_path, summary, metadata, mtime, checksum)
+            VALUES ($1, '', $2, $3, $4)
             ON CONFLICT (file_path) DO UPDATE SET
                 metadata = file_summaries.metadata || $2,
                 mtime = EXCLUDED.mtime,

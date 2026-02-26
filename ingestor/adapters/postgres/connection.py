@@ -119,48 +119,7 @@ class PostgresConnection:
         except Exception as e:
             log.warning("postgres.schema.migration.drop_chunk_ids.failed", error=str(e))
 
-        # 2. Chunks table
-        await conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS chunks (
-                id TEXT PRIMARY KEY,
-                file_path TEXT NOT NULL,
-                content TEXT NOT NULL,
-                start_line INTEGER NOT NULL,
-                end_line INTEGER NOT NULL,
-                chunk_type TEXT NOT NULL,
-                summary TEXT,
-                purpose TEXT,
-                embedding vector({storage_config.PGVECTOR_DIMENSIONS})
-            );
-        """)
-        
-        # Migration: Add Foreign Key constraint if not exists
-        # try:
-        #     fk_exists = await conn.fetchval("""
-        #         SELECT EXISTS (
-        #             SELECT 1 FROM pg_constraint WHERE conname = 'fk_chunks_file_path'
-        #         );
-        #     """)
-        #     if not fk_exists:
-        #         log.info("postgres.schema.migration.add_fk.start")
-        #         # Remove orphan chunks that don't have a corresponding file_summary
-        #         await conn.execute("""
-        #             DELETE FROM chunks
-        #             WHERE file_path NOT IN (SELECT file_path FROM file_summaries);
-        #         """)
-        #         # Add FK constraint
-        #         await conn.execute("""
-        #             ALTER TABLE chunks
-        #             ADD CONSTRAINT fk_chunks_file_path
-        #             FOREIGN KEY (file_path) REFERENCES file_summaries(file_path)
-        #             ON DELETE CASCADE;
-        #         """)
-        #         log.info("postgres.schema.migration.add_fk.complete")
-        # except Exception as e:
-        #     log.error("postgres.schema.migration.add_fk.failed", error=str(e))
-
-        # Index on file_path for faster lookups/deletes
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);")
+        # 2. Chunks table removed - using PGVectorStore chunks_vectors instead
 
         # 3. Module summaries table
         await conn.execute("""

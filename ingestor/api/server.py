@@ -100,27 +100,6 @@ class IngestorAPI:
             """
             return await self.storage.get_stats()
         
-        @self.router.get(Ingestor.CHUNKS)
-        async def list_chunks(limit: int = 10) -> Dict[str, Any]:
-            """
-            Список чанков (для отладки).
-            """
-            chunks = await self.storage.get_all_chunks()
-            
-            return {
-                "total": len(chunks),
-                "chunks": [
-                    {
-                        "id": c.id,
-                        "file_path": c.file_path,
-                        "chunk_type": c.chunk_type,
-                        "has_summary": c.summary is not None,
-                        "has_embedding": c.embedding is not None,
-                    }
-                    for c in chunks[:limit]
-                ],
-            }
-        
         # === Knowledge Port Endpoints ===
         
         @self.router.post(Ingestor.SEARCH)

@@ -6,16 +6,25 @@ from ingestor.adapters import BaseStorage
 from ingestor.core.models.file_summary import FileSummary
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
+from ingestor.services.summary_generator import SummaryGenerator
+from infra.logger import get_logger
 
 
 class FileSummaryStage(ProcessorStage):
     def __init__(
-        self, storage: BaseStorage, workspace_path: Path, max_workers: int = 2
+        self, 
+        storage: BaseStorage, 
+        workspace_path: Path, 
+        llm,  # LLM instance (OpenAILike)
+        lock_manager,  # LLMLockManager
+        max_workers: int = 2
     ):
         super().__init__("file_summary", max_workers)
         self.storage = storage
         self.workspace_path = Path(workspace_path)
-
+        self.summary_generator = SummaryGenerator(llm, lock_manager)
+        self.log = get_logger("ingestor.file_summary_stage")
+    
     async def process(self, context: PipelineFileContext) -> PipelineFileContext:
         file_path = str(context.file_path)
         abs_path = Path(self.workspace_path) / file_path
@@ -33,6 +42,9 @@ class FileSummaryStage(ProcessorStage):
         try:
             stat = await asyncio.to_thread(abs_path.stat)
             new_checksum = await self._calc_checksum(abs_path)
+            
+            # Get existing summary if any
+            existing_summary = await self.storage.get_file_summary(file_path)
             
             # Check for errors or empty nodes
             if context.has_errors or not context.nodes:
@@ -55,19 +67,40 @@ class FileSummaryStage(ProcessorStage):
                     }
                 )
             else:
+                # Generate summary using LLM (always generate if not present or file changed)
+                # Combine content from all nodes (or use first N chunks)
+                full_content = "\n\n".join([node.text for node in context.nodes[:5]])  # Use up to 5 chunks
+                
+                # Generate summary if we don't have one or file changed
+                force_regenerate = not existing_summary or existing_summary.metadata.get("checksum") != new_checksum
+                
+                if force_regenerate:
+                    file_summary_text = await self.summary_generator.generate_file_summary(
+                        content=full_content,
+                        metadata={
+                            "file_path": file_path,
+                            "extension": context.nodes[0].metadata.get("extension", ""),
+                            "chunk_type": context.nodes[0].metadata.get("chunk_type", ""),
+                        }
+                    )
+                else:
+                    # Keep existing summary
+                    file_summary_text = existing_summary.summary
+                
                 summary = FileSummary(
                     file_path=file_path,
-                    summary="",
+                    summary=file_summary_text or "",
                     metadata={
                         "size": stat.st_size,
                         "mtime": stat.st_mtime,
                         "checksum": new_checksum,
-                        "valid": True
+                        "valid": True,
+                        "chunks_count": len(context.nodes),
                     }
                 )
             
             await self.storage.save_file_summary(summary)
-            self.log.info(f"FileSummary updated: {file_path} (valid={not context.has_errors})")
+            self.log.info(f"FileSummary updated: {file_path} (valid={not context.has_errors}, summary_len={len(summary.summary)})")
 
         except Exception as e:
             self.log.error(f"Error in FileSummaryStage: {e}", exc_info=True)

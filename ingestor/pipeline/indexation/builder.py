@@ -7,6 +7,7 @@ from ingestor.pipeline.stages.indexing_stage import IndexingStage
 from ingestor.pipeline.stages.incremental_filter_stage import IncrementalFilterStage
 from ingestor.pipeline.stages.file_summary_stage import FileSummaryStage
 from ingestor.pipeline.stages.enrich_chunks_stage import EnrichChunksStage
+from ingestor.pipeline.stages.module_summary_stage import ModuleSummaryStage
 
 
 class IndexationPipelineBuilder:
@@ -56,19 +57,32 @@ class IndexationPipelineBuilder:
                 factory=lambda ctx: IndexingStage(
                     vector_store=ctx.vector_store,
                     embed_model=ctx.embed_model,
-                    storage=ctx.storage,
                     batch_size=ctx.config.get("indexing_batch_size", 100),
                     max_workers=ctx.config.get("indexing_workers", 2)
                 )
             ),
-            # File summary stage - creates file_summary records
+            # File summary stage - creates file_summary records with LLM-generated summary
             StageDef(
                 name="file_summary",
                 stage_class=FileSummaryStage,
                 factory=lambda ctx: FileSummaryStage(
                     storage=ctx.storage,
                     workspace_path=ctx.workspace_path,
+                    llm=ctx.llm,
+                    lock_manager=ctx.lock_manager,
                     max_workers=ctx.config.get("file_summary_workers", 2)
+                )
+            ),
+            # Module summary stage - aggregates file summaries into module-level summaries
+            StageDef(
+                name="module_summary",
+                stage_class=ModuleSummaryStage,
+                factory=lambda ctx: ModuleSummaryStage(
+                    storage=ctx.storage,
+                    workspace_path=ctx.workspace_path,
+                    llm=ctx.llm,
+                    lock_manager=ctx.lock_manager,
+                    max_workers=ctx.config.get("file_summary_workers", 2)  # reuse same workers
                 )
             ),
         ]
