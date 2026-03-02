@@ -22,6 +22,7 @@ class EmbeddingConfig(BaseServiceConfig):
     """Embedding-specific configuration."""
     rate_limit_rpm: int = Field(default=100, description="Rate limit in requests per minute")
     max_chars: int = Field(default=8000, description="Maximum characters to embed")
+    timeout: float = Field(default=30.0, description="Request timeout for embedding in seconds")
 
 
 class StorageConfig(BaseModel):

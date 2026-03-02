@@ -25,16 +25,33 @@ class EmbeddingModel:
     Manages communication with the embedding model service.
     """
 
+    _shared_client: httpx.AsyncClient | None = None
+    _shared_client_timeout: float = 30.0
+
     def __init__(self, embed_url: str, api_key: str, served_model_name: str, 
-                 rate_limit_rpm: int = 100, max_chars: int = 8000, batch_size: int = 10) -> None:
+                 rate_limit_rpm: int = 100, max_chars: int = 8000, batch_size: int = 10, timeout: float = 30.0) -> None:
         self.served_model_name = served_model_name
         self.embed_url = embed_url.rstrip("/")
         self.api_key = api_key
         self._max_chars = max_chars
         self._batch_size = batch_size
-        self._client = httpx.AsyncClient(timeout=30.0)
-        # Rate limiter: allow N concurrent requests based on RPM
+        self._timeout = timeout
         self._rate_limiter = asyncio.Semaphore(max(1, rate_limit_rpm // 60))
+
+    @classmethod
+    def _get_shared_client(cls) -> httpx.AsyncClient:
+        """Get or create shared HTTP client (Singleton pattern)."""
+        if not hasattr(cls, "_shared_client") or cls._shared_client is None:
+            cls._shared_client = httpx.AsyncClient(timeout=cls._shared_client_timeout)
+        return cls._shared_client
+
+    @classmethod
+    def _close_shared_client(cls) -> None:
+        """Close shared HTTP client (call on shutdown)."""
+        if hasattr(cls, "_shared_client") and cls._shared_client is not None:
+            # Close the client without awaiting
+            cls._shared_client.aclose()
+            cls._shared_client = None
 
     @staticmethod
     def _parse_embedding_response(result: dict) -> dict:
@@ -65,7 +82,7 @@ class EmbeddingModel:
         try:
             log.info("embedding_model.get_dimension.request_start")
             
-            response = await self._client.post(
+            response = await self._get_shared_client().post(
                 f"{self.embed_url}{Embedding.EMBEDDINGS}",
                 json={
                     "model": self.served_model_name,
@@ -110,7 +127,7 @@ class EmbeddingModel:
             text = text[:self._max_chars]
 
         try:
-            response = await self._client.post(
+            response = await self._get_shared_client().post(
                 f"{self.embed_url}{Embedding.EMBEDDINGS}",
                 json={
                     "model": self.served_model_name,
@@ -191,7 +208,7 @@ class EmbeddingModel:
         
         try:
             async with self._rate_limiter:
-                response = await self._client.post(
+                response = await self._get_shared_client().post(
                     f"{self.embed_url}{Embedding.EMBEDDINGS}",
                     json={
                         "model": self.served_model_name,
@@ -227,7 +244,7 @@ class EmbeddingModel:
         Get embedding for a single text (async). Compatible with llama_index BaseEmbedding interface.
         """
         return await self.get_embedding(text)
-
+ 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
-        await self._client.aclose()
+        self._close_shared_client()

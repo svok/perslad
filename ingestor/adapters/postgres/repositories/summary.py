@@ -77,8 +77,7 @@ class FileSummaryRepository:
         log.info("postgres.get_all_file_summaries.start")
         rows = await self._conn.execute_query(
             "SELECT file_path, summary, metadata, mtime, checksum FROM file_summaries",
-            fetch='all',
-            timeout=5.0
+            fetch='all'
         )
         log.info("postgres.get_all_file_summaries.fetched", count=len(rows))
         
