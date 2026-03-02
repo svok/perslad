@@ -57,6 +57,7 @@ class PostgreSQLStorage(BaseStorage):
                 async_connection_string=async_conn_str,
                 table_name=storage_config.VECTOR_STORE_TABLE_NAME,
                 embed_dim=storage_config.PGVECTOR_DIMENSIONS,
+                indexed_metadata_keys={("file_path", "text")} if storage_config.USE_PGVECTOR else None,
             )
         else:
             self._vector_store = None

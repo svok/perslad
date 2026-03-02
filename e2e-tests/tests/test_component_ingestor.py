@@ -126,23 +126,20 @@ class TestInitialScanState:
             assert chunks_count == 0, f"Invalid file {file_path} should have 0 chunks"
 
     @pytest.mark.asyncio
-    async def test_chunks_have_required_fields(self, db_engine, ensure_test_sample_indexed):
+    async def test_chunks_have_required_fields(self, ensure_test_sample_indexed):
         """All chunks should have required fields"""
-        from sqlalchemy import text
+        from ingestor.adapters import get_storage
 
-        with db_engine.connect() as conn:
-            result = conn.execute(text(
-                "SELECT id, metadata_->>'file_path' as file_path, text as content, metadata_->>'chunk_type' as chunk_type FROM data_chunks_vectors LIMIT 10"
-            ))
-            chunks = result.fetchall()
+        storage = get_storage()
+        chunks = await storage.get_chunks_by_file("test_sample.py")
 
         assert len(chunks) > 0, "Should have chunks"
 
-        for chunk_id, file_path, content, chunk_type in chunks:
-            assert chunk_id is not None
-            assert file_path is not None
-            assert content is not None
-            assert chunk_type is not None
+        for chunk in chunks:
+            assert chunk.id is not None
+            assert chunk.file_path is not None
+            assert chunk.content is not None
+            assert chunk.chunk_type is not None
 
 
 @pytest.mark.component
@@ -267,6 +264,67 @@ class TestFileDeletionViaInotify:
             
             chunks_count = get_chunks_count_for_file(db_engine, rel_file_path)
             assert chunks_count == 0, "Deleted file should have 0 chunks"
+        finally:
+            delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+
+
+@pytest.mark.component
+@pytest.mark.integration
+@pytest.mark.fast
+class TestVectorStoreOperations:
+    """Tests for direct vector store operations"""
+
+    @pytest.mark.asyncio
+    async def test_chunks_accessible_via_vector_store(self, ensure_test_sample_indexed):
+        """Chunks should be accessible via vector store directly"""
+        from ingestor.adapters import get_storage
+
+        storage = get_storage()
+        chunks = await storage.get_chunks_by_file("test_sample.md")
+
+        assert len(chunks) > 0, "Should have chunks in vector store"
+        assert all(chunk.content is not None for chunk in chunks), "All chunks should have content"
+
+    @pytest.mark.asyncio
+    async def test_file_path_filtering(self, ensure_test_sample_indexed):
+        """Chunks should be correctly filtered by file_path"""
+        from ingestor.adapters import get_storage
+
+        storage = get_storage()
+
+        chunks = await storage.get_chunks_by_file("test_sample.py")
+        assert len(chunks) > 0, "Should have chunks for test_sample.py"
+
+        for chunk in chunks:
+            assert chunk.file_path == "test_sample.py", "File path should match query"
+
+    @pytest.mark.asyncio
+    async def test_chunks_deleted_from_vector_store(self, ensure_test_sample_indexed):
+        """Chunks should be deleted from vector store when file is deleted"""
+        from ingestor.adapters import get_storage
+
+        storage = get_storage()
+        file_path = f"test_vector_store_delete_{uuid.uuid4().hex[:8]}.txt"
+        container_file_path = f"{get_container_workspace()}/{file_path}"
+
+        try:
+            success = create_file_in_container(INGESTOR_CONTAINER, container_file_path, "Test content")
+            if not success:
+                pytest.skip("Could not create file in container")
+
+            await asyncio.sleep(INDEXATION_WAIT)
+
+            chunks_before = await storage.get_chunks_by_file(file_path)
+            assert len(chunks_before) > 0, "File should have chunks before deletion"
+
+            success = delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+            if not success:
+                pytest.skip("Could not delete file in container")
+
+            await asyncio.sleep(INDEXATION_WAIT)
+
+            chunks_after = await storage.get_chunks_by_file(file_path)
+            assert len(chunks_after) == 0, f"Chunks should be deleted from vector store for {file_path}"
         finally:
             delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
 
