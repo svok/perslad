@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Dict
+from typing import Dict, Optional
 
 
 @dataclass
 class FileSummary:
-    """Суммаризация на уровне файла."""
+    """File-level summary generated from chunk summaries using LLM."""
     file_path: str
     summary: str
-    metadata: Dict = field(default_factory=dict)
+    metadata: Dict[str, Optional[object]] = field(default_factory=dict)

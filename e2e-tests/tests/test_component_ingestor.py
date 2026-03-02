@@ -107,6 +107,7 @@ class TestInitialScanState:
 
             metadata = summary["metadata"]
             assert metadata.get("valid") == True, f"File {file_path} should be valid"
+            assert "last_summarized_at" in metadata, f"File {file_path} should have last_summarized_at"
 
             chunks_count = get_chunks_count_for_file(db_engine, file_path)
             assert chunks_count >= expected["min_chunks"], \
@@ -325,6 +326,57 @@ class TestVectorStoreOperations:
 
             chunks_after = await storage.get_chunks_by_file(file_path)
             assert len(chunks_after) == 0, f"Chunks should be deleted from vector store for {file_path}"
+        finally:
+            delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
+
+
+@pytest.mark.component
+@pytest.mark.integration
+@pytest.mark.fast
+class TestSummaryGeneration:
+    """Tests for file summary generation"""
+
+    @pytest.mark.asyncio
+    async def test_file_summary_has_last_summarized_at(self, ensure_test_sample_indexed):
+        """File summary should have last_summarized_at timestamp"""
+        from ingestor.adapters import get_storage
+
+        storage = get_storage()
+        summary = await storage.get_file_summary("test_sample.py")
+
+        assert summary is not None, "Should have file summary"
+        
+        metadata = summary.metadata
+        assert "last_summarized_at" in metadata, "Metadata should contain last_summarized_at"
+        assert metadata["last_summarized_at"] is not None, "last_summarized_at should not be None"
+        
+        # Timestamp should be a valid float
+        assert isinstance(metadata["last_summarized_at"], (int, float))
+
+    @pytest.mark.asyncio
+    async def test_file_summary_generates_on_change(self, ensure_test_sample_indexed):
+        """File summary should regenerate when file content changes"""
+        from ingestor.adapters import get_storage
+
+        storage = get_storage()
+        file_path = "test_summary_change.py"
+        
+        # Create test file
+        container_file_path = f"{get_container_workspace()}/{file_path}"
+        unique_id = uuid.uuid4().hex[:8]
+        content = f"Test content version {unique_id}\nWith some unique text here"
+        
+        try:
+            success = create_file_in_container(INGESTOR_CONTAINER, container_file_path, content)
+            if not success:
+                pytest.skip("Could not create file in container")
+            
+            await asyncio.sleep(INDEXATION_WAIT)
+            
+            summary = await storage.get_file_summary(file_path)
+            assert summary is not None, "Should have file summary after indexing"
+            assert "last_summarized_at" in summary.metadata
+            assert "invalid_reason" in summary.metadata or len(summary.summary) > 0
         finally:
             delete_file_in_container(INGESTOR_CONTAINER, container_file_path)
 

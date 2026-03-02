@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import time
 from pathlib import Path
 
 from ingestor.adapters import BaseStorage
@@ -62,21 +63,29 @@ class FileSummaryStage(ProcessorStage):
                         "mtime": stat.st_mtime,
                         "checksum": new_checksum,
                         "invalid_reason": reason,
-                        "invalid_timestamp": asyncio.get_running_loop().time(),
+                        "invalid_timestamp": time.time(),
                         "invalid_count": 1,
+                        "last_summarized_at": time.time(),
                     }
                 )
             else:
-                # Generate summary using LLM (always generate if not present or file changed)
-                # Combine content from all nodes (or use first N chunks)
-                full_content = "\n\n".join([node.text for node in context.nodes[:5]])  # Use up to 5 chunks
+                # Collect summaries from chunk nodes (NEW: using chunk summaries instead of raw content)
+                chunk_summaries = [
+                    node.metadata.get("summary", "")
+                    for node in context.nodes
+                    if node.metadata.get("summary")
+                ]
+                
+                # Limit to first 20 chunks to save tokens
+                combined_summaries = "\n".join(chunk_summaries[:20])
                 
                 # Generate summary if we don't have one or file changed
                 force_regenerate = not existing_summary or existing_summary.metadata.get("checksum") != new_checksum
                 
                 if force_regenerate:
+                    # Generate summary using chunk summaries
                     file_summary_text = await self.summary_generator.generate_file_summary(
-                        content=full_content,
+                        content=combined_summaries,
                         metadata={
                             "file_path": file_path,
                             "extension": context.nodes[0].metadata.get("extension", ""),
@@ -89,12 +98,13 @@ class FileSummaryStage(ProcessorStage):
                 
                 summary = FileSummary(
                     file_path=file_path,
-                    summary=file_summary_text or "",
+                    summary=file_summary_text[:500] if file_summary_text else "",  # Limit to 500 chars
                     metadata={
                         "size": stat.st_size,
                         "mtime": stat.st_mtime,
                         "checksum": new_checksum,
                         "valid": True,
+                        "last_summarized_at": time.time(),
                         "chunks_count": len(context.nodes),
                     }
                 )
