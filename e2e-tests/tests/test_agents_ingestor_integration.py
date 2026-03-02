@@ -158,8 +158,10 @@ class TestInitialScan:
         # Orphan = in DB but not in workspace
         orphans = db_files - workspace_files
 
-        # Ignore expected files that may be missing due to not created yet? Actually they should be in workspace.
-        # So any orphan is a problem.
+        # Ignore temporary test files created by other tests
+        temp_patterns = ['concurrent_', 'persist_', 'duplicate_', 'transaction_', 'perf_test_', 'test_chunk_', 'test_index_', 'test_delete_', 'test_update_', 'test_component_', 'test_batch_']
+        orphans = {o for o in orphans if not any(p in o for p in temp_patterns)}
+
         assert len(orphans) == 0, f"Orphaned files in DB (not in workspace): {orphans}"
 
 

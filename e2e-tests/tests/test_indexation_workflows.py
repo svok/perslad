@@ -367,11 +367,11 @@ class TestMetadataHandling:
         
         with db_engine.connect() as conn:
             result = conn.execute(text(
-                "SELECT COUNT(*) FROM chunks WHERE embedding IS NOT NULL"
+                "SELECT COUNT(*) FROM data_chunks_vectors WHERE embedding IS NOT NULL"
             ))
             with_embeddings = result.fetchone()[0]
             
-            result = conn.execute(text("SELECT COUNT(*) FROM chunks"))
+            result = conn.execute(text("SELECT COUNT(*) FROM data_chunks_vectors"))
             total = result.fetchone()[0]
         
         assert with_embeddings == total, "All chunks should have embeddings"
@@ -383,11 +383,11 @@ class TestMetadataHandling:
         
         with db_engine.connect() as conn:
             result = conn.execute(text(
-                "SELECT COUNT(*) FROM chunks WHERE summary IS NOT NULL AND summary != ''"
+                "SELECT COUNT(*) FROM data_chunks_vectors WHERE metadata_->>'summary' IS NOT NULL AND metadata_->>'summary' != ''"
             ))
             with_summaries = result.fetchone()[0]
             
-            result = conn.execute(text("SELECT COUNT(*) FROM chunks"))
+            result = conn.execute(text("SELECT COUNT(*) FROM data_chunks_vectors"))
             total = result.fetchone()[0]
         
         assert with_summaries == total, "All chunks should have summaries"

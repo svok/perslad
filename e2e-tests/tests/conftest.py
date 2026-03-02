@@ -495,53 +495,34 @@ def test_workspace(config, request):
     request.addfinalizer(cleanup)
     return workspace
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="function", autouse=True)
 async def clean_database(config):
-    """Clean database before each test"""
-    from sqlalchemy import create_engine
+    """Clean database before each test (autouse)"""
+    from sqlalchemy import create_engine, text
 
     engine = create_engine(config['pg_url'])
-    dimensions = config['pgvector_dimensions']
     
     with engine.connect() as conn:
-        # Create schema if not exists
-        conn.execute(text(f"""
-            CREATE TABLE IF NOT EXISTS chunks (
-                id TEXT PRIMARY KEY,
-                file_path TEXT NOT NULL,
-                content TEXT NOT NULL,
-                start_line INTEGER NOT NULL,
-                end_line INTEGER NOT NULL,
-                chunk_type TEXT NOT NULL,
-                summary TEXT,
-                purpose TEXT,
-                embedding vector({dimensions})
-            );
-            CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);
-        """))
-        conn.commit()
-
-        # Drop tables if exist
-        try:
-            conn.execute(text("DROP TABLE IF EXISTS stats CASCADE"))
-        except:
-            pass
-        try:
-            conn.execute(text("DROP TABLE IF EXISTS module_summaries CASCADE"))
-        except:
-            pass
-        try:
-            conn.execute(text("DROP TABLE IF EXISTS file_summaries CASCADE"))
-        except:
-            pass
-        try:
-            conn.execute(text("DROP TABLE IF EXISTS chunks CASCADE"))
-        except:
-            pass
+        tables = ['stats', 'module_summaries', 'file_summaries', 'data_chunks_vectors']
+        for table in tables:
+            try:
+                conn.execute(text(f"DELETE FROM {table};"))
+            except:
+                pass
         conn.commit()
 
     engine.dispose()
-    return True
+    
+    # Cleanup workspace temp files
+    workspace_root = config.get('workspace_root', '/workspace')
+    temp_patterns = ['concurrent_', 'persist_', 'duplicate_', 'transaction_', 'perf_test_', 'test_chunk_', 'test_index_', 'test_delete_', 'test_update_', 'test_component_', 'test_batch_']
+    for root, dirs, files in os.walk(workspace_root):
+        for file in files:
+            if any(p in file for p in temp_patterns):
+                try:
+                    os.remove(os.path.join(root, file))
+                except OSError:
+                    pass
 
 @pytest.fixture(scope="function")
 async def test_cleanup():

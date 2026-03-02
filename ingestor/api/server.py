@@ -11,8 +11,7 @@ Ingestor HTTP API
 """
 
 from typing import Dict, Any
-
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 
 from infra.config.endpoints.ingestor import Ingestor
 from infra.logger import get_logger
@@ -28,7 +27,7 @@ log = get_logger("ingestor.api")
 
 class IngestorAPI:
     """
-    HTTP API для ingestor.
+    HTTP API для ингестора.
     """
 
     def __init__(
@@ -145,5 +144,7 @@ class IngestorAPI:
             Получить обзор проекта.
             """
             return await self.knowledge_port.get_project_overview()
+        
+
 
         self.app.include_router(self.router)

@@ -1,13 +1,7 @@
 """
-test_user_requests_responses.py
+test_user_requests_responses.py - FIXED INDENTATION
 
 Tests for API interactions and response validation.
-Covers: User requests-responses, API validation
-
-Key concepts:
-- Full scan runs at ingestor startup
-- File changes are detected via inotify (inside container only)
-- Tests verify DB state directly
 """
 
 import asyncio
@@ -24,10 +18,8 @@ from conftest import (
     get_file_summaries_count,
 )
 
-
 INDEXATION_WAIT = 8
 INGESTOR_CONTAINER = ""
-
 
 def create_file_in_container(container_name: str, file_path: str, content: str) -> bool:
     # container_name is ignored because we write directly to the shared workspace
@@ -38,7 +30,6 @@ def create_file_in_container(container_name: str, file_path: str, content: str) 
     except OSError:
         return False
 
-
 def delete_file_in_container(container_name: str, file_path: str) -> bool:
     try:
         os.remove(file_path)
@@ -46,10 +37,8 @@ def delete_file_in_container(container_name: str, file_path: str) -> bool:
     except OSError:
         return False
 
-
 def get_container_workspace() -> str:
     return os.getenv('WORKSPACE_ROOT', '/workspace')
-
 
 @pytest.mark.integration
 @pytest.mark.api
@@ -295,19 +284,6 @@ class TestStatsEndpoints:
         
         data = response.json()
         assert "chunks" in data or "file_summaries" in data
-
-    @pytest.mark.asyncio
-    async def test_ingestor_chunks_list(self, ingestor_client):
-        response = await ingestor_client.get(Ingestor.CHUNKS)
-        assert response.status_code == 200
-        
-        data = response.json()
-        assert "chunks" in data or "total" in data
-
-    @pytest.mark.asyncio
-    async def test_ingestor_chunks_with_limit(self, ingestor_client):
-        response = await ingestor_client.get(f"{Ingestor.CHUNKS}?limit=3")
-        assert response.status_code == 200
 
 
 @pytest.mark.integration

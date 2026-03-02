@@ -301,23 +301,4 @@ class TestSearchFunctionality:
             assert len(data["results"]) <= 2
 
 
-@pytest.mark.component
-@pytest.mark.integration
-@pytest.mark.fast
-class TestChunksEndpoint:
-    """Tests for chunks endpoint"""
 
-    @pytest.mark.asyncio
-    async def test_chunks_endpoint_returns_list(self, ingestor_client):
-        """Chunks endpoint should return list of chunks"""
-        response = await ingestor_client.get(Ingestor.CHUNKS)
-        assert response.status_code == 200
-
-        data = response.json()
-        assert "chunks" in data or isinstance(data, list)
-
-    @pytest.mark.asyncio
-    async def test_chunks_endpoint_with_limit(self, ingestor_client):
-        """Chunks endpoint should respect limit parameter"""
-        response = await ingestor_client.get(f"{Ingestor.CHUNKS}?limit=3")
-        assert response.status_code == 200

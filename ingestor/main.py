@@ -179,56 +179,54 @@ async def main() -> None:
     api_task = asyncio.create_task(run_api_server(api, api_port))
     log.info("ingestor.api.started", port=api_port)
 
-    # Wait for API server (this is the main foreground task)
+    # Wait for shutdown signal
+    await _shutdown.wait()
+
+    # === Graceful Shutdown ===
+    log.info("ingestor.shutdown.start")
+
+    # Stop indexer
+    await indexer.stop()
+    indexer_task.cancel()
+    try:
+        await indexer_task
+    except asyncio.CancelledError:
+        pass
+
+    # Cancel API task if still running
+    api_task.cancel()
     try:
         await api_task
     except asyncio.CancelledError:
         pass
-    finally:
-        # === Graceful Shutdown ===
-        log.info("ingestor.shutdown.start")
-        _shutdown.set()
 
-        # Stop indexer
-        await indexer.stop()
-        indexer_task.cancel()
+    # Close embedding model
+    if hasattr(embed_model_raw, 'close') and callable(getattr(embed_model_raw, 'close')):
         try:
-            await indexer_task
-        except asyncio.CancelledError:
-            pass
+            await embed_model_raw.close()
+            log.info("embedding_model.closed")
+        except Exception as e:
+            log.error("embedding_model.close.failed", error=str(e))
 
-        # Cancel API task if still running
-        api_task.cancel()
-        try:
-            await api_task
-        except asyncio.CancelledError:
-            pass
-
-        # Close embedding model
-        if hasattr(embed_model_raw, 'close') and callable(getattr(embed_model_raw, 'close')):
-            try:
-                await embed_model_raw.close()
-                log.info("embedding_model.closed")
-            except Exception as e:
-                log.error("embedding_model.close.failed", error=str(e))
-
-        # Close LLM if it has close method
+    # Close LLM
+    try:
         if hasattr(llm, 'aclose') and callable(getattr(llm, 'aclose')):
-            try:
-                await llm.aclose()
-                log.info("llm.closed")
-            except Exception as e:
-                log.error("llm.close.failed", error=str(e))
+            await llm.aclose()
+        elif hasattr(llm, 'close') and callable(getattr(llm, 'close')):
+            await llm.close()
+        log.info("llm.closed")
+    except Exception as e:
+        log.error("llm.close.failed", error=str(e))
 
-        # Close storage
-        if hasattr(storage, 'close') and callable(getattr(storage, 'close')):
-            try:
-                await storage.close()
-                log.info("storage.closed")
-            except Exception as e:
-                log.error("storage.close.failed", error=str(e))
+    # Close storage
+    if hasattr(storage, 'close') and callable(getattr(storage, 'close')):
+        try:
+            await storage.close()
+            log.info("storage.closed")
+        except Exception as e:
+            log.error("storage.close.failed", error=str(e))
 
-        log.info("ingestor.shutdown.complete")
+    log.info("ingestor.shutdown.complete")
 
 
 if __name__ == "__main__":
