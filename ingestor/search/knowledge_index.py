@@ -1,7 +1,7 @@
 """
 Knowledge Index using llama_index VectorStoreIndex.
 
-Replaces KnowledgeSearchPipeline with direct vector search.
+Implements direct vector search without multi-stage pipelines.
 """
 
 from typing import List, Dict, Optional, Any
@@ -21,7 +21,7 @@ class KnowledgeIndex:
     """
     Provides knowledge search using vector similarity.
     
-    Replaces the multi-stage KnowledgeSearchPipeline with direct VectorStoreIndex.
+    Implements direct vector search without multi-stage pipelines.
     """
     
     def __init__(self, vector_store: Any, embed_model: BaseEmbedding):

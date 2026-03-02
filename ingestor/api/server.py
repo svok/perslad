@@ -105,7 +105,7 @@ class IngestorAPI:
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
             Поиск по текстовому запросу или embedding.
-            Использует KnowledgeSearchPipeline для полного цикла обработки:
+            Выполняет полный цикл обработки:
             query -> chunking -> embedding -> DB search -> ranking.
             """
             if request.query:
