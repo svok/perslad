@@ -85,6 +85,7 @@ services:
       context: .
       dockerfile: servers/Dockerfile
     container_name: mcp-bash
+    env_file: .env
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PROJECT_ROOT}:${WORKSPACE_ROOT}
@@ -99,11 +100,33 @@ services:
       context: .
       dockerfile: servers/Dockerfile
     container_name: mcp-project
+    env_file: .env
     volumes:
       - ${PROJECT_ROOT}:${WORKSPACE_ROOT}
     ports:
       - "8083:8083"
     command: ["python", "-m", "servers.mcp_project"]
+    networks:
+      - agent-network
+
+  # === PHOENIX OBSERVABILITY ===
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    container_name: phoenix
+    env_file: .env
+    environment:
+      - PHOENIX_HOST=0.0.0.0
+      - PHOENIX_PORT=6006
+      - PHOENIX_PROJECT_NAME=perslad
+      - PHOENIX_DATABASE_TYPE=postgres
+      - PHOENIX_POSTGRES_URL=postgresql://opik_user:opik_pass@postgres:5432/opik
+      # Port 6006 handles both UI and OTLP HTTP
+    ports:
+      - "6006:6006"  # UI + OTLP HTTP
+      - "4317:4317"  # OTLP gRPC
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - agent-network
 

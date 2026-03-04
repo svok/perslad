@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 
+COPY infra/ ./infra/
 COPY servers/ ./servers/
 RUN pip install --no-cache-dir -r servers/requirements.txt
 

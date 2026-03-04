@@ -7,6 +7,9 @@ ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONFAULTHANDLER=1
 
+# Install git for openinference-instrumentation-langgraph
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+
 COPY infra/ ./infra/
 COPY agents/ ./agents/
 

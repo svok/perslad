@@ -12,6 +12,13 @@ from typing import List, Tuple
 
 from fastmcp import FastMCP
 
+# Инициализация метрик (если настроено)
+try:
+    from infra.metrics import metrics_manager
+    metrics_manager.initialize(service_name="perslad-mcp-project")
+except ImportError:
+    pass
+
 # Настройка логирования с JSON форматом
 structlog.configure(
     processors=[
@@ -268,6 +275,21 @@ def project_structure(max_depth: int = 1, path: str = ".", max_items_per_level: 
 # ==================== ЗАПУСК СЕРВЕРА ====================
 if __name__ == "__main__":
     log.info("mcp_project.start", host=HOST, port=PORT, workspace=WORKSPACE)
+
+    # Instrument the FastAPI app if possible
+    try:
+        from infra.metrics import metrics_manager
+        if metrics_manager.is_enabled():
+            try:
+                # Try to access internal FastAPI app (fastmcp v2+)
+                if hasattr(mcp, 'app'):
+                    metrics_manager.instrument_fastapi(mcp.app)
+                else:
+                    log.warning("Could not find FastAPI app to instrument in FastMCP")
+            except Exception as e:
+                log.warning(f"Failed to instrument FastMCP app: {e}")
+    except ImportError:
+        pass
 
     # Используем HTTP транспорт для работы в Docker
     mcp.run(

@@ -38,3 +38,10 @@ sqlalchemy[asyncio]>=2.0.20
 pgvector>=0.4.2
 
 pathspec>=1.0.4
+
+# observability
+arize-phoenix>=13.7.0
+openinference-instrumentation-langchain>=0.1.61
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-fastapi

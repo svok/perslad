@@ -12,6 +12,13 @@ import structlog
 from typing import List, Optional
 from fastmcp import FastMCP
 
+# Инициализация метрик (если настроено)
+try:
+    from infra.metrics import metrics_manager
+    metrics_manager.initialize(service_name="perslad-mcp-bash")
+except ImportError:
+    pass
+
 # Настройка логирования с JSON форматом
 structlog.configure(
     processors=[
@@ -270,6 +277,21 @@ async def git_operation(operation: str, path: str = ".", args: str = "") -> str:
 # ==================== ЗАПУСК СЕРВЕРА ====================
 if __name__ == "__main__":
     log.info("mcp_bash.start", host=HOST, port=PORT, workspace=WORKSPACE)
+
+    # Instrument the FastAPI app if possible
+    try:
+        from infra.metrics import metrics_manager
+        if metrics_manager.is_enabled():
+            try:
+                # Try to access internal FastAPI app (fastmcp v2+)
+                if hasattr(mcp, 'app'):
+                    metrics_manager.instrument_fastapi(mcp.app)
+                else:
+                    log.warning("Could not find FastAPI app to instrument in FastMCP")
+            except Exception as e:
+                log.warning(f"Failed to instrument FastMCP app: {e}")
+    except ImportError:
+        pass
 
     mcp.run(
         transport="http",

@@ -6,6 +6,7 @@ from typing import Dict, Any
 from fastapi import FastAPI, HTTPException, APIRouter
 
 from infra.config.endpoints import LangGraph
+from infra.metrics import metrics_manager
 from .app.api.chat import ChatHandler
 from .app.api.health import HealthHandler
 from .app.logger import logger, setup_logging
@@ -25,6 +26,10 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 50)
     logger.info("🚀 Starting Agent System")
     logger.info("=" * 50)
+
+    # Инициализируем метрики (после создания app для instrument_fastapi)
+    metrics_manager.initialize(service_name="perslad-agent")
+    metrics_manager.instrument_fastapi(app)
 
     await system.initialize()
 
