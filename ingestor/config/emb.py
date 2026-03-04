@@ -6,5 +6,8 @@ class EMBConfig(BaseSettings):
     EMB_URL: str | None = Field(default=None)
     EMB_API_KEY: str = Field(default="sk-dummy", alias="OPENAI_API_KEY")
     EMB_SERVED_MODEL_NAME: str = Field(default="embed-model")
+    EMB_MAX_CHARS: int = Field(default=8000)
+    EMB_BATCH_SIZE: int = Field(default=10)
+    EMB_RATE_LIMIT_RPM: int = Field(default=100)
 
 emb_config = EMBConfig()

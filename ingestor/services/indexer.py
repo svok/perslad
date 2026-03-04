@@ -5,7 +5,6 @@ Indexer Orchestrator
 """
 
 import asyncio
-from dataclasses import replace
 
 from infra.logger import get_logger
 from ingestor.pipeline.indexation.pipeline import IndexationPipeline
@@ -16,14 +15,8 @@ from ingestor.pipeline.stages.scanner_source_stage import ScannerSourceStage
 
 class IndexerOrchestrator:
     def __init__(self, pipeline_context: PipelineContext) -> None:
-        self.pipeline_context = replace(
-            pipeline_context,
-            config={**pipeline_context.config,
-                    'filter_workers': 2,
-                    'enrich_workers': 4,
-                    'queue_size': 2000,
-                    }
-        )
+        # Use config directly without hard-coded overrides
+        self.pipeline_context = pipeline_context
         self.log = get_logger("ingestor.indexer")
 
         self._pipeline: IndexationPipeline = IndexationPipeline(self.pipeline_context)

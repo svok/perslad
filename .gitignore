@@ -13,6 +13,7 @@
 /.idea/
 /.gigaide/
 /logs/
+/e2e-tests/reports/
 
 # Workspace test files (ignore all except sample files)
 /workspace/*

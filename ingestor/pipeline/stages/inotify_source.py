@@ -66,43 +66,70 @@ class InotifySourceStage(SourceStage):
                 continue
 
             for event in events:
-                parent_path = self._wd_to_path.get(event.wd)
-                if not parent_path:
+                try:
+                    parent_path = self._wd_to_path.get(event.wd)
+                    if not parent_path:
+                        continue
+
+                    abs_path = parent_path / event.name
+                    is_dir = bool(event.mask & flags.ISDIR)
+
+                    # 1. Если это новый .gitignore — обновляем правила
+                    if not is_dir and event.name == '.gitignore':
+                        self.checker.load_spec_for_dir(parent_path)
+
+                    # 2. Проверка игнорирования
+                    if self.checker.should_ignore(abs_path, is_dir=is_dir):
+                        continue
+
+                    # 3. Если создана новая папка — добавляем её в мониторинг
+                    if is_dir and (event.mask & (flags.CREATE | flags.MOVED_TO)):
+                        self._add_watch_recursive(abs_path)
+                        continue
+
+                    # 4. Маппинг и yield события для файлов
+                    if not is_dir:
+                        event_type = self._map_mask(event.mask)
+                        if event_type:
+                            try:
+                                rel_path = abs_path.relative_to(self.workspace_path)
+                                yield PipelineFileContext(
+                                    file_path=rel_path,
+                                    abs_path=abs_path,
+                                    event_type=event_type,
+                                    status="pending"
+                                )
+                            except ValueError:
+                                continue
+                except Exception as e:
+                    self.log.error("inotify.event.process.failed", error=str(e), event=event)
                     continue
-
-                abs_path = parent_path / event.name
-                is_dir = bool(event.mask & flags.ISDIR)
-
-                # 1. Если это новый .gitignore — обновляем правила
-                if not is_dir and event.name == '.gitignore':
-                    self.checker.load_spec_for_dir(parent_path)
-
-                # 2. Проверка игнорирования
-                if self.checker.should_ignore(abs_path, is_dir=is_dir):
-                    continue
-
-                # 3. Если создана новая папка — добавляем её в мониторинг
-                if is_dir and (event.mask & (flags.CREATE | flags.MOVED_TO)):
-                    self._add_watch_recursive(abs_path)
-                    continue
-
-                # 4. Маппинг и yield события для файлов
-                if not is_dir:
-                    event_type = self._map_mask(event.mask)
-                    if event_type:
-                        try:
-                            rel_path = abs_path.relative_to(self.workspace_path)
-                            yield PipelineFileContext(
-                                file_path=rel_path,
-                                abs_path=abs_path,
-                                event_type=event_type,
-                                status="pending"
-                            )
-                        except ValueError:
-                            continue
 
     async def generate(self) -> AsyncGenerator[PipelineFileContext, None]:
         self.log.info(f"[{self.name}] Starting recursive inotify on: {self.workspace_path}")
+        
+        # Первоначальный скан существующих файлов перед началом мониторинга
+        self.log.info(f"[{self.name}] Performing initial scan of workspace: {self.workspace_path}")
+        for root, _, files in os.walk(self.workspace_path):
+            root_path = Path(root)
+            for file_name in files:
+                abs_path = root_path / file_name
+                try:
+                    rel_path = abs_path.relative_to(self.workspace_path)
+                    # Пропускаем игнорируемые файлы
+                    if self.checker.should_ignore(abs_path, is_dir=False):
+                        continue
+                    # Отправляем событие создания файла
+                    yield PipelineFileContext(
+                        file_path=rel_path,
+                        abs_path=abs_path,
+                        event_type="create",
+                        status="pending"
+                    )
+                except ValueError:
+                    continue
+        
+        # Запускаем мониторинг inotify
         try:
             self._add_watch_recursive(self.workspace_path)
             async for event in self._read_loop():
@@ -112,8 +139,8 @@ class InotifySourceStage(SourceStage):
             for wd in list(self._wd_to_path.keys()):
                 try:
                     self.inotify.rm_watch(wd)
-                except:
-                    pass
+                except Exception as e:
+                    self.log.warning("inotify.rm_watch.failed", wd=wd, error=str(e))
             self._wd_to_path.clear()
 
     def _map_mask(self, mask: int) -> Optional[EventTypes]:

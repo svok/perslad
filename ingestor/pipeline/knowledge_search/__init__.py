@@ -1,1 +1,0 @@
-"""Knowledge search pipeline package."""

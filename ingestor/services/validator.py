@@ -38,17 +38,15 @@ class DimensionValidator:
         try:
             log.info("dimension_validator.connect.attempt")
 
-            # Ждём, пока LLM не разблокирован
-            await self.lock_manager.wait_unlocked()
+            # Ждём, пока LLM не разблокирован (если lock_manager предоставлен)
+            if self.lock_manager is not None:
+                await self.lock_manager.wait_unlocked()
 
             # Get dimension from embedding model
             model_dim = await self.embed_model.get_embedding_dimension()
             log.info("dimension_validator.model_dimension", dimension=model_dim)
 
             # Get dimension from database schema
-            if not hasattr(self.storage, 'get_embedding_dimension'):
-                raise RuntimeError("Storage does not have get_embedding_dimension method")
-
             db_dim = await self.storage.get_embedding_dimension()
             log.info("dimension_validator.db_dimension", dimension=db_dim)
 

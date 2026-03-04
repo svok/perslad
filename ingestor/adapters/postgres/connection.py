@@ -11,6 +11,7 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
     retry_if_exception_type,
+    retry_if_exception,
 )
 
 from infra.logger import get_logger
@@ -22,9 +23,15 @@ log = get_logger("ingestor.storage.postgres.connection")
 class PostgresConnection:
     """Manages PostgreSQL connection pool."""
 
-    def __init__(self, operation_timeout: float = 60.0) -> None:
+    def __init__(self) -> None:
         self._pool: Optional[asyncpg.Pool] = None
-        self._operation_timeout = operation_timeout
+        # Read configuration from storage_config
+        self._operation_timeout = storage_config.POSTGRES_OPERATION_TIMEOUT
+        self._pool_min_size = storage_config.POSTGRES_POOL_MIN_SIZE
+        self._pool_max_size = storage_config.POSTGRES_POOL_MAX_SIZE
+        self._pool_timeout = storage_config.POSTGRES_POOL_TIMEOUT
+        self._acquire_timeout = storage_config.POSTGRES_ACQUIRE_TIMEOUT
+        self._query_timeout = storage_config.POSTGRES_QUERY_TIMEOUT
 
     @property
     def pool(self) -> asyncpg.Pool:
@@ -65,9 +72,9 @@ class PostgresConnection:
 
             self._pool = await asyncpg.create_pool(
                 conn_string,
-                min_size=2,
-                max_size=10,
-                timeout=30.0,
+                min_size=self._pool_min_size,
+                max_size=self._pool_max_size,
+                timeout=self._pool_timeout,
                 command_timeout=self._operation_timeout,
                 init=init_connection,
             )  # noqa: E501
@@ -114,48 +121,7 @@ class PostgresConnection:
         except Exception as e:
             log.warning("postgres.schema.migration.drop_chunk_ids.failed", error=str(e))
 
-        # 2. Chunks table
-        await conn.execute(f"""
-            CREATE TABLE IF NOT EXISTS chunks (
-                id TEXT PRIMARY KEY,
-                file_path TEXT NOT NULL,
-                content TEXT NOT NULL,
-                start_line INTEGER NOT NULL,
-                end_line INTEGER NOT NULL,
-                chunk_type TEXT NOT NULL,
-                summary TEXT,
-                purpose TEXT,
-                embedding vector({storage_config.PGVECTOR_DIMENSIONS})
-            );
-        """)
-        
-        # Migration: Add Foreign Key constraint if not exists
-        # try:
-        #     fk_exists = await conn.fetchval("""
-        #         SELECT EXISTS (
-        #             SELECT 1 FROM pg_constraint WHERE conname = 'fk_chunks_file_path'
-        #         );
-        #     """)
-        #     if not fk_exists:
-        #         log.info("postgres.schema.migration.add_fk.start")
-        #         # Remove orphan chunks that don't have a corresponding file_summary
-        #         await conn.execute("""
-        #             DELETE FROM chunks
-        #             WHERE file_path NOT IN (SELECT file_path FROM file_summaries);
-        #         """)
-        #         # Add FK constraint
-        #         await conn.execute("""
-        #             ALTER TABLE chunks
-        #             ADD CONSTRAINT fk_chunks_file_path
-        #             FOREIGN KEY (file_path) REFERENCES file_summaries(file_path)
-        #             ON DELETE CASCADE;
-        #         """)
-        #         log.info("postgres.schema.migration.add_fk.complete")
-        # except Exception as e:
-        #     log.error("postgres.schema.migration.add_fk.failed", error=str(e))
-
-        # Index on file_path for faster lookups/deletes
-        await conn.execute("CREATE INDEX IF NOT EXISTS idx_chunks_file_path ON chunks(file_path);")
+        # 2. Chunks table removed - using PGVectorStore chunks_vectors instead
 
         # 3. Module summaries table
         await conn.execute("""
@@ -169,33 +135,45 @@ class PostgresConnection:
         log.info("postgres.create_schema.complete")
 
     async def execute_query(
-        self, query: str, *args, fetch: Optional[str] = None, timeout: float = 10.0
+        self, query: str, *args, fetch: Optional[str] = None, timeout: Optional[float] = None
     ) -> Any:
         """Execute a query with logging and timeout."""
         await self._init_pool()
+        
+        # Use config timeout if not provided
+        query_timeout = timeout if timeout is not None else self._query_timeout
 
-        try:
-            log.debug("postgres.query.start", query=query[:50])
+        @retry(
+            stop=stop_after_attempt(3),
+            wait=wait_exponential(multiplier=1, min=0.1, max=1),
+            retry=retry_if_exception(lambda e: isinstance(e, (asyncpg.PostgresConnectionError, asyncio.TimeoutError))),
+            reraise=True,
+        )
+        async def _execute_with_retry():
+            try:
+                log.debug("postgres.query.start", query=query[:50])
 
-            async with asyncio.timeout(timeout):
-                async with self.pool.acquire(timeout=5.0) as conn:
-                    if fetch == "val":
-                        result = await conn.fetchval(query, *args)
-                    elif fetch == "row":
-                        result = await conn.fetchrow(query, *args)
-                    elif fetch == "all":
-                        result = await conn.fetch(query, *args)
-                    else:
-                        result = await conn.execute(query, *args)
+                async with asyncio.timeout(query_timeout):
+                    async with self.pool.acquire(timeout=self._acquire_timeout) as conn:
+                        if fetch == "val":
+                            result = await conn.fetchval(query, *args)
+                        elif fetch == "row":
+                            result = await conn.fetchrow(query, *args)
+                        elif fetch == "all":
+                            result = await conn.fetch(query, *args)
+                        else:
+                            result = await conn.execute(query, *args)
 
-                    return result
+                        return result
 
-        except asyncio.TimeoutError:
-            log.error("postgres.timeout", query=query[:50], timeout=timeout)
-            raise TimeoutError(f"Database operation timed out after {timeout}s")
-        except Exception as e:
-            log.error("postgres.query_error", error=str(e), query=query[:50])
-            raise
+            except asyncio.TimeoutError:
+                log.error("postgres.timeout", query=query[:50], timeout=query_timeout)
+                raise TimeoutError(f"Database operation timed out after {query_timeout}s")
+            except Exception as e:
+                log.error("postgres.query_error", error=str(e), query=query[:50])
+                raise
+
+        return await _execute_with_retry()
 
     async def close(self) -> None:
         if self._pool:

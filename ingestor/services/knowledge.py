@@ -5,15 +5,15 @@ Knowledge Port - интерфейс между ingestor и agent.
 Agent работает только через этот порт.
 Storage полностью скрыт.
 
-Использует KnowledgeSearchPipeline для поиска и прямые запросы к storage
+Использует KnowledgeIndex для поиска и прямые запросы к storage
 для чтения метаданных (get_file_context, get_project_overview).
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from infra.logger import get_logger
 from ingestor.pipeline.models.pipeline_context import PipelineContext
-from ingestor.pipeline.knowledge_search.pipeline import KnowledgeSearchPipeline
+from ingestor.search.knowledge_index import KnowledgeIndex
 
 log = get_logger("ingestor.knowledge_port")
 
@@ -29,18 +29,19 @@ class KnowledgePort:
     def __init__(
         self,
         pipeline_context: PipelineContext,
-        search_pipeline: KnowledgeSearchPipeline = None
+        knowledge_index: Optional[KnowledgeIndex] = None
     ) -> None:
         self.context = pipeline_context
         
-        # Используем переданный пайплайн или создаем свой
-        if search_pipeline:
-            self.search_pipeline = search_pipeline
+        # Используем переданный индекс или создаем свой
+        if knowledge_index:
+            self.knowledge_index = knowledge_index
         else:
-            # Используем упрощенную версию KnowledgeSearchPipeline (которая работает через стадии)
-            # ВАЖНО: Если инстанцируем здесь, нужно убедиться, что пайплайн НЕ запущен повторно
-            # Лучшая практика: создавать KnowledgeSearchPipeline отдельно и передавать его сюда.
-            self.search_pipeline = KnowledgeSearchPipeline(self.context)
+            # Создаем KnowledgeIndex из компонентов контекста
+            self.knowledge_index = KnowledgeIndex(
+                vector_store=pipeline_context.vector_store,
+                embed_model=pipeline_context.embed_model
+            )
 
     async def search_by_embedding(
         self,
@@ -76,7 +77,7 @@ class KnowledgePort:
 
     async def search(self, query: str, top_k: int = 5) -> Dict[str, Any]:
         """
-        Поиск по текстовому запросу через пайплайн.
+        Поиск по текстовому запросу через KnowledgeIndex.
         
         Args:
             query: Текстовый запрос пользователя
@@ -88,9 +89,8 @@ class KnowledgePort:
         if not query or not query.strip():
             return {"results": [], "error": "Empty query"}
 
-        # Пайплайн сам разберется с эмбеддингом и поиском
-        # Запуск пайплайна для одного запроса
-        results = await self.search_pipeline.search(query, top_k=top_k)
+        # Используем KnowledgeIndex для поиска
+        results = await self.knowledge_index.search(query, top_k=top_k)
         
         return results
 

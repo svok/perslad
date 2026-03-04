@@ -2,35 +2,31 @@
 Ingestor Main Entry Point
 
 Запускает:
-1. HTTP API (для LLM lock и статистики)
-2. Indexer Pipeline (scanner + enrich)
-3. LLM reconnect (background)
+1. HTTP API (для knowledge search)
+2. Indexer Pipeline (scanner + parse + enrich + indexing)
 """
 
 import asyncio
 import signal
-import sys
 from pathlib import Path
 
 import uvicorn
-from dotenv import load_dotenv
+from llama_index.llms.openai import OpenAI
+from llama_index.llms.openai_like import OpenAILike
 
-from ingestor.config import emb_config, llm_config, runtime_config, storage_config
-from ingestor.pipeline.models.pipeline_context import PipelineContext
-from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
-from ingestor.services.indexer import IndexerOrchestrator
-
-# Load env vars BEFORE config imports
-load_dotenv(dotenv_path="../.env", override=False)
-
-from infra.managers.llm import LLMManager
 from infra.logger import setup_logging, get_logger
 from ingestor.adapters import get_storage
 from ingestor.adapters.embedding_model import EmbeddingModel
+from ingestor.adapters.llama_index_embedding_adapter import EmbeddingModelAdapter
 from ingestor.api.server import IngestorAPI
-from ingestor.services.validator import DimensionValidator
+from ingestor.config import runtime_config, storage_config
+from ingestor.config.base import PipelineConfig
+from ingestor.pipeline.models.pipeline_context import PipelineContext
+from ingestor.pipeline.utils.text_splitter_helper import TextSplitterHelper
+from ingestor.services.indexer import IndexerOrchestrator
 from ingestor.services.knowledge import KnowledgePort
 from ingestor.services.lock import LLMLockManager
+from ingestor.services.validator import DimensionValidator
 
 _shutdown = asyncio.Event()
 
@@ -76,112 +72,162 @@ async def main() -> None:
         storage_type=storage_config.STORAGE_TYPE,
     )
 
-    _install_signal_handlers(log)
+    # === Load central config ===
+    config = PipelineConfig.from_env()
+    log.info("pipeline.config.loaded", workers=config.enrich_workers)
 
-    # === Инициализация компонентов ===
-
-    llm = LLMManager(
-        api_base=llm_config.LLM_URL,
-        api_key=llm_config.LLM_API_KEY,
-        model_name=llm_config.LLM_SERVED_MODEL_NAME,
-    )
-    lock_manager = LLMLockManager()
+    # === Storage ===
     storage = get_storage()
-
-    # Initialize storage tables immediately (explicitly)
     await storage.initialize()
     log.info("ingestor.storage.initialized")
 
-    # Shared embedding model
-    embed_model = EmbeddingModel(
-        emb_config.EMB_URL,
-        emb_config.EMB_API_KEY,
-        emb_config.EMB_SERVED_MODEL_NAME
+    # === Lock Manager ===
+    lock_manager = LLMLockManager()
+
+    # === Vector Store ===
+    # Get vector store from storage adapter
+    if storage._vector_store is None:
+        raise RuntimeError(f"Storage {type(storage).__name__} does not provide a vector store")
+    vector_store = storage._vector_store
+    log.info("ingestor.vector_store.reused_from_storage")
+
+    # === Embedding Model ===
+    # Create embedding model using config values
+    embed_model_raw = EmbeddingModel(
+        embed_url=config.embedding.url,
+        api_key=config.embedding.api_key,
+        served_model_name=config.embedding.model_name,
+        rate_limit_rpm=config.embedding.rate_limit_rpm,
+        max_chars=config.embedding.max_chars,
+        batch_size=config.embedding.batch_size,
     )
 
-    # VALIDATE — will retry indefinitely
+    # Wrap with adapter to provide BaseEmbedding interface for llama_index
+    embed_model = EmbeddingModelAdapter(embed_model_raw)
+
+    # === Validate dimensions (must match exactly) ===
     log.info("dimension_validator.validation.started")
     dimension_validator = DimensionValidator(
-        embed_model=embed_model, storage=storage, lock_manager=lock_manager
+        embed_model=embed_model_raw, storage=storage, lock_manager=lock_manager
     )
-    await dimension_validator.validate_dimensions()
-    log.info("dimension_validator.validation.complete")
+    try:
+        await dimension_validator.validate_dimensions()
+        log.info("dimension_validator.validation.complete")
+    except Exception as e:
+        log.error("dimension_validator.validation.failed", error=str(e))
+        raise  # Exit immediately - dimension mismatch is fatal
 
+    # === Knowledge Index ===
+    from ingestor.search.knowledge_index import KnowledgeIndex
+    knowledge_index = KnowledgeIndex(vector_store, embed_model)
+    log.info("knowledge_index.created")
+
+    # === LLM (for chunk enrichment) ===
+    # Use MODEL_NAME from config
+    llm = OpenAILike(
+        api_base=config.llm.url,
+        api_key=config.llm.api_key,
+        model=config.llm.model_name,
+        is_chat_model=True,
+        is_function_calling_model=True,
+    )
+
+    # === Pipeline Context ===
     pipeline_context = PipelineContext(
         workspace_path=Path(workspace),
+        storage=storage,
         llm=llm,
         lock_manager=lock_manager,
-        storage=storage,
-        text_splitter_helper=TextSplitterHelper(),
         embed_model=embed_model,
-        config={},
+        vector_store=vector_store,
+        text_splitter_helper=TextSplitterHelper(
+            python_chunk_lines=config.python_chunk_lines,
+            python_chunk_overlap=config.python_chunk_overlap,
+            python_max_chars=config.python_max_chars,
+            doc_chunk_size=config.doc_chunk_size,
+            doc_chunk_overlap=config.doc_chunk_overlap,
+            config_chunk_size=config.config_chunk_size,
+            config_chunk_overlap=config.config_chunk_overlap,
+        ),
+        config=config.model_dump(),
     )
 
-    knowledge_port = KnowledgePort(pipeline_context)
+    # === Knowledge Port ===
+    knowledge_port = KnowledgePort(pipeline_context, knowledge_index=knowledge_index)
+    log.info("knowledge_port.ready")
 
-    # Indexer orchestrator
+    # === Indexer Orchestrator ===
     indexer = IndexerOrchestrator(pipeline_context)
 
-    # HTTP API
-    api = IngestorAPI(lock_manager, storage, knowledge_port, embed_model)
+    async def start_and_scan():
+        await indexer.start()
+        await indexer.start_full_scan()
+        await indexer.start_watching()
 
-    # === Запуск фоновых задач ===
+    indexer_task = asyncio.create_task(start_and_scan())
+    log.info("ingestor.indexer.started")
 
-    # 1. LLM reconnect (background loop started by initialize)
-    await llm.initialize()
-    log.info("ingestor.llm.started")
+    # === HTTP API ===
+    api = IngestorAPI(
+        lock_manager=lock_manager,
+        storage=storage,
+        knowledge_port=knowledge_port,
+        embedding_model=embed_model,
+    )
 
-    # 2. HTTP API server
+    # === Background Tasks ===
     api_task = asyncio.create_task(run_api_server(api, api_port))
     log.info("ingestor.api.started", port=api_port)
 
-    # 3. Ждём готовности LLM перед запуском indexer
-    log.info("ingestor.waiting_llm")
-    await llm.wait_ready()
-    log.info("ingestor.llm.ready")
-
-    # 4. Запускаем indexer (full scan при старте)
-    log.info("ingestor.indexer.starting")
-    try:
-        await indexer.start()
-        await indexer.start_full_scan()  # Полный скан
-        await indexer.start_watching()  # Добавляем inotify watch
-        log.info("ingestor.indexer.started")
-    except Exception as e:
-        log.error("ingestor.indexer.error", error=str(e), exc_info=True)
-        raise
-
-    # === Основной цикл ===
-
-    log.info("ingestor.running")
-
-    # Ждём сигнала остановки
+    # Wait for shutdown signal
     await _shutdown.wait()
 
-    # Останавливаем indexer
-    if "indexer" in locals():
-        log.info("ingestor.indexer.stopping")
-        try:
-            await indexer.stop()
-        except Exception as e:
-            log.error("ingestor.indexer.stop.error", error=str(e), exc_info=True)
+    # === Graceful Shutdown ===
+    log.info("ingestor.shutdown.start")
 
-    # Останавливаем API
+    # Stop indexer
+    await indexer.stop()
+    indexer_task.cancel()
+    try:
+        await indexer_task
+    except asyncio.CancelledError:
+        pass
+
+    # Cancel API task if still running
     api_task.cancel()
     try:
         await api_task
     except asyncio.CancelledError:
         pass
 
-    await llm.close()
+    # Close embedding model
+    if hasattr(embed_model_raw, 'close') and callable(getattr(embed_model_raw, 'close')):
+        try:
+            await embed_model_raw.close()
+            log.info("embedding_model.closed")
+        except Exception as e:
+            log.error("embedding_model.close.failed", error=str(e))
+
+    # Close LLM
+    try:
+        if hasattr(llm, 'aclose') and callable(getattr(llm, 'aclose')):
+            await llm.aclose()
+        elif hasattr(llm, 'close') and callable(getattr(llm, 'close')):
+            await llm.close()
+        log.info("llm.closed")
+    except Exception as e:
+        log.error("llm.close.failed", error=str(e))
+
+    # Close storage
+    if hasattr(storage, 'close') and callable(getattr(storage, 'close')):
+        try:
+            await storage.close()
+            log.info("storage.closed")
+        except Exception as e:
+            log.error("storage.close.failed", error=str(e))
 
     log.info("ingestor.shutdown.complete")
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        sys.exit(0)
-    except Exception:
-        raise
+    asyncio.run(main())

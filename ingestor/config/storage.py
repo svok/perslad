@@ -12,9 +12,18 @@ class StorageConfig(BaseSettings):
     POSTGRES_USER: str = Field(default="rag")
     POSTGRES_PASSWORD: str = Field(default="rag")
 
+    # Connection pool
+    POSTGRES_POOL_MIN_SIZE: int = Field(default=2)
+    POSTGRES_POOL_MAX_SIZE: int = Field(default=10)
+    POSTGRES_POOL_TIMEOUT: float = Field(default=30.0)
+    POSTGRES_OPERATION_TIMEOUT: float = Field(default=60.0)
+    POSTGRES_QUERY_TIMEOUT: float = Field(default=10.0)
+    POSTGRES_ACQUIRE_TIMEOUT: float = Field(default=5.0)
+
     # Vector storage
     USE_PGVECTOR: bool = Field(default=True)
-    PGVECTOR_DIMENSIONS: int = Field(default=1536) # The number MUST differ from real to track possible errors
+    PGVECTOR_DIMENSIONS: int = Field(default=768)  # Changed from 1536 to match embedding model (gte-modernbert-base)
+    VECTOR_STORE_TABLE_NAME: str = Field(default="chunks_vectors")  # Base name; PGVectorStore adds 'data_' prefix
 
     def to_dict(self) -> dict:
         """Возвращает полный конфиг как словарь."""

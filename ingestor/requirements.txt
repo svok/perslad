@@ -18,10 +18,11 @@ structlog>=25.4.0
 gitignore-parser>=0.1.13
 inotify-simple==2.0.1
 
-# llamaindex (SDK only)
-llama-index>=0.14.9
-llama-index-llms-openai>=0.6.10
+# llamaindex (SDK only) - install specific components
+llama-index-llms-openai>=0.6.19
+llama-index-llms-openai-like>=0.6.0
 llama-index-embeddings-openai>=0.5.1
+llama-index-vector-stores-postgres>=0.7.3
 tree-sitter>=0.25.2
 tree-sitter-language-pack>=0.13.0
 

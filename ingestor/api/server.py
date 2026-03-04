@@ -11,8 +11,7 @@ Ingestor HTTP API
 """
 
 from typing import Dict, Any
-
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, HTTPException
 
 from infra.config.endpoints.ingestor import Ingestor
 from infra.logger import get_logger
@@ -28,7 +27,7 @@ log = get_logger("ingestor.api")
 
 class IngestorAPI:
     """
-    HTTP API для ingestor.
+    HTTP API для ингестора.
     """
 
     def __init__(
@@ -100,34 +99,13 @@ class IngestorAPI:
             """
             return await self.storage.get_stats()
         
-        @self.router.get(Ingestor.CHUNKS)
-        async def list_chunks(limit: int = 10) -> Dict[str, Any]:
-            """
-            Список чанков (для отладки).
-            """
-            chunks = await self.storage.get_all_chunks()
-            
-            return {
-                "total": len(chunks),
-                "chunks": [
-                    {
-                        "id": c.id,
-                        "file_path": c.file_path,
-                        "chunk_type": c.chunk_type,
-                        "has_summary": c.summary is not None,
-                        "has_embedding": c.embedding is not None,
-                    }
-                    for c in chunks[:limit]
-                ],
-            }
-        
         # === Knowledge Port Endpoints ===
         
         @self.router.post(Ingestor.SEARCH)
         async def search_knowledge(request: SearchRequest) -> Dict[str, Any]:
             """
             Поиск по текстовому запросу или embedding.
-            Использует KnowledgeSearchPipeline для полного цикла обработки:
+            Выполняет полный цикл обработки:
             query -> chunking -> embedding -> DB search -> ranking.
             """
             if request.query:
@@ -166,5 +144,7 @@ class IngestorAPI:
             Получить обзор проекта.
             """
             return await self.knowledge_port.get_project_overview()
+        
+
 
         self.app.include_router(self.router)

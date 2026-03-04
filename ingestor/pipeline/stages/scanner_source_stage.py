@@ -7,6 +7,7 @@ from ingestor.pipeline.models.pipeline_file_context import PipelineFileContext
 from ingestor.pipeline.utils.gitignore_checker import GitignoreChecker
 from ingestor.pipeline.base.source_stage import SourceStage
 
+
 class ScannerSourceStage(SourceStage):
     def __init__(self, workspace_path: Path, max_workers: int = 2):
         super().__init__("scanner")

@@ -25,6 +25,7 @@ class IncrementalFilterStage(BaseStage):
         self.input_queue: Optional[ThrottledQueue] = None
         self.output_queue: Optional[ThrottledQueue] = None
         self._workers: List[asyncio.Task] = []
+        self.max_workers = 2  # Two background tasks: main_loop + flush_loop
 
     async def start(self, input_queue: ThrottledQueue, output_queue: Optional[ThrottledQueue] = None) -> None:
         self.input_queue = input_queue
@@ -115,7 +116,8 @@ class IncrementalFilterStage(BaseStage):
                         current_mtime = ctx.abs_path.stat().st_mtime
                     else:
                         current_mtime = 0
-                except Exception:
+                except Exception as e:
+                    self.log.warning("failed.to.get.mtime", path=path_str, error=str(e))
                     current_mtime = 0
                 
                 if current_mtime > db_mtime + 0.01:
