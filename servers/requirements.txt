@@ -1,9 +1,9 @@
 # MCP Core
 mcp[cli]==1.25.0
-fastmcp>=2.14.3
+fastmcp>=3.1.0
 
 # HTTP/SSE Transport
-sse-starlette==2.2.1
+sse-starlette==3.3.2
 uvicorn[standard]==0.40.0
 
 # Utils
@@ -17,3 +17,9 @@ aiofiles==24.1.0
 
 # logging
 structlog>=25.4.0
+
+# observability
+arize-phoenix>=13.7.0
+opentelemetry-sdk
+opentelemetry-exporter-otlp
+opentelemetry-instrumentation-fastapi

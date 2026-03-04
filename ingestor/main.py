@@ -56,6 +56,13 @@ async def run_api_server(api: IngestorAPI, port: int):
 
 
 async def main() -> None:
+    # Инициализация метрик (если настроено)
+    try:
+        from infra.metrics import metrics_manager
+        metrics_manager.initialize(service_name="perslad-ingestor")
+    except ImportError:
+        pass
+
     env = runtime_config.ENV
     workspace = runtime_config.WORKSPACE_PATH
     api_port = runtime_config.INGESTOR_PORT
@@ -174,6 +181,13 @@ async def main() -> None:
         knowledge_port=knowledge_port,
         embedding_model=embed_model,
     )
+    
+    # Instrument the API app with Phoenix
+    try:
+        from infra.metrics import metrics_manager
+        metrics_manager.instrument_fastapi(api.app)
+    except ImportError:
+        pass
 
     # === Background Tasks ===
     api_task = asyncio.create_task(run_api_server(api, api_port))
