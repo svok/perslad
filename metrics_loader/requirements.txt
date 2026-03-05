@@ -1,0 +1,8 @@
+# Phoenix client для работы с метриками качества
+arize-phoenix>=13.7.0
+
+# Pandas для работы с CSV
+pandas
+
+# HTTP клиент
+httpx

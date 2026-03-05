@@ -24,10 +24,11 @@ else
         --quantization ${QUANTIZATION} \
         --gpu-memory-utilization ${GPU_MEM_FRACTION} \
         --host 0.0.0.0 --port 8000 \
-        --tool-call-parser hermes \
+        --tool-call-parser ${TOOL_CALL_PARSER} \
         --enable-auto-tool-choice \
         --served-model-name default-model \
-        --max-model-len ${CONTEXT_SIZE}
+        --max-model-len ${CONTEXT_SIZE} \
+        --trust-remote-code
 fi
 #        --chat-template llama-3 \
 #        --chat-template /app/qwen_tool_template.jinja \

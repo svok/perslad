@@ -1,0 +1,6 @@
+context.span_id,span_name,input,output,reference,metric_accuracy,metric_tool_correctness,metric_relevance,score,explanation
+U3BhbjoyOQ==,ChatOpenAI,"Как дела?","Все хорошо","Все хорошо",1.0,1.0,1.0,1.0,"Полный и точный ответ"
+U3BhbjoyNQ==,ChatOpenAI,"Объясни проект","Perslad - AI система","Perslad - AI система с LangGraph",1.0,1.0,1.0,1.0,"Отличное объяснение"
+U3BhbjoxNw==,ChatOpenAI,"Что делает MCP?","MCP - протокол инструментов","MCP для интеграции инструментов",0.9,1.0,1.0,0.97,"Почти полный ответ"
+U3BhbjoxMw==,ChatOpenAI,"Как работает RAG?","RAG ищет в векторной БД","RAG использует embeddings",0.8,1.0,0.9,0.9,"Хорошее описание"
+U3BhbjoyMQ==,ChatOpenAI,"Где код проекта?","В /app и /workspace","/app для сервисов",1.0,1.0,1.0,1.0,"Полный ответ"

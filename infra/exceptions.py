@@ -3,6 +3,11 @@ Custom exceptions for application errors.
 """
 
 
+class PersladError(Exception):
+    """Base exception for Perslad application."""
+    pass
+
+
 class FatalValidationError(RuntimeError):
     """Fatal validation error that prevents application from starting."""
     pass

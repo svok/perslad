@@ -117,15 +117,40 @@ services:
     environment:
       - PHOENIX_HOST=0.0.0.0
       - PHOENIX_PORT=6006
-      - PHOENIX_PROJECT_NAME=perslad
       - PHOENIX_DATABASE_TYPE=postgres
       - PHOENIX_POSTGRES_URL=postgresql://opik_user:opik_pass@postgres:5432/opik
       # Port 6006 handles both UI and OTLP HTTP
     ports:
       - "6006:6006"  # UI + OTLP HTTP
       - "4317:4317"  # OTLP gRPC
+    healthcheck:
+      # Используем CMD, но первым аргументом вызываем сам интерпретатор
+      test: ["CMD", "python", "-c", "import socket; s = socket.socket(); s.connect(('127.0.0.1', 6006))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       postgres:
+        condition: service_healthy
+    networks:
+      - agent-network
+
+  # === METRICS LOADER ===
+  metrics-loader:
+    build:
+      context: .
+      dockerfile: metrics_loader/Dockerfile
+    container_name: metrics-loader
+    env_file: .env
+    environment:
+      - PHOENIX_ENDPOINT=http://phoenix:6006
+      - DATASET_PATH=/data/evaluations.csv
+    volumes:
+      - ./data:/data:ro
+      - ./infra:/app/infra:ro
+      - ./metrics_loader:/app/metrics_loader:ro
+    depends_on:
+      phoenix:
         condition: service_healthy
     networks:
       - agent-network
