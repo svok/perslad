@@ -246,22 +246,55 @@ class TestLangGraphComponent:
         """Test handling of different context lengths"""
         # Create a long context
         long_context = "This is a test message. " * 20  # 20 repetitions
-        
+
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": f"Summarize the following: {long_context}"}
         ]
-        
+
         payload = {
             "messages": messages,
             "max_tokens": 100,
             "stream": False
         }
-        
+
         response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
         # Should handle gracefully - either success or meaningful error
         assert response.status_code in [200, 400, 413]
-    
+
+    @pytest.mark.asyncio
+    async def test_langgraph_context_overflow(self, langgraph_client):
+        """Test handling of context overflow with long history"""
+        # Create long conversation history that would exceed context limit
+        long_history = []
+        system_msg = {"role": "system", "content": "You are a helpful assistant."}
+        long_history.append(system_msg)
+
+        for i in range(30):
+            user_msg = {"role": "user", "content": f"User message {i} about various topics"}
+            ai_msg = {"role": "assistant", "content": f"Assistant response {i} with helpful information"}
+            long_history.append(user_msg)
+            long_history.append(ai_msg)
+
+        # Add a final query
+        long_history.append({"role": "user", "content": "What's the summary of our conversation?"})
+
+        payload = {
+            "messages": long_history,
+            "max_tokens": 50,
+            "stream": False
+        }
+
+        response = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload)
+        # Should handle overflow gracefully - either compress or reject
+        assert response.status_code in [200, 400, 413, 429]
+        # If successful, check response structure
+        if response.status_code == 200:
+            data = response.json()
+            assert "choices" in data
+            assert len(data["choices"]) > 0
+            assert "message" in data["choices"][0]
+
     @pytest.mark.asyncio
     async def test_langgraph_usage_metrics(self, langgraph_client):
         """Test that usage metrics are returned"""

@@ -1,16 +1,14 @@
 import json
 import logging
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage, AIMessage
-from langchain_core.callbacks.base import BaseCallbackHandler
 
 from ..config import Config
 from ..core.graph import create_graph
 from ..managers.system import SystemManager
 from ..core.utils import estimate_tokens
-from infra.metrics import metrics_manager
 
 logger = logging.getLogger("agentnet.chat")
 

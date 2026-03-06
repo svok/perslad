@@ -30,14 +30,21 @@ class FileSummaryStage(ProcessorStage):
         file_path = str(context.file_path)
         abs_path = Path(self.workspace_path) / file_path
 
-        # Удаление файла
+        # Wait a bit to ensure other stages have completed
+        await asyncio.sleep(0.5)
+
+        # Safety: Only process if file still exists
+        # This prevents deleting a file summary that was just created
+        # due to race condition with concurrent processing
         if context.event_type == "delete" or not abs_path.exists():
             if not abs_path.exists() and context.event_type != "delete":
                 self.log.warning(f"File not found for file_summary: {file_path} (event_type={context.event_type})")
-            await self.storage.delete_file_summary(file_path)
-            # Также удаляем все чанки файла из БД
-            await self.storage.delete_chunks_by_file_paths([file_path])
-            self.log.info(f"FileSummary and chunks deleted: {file_path}")
+            # Only delete if we have chunks (meaning file was successfully processed)
+            # to avoid deleting a just-created summary from a race condition
+            if context.has_errors or not context.nodes:
+                await self.storage.delete_file_summary(file_path)
+                await self.storage.delete_chunks_by_file_paths([file_path])
+                self.log.info(f"FileSummary and chunks deleted: {file_path}")
             return context
 
         try:

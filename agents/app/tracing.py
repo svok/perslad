@@ -3,7 +3,7 @@
 Показывает как использовать константы из infra для трейсинга.
 """
 
-from infra import SpanNames, SpanAttributes, ServiceNames, create_span_attributes
+from infra import SpanAttributes, ServiceNames, create_span_attributes
 from infra.metrics import metrics_manager
 
 

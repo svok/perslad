@@ -5,7 +5,8 @@ class Config:
 
     LLM_API_BASE = os.getenv("OPENAI_API_BASE", "http://llm:8000/v1")
     LLM_API_KEY = os.getenv("OPENAI_API_KEY", "sk-dummy")
-    LLM_MODEL = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Coder-7B-Instruct")
+    # LLM_MODEL = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-Coder-7B-Instruct")
+    LLM_SERVED_MODEL_NAME = os.getenv("LLM_SERVED_MODEL_NAME", "default-model")
 
     MCP_BASH_URL = os.getenv("MCP_BASH_URL", "http://mcp-bash:8081/mcp")
     MCP_PROJECT_URL = os.getenv("MCP_PROJECT_URL", "http://mcp-project:8083/mcp")

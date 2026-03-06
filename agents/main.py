@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("❌ MCP connection timeout!")
 
-    logger.info(f"✅ System initialized")
+    logger.info("✅ System initialized")
     logger.info(f"  LLM: {'Connected' if system.llm.is_ready() else '❌ Failed'}")
     logger.info(f"  MCP: {'Connected' if system.mcp.is_ready() else '❌ Failed'}")
     logger.info(f"  Tools: {system.tools.get_count()} available")

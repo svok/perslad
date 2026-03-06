@@ -9,6 +9,7 @@ from .base import BaseManager
 
 logger = logging.getLogger("infra.llm")
 
+
 class LLMManager(BaseManager):
     """Менеджер LLM с нативной поддержкой Qwen."""
 
@@ -16,7 +17,7 @@ class LLMManager(BaseManager):
         super().__init__("llm")
         self.model: Optional[ChatOpenAI] = None
         self._connections["llm-server"] = False
-        
+
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
         self.model_name = model_name
@@ -38,7 +39,11 @@ class LLMManager(BaseManager):
             # Тестовый запрос (без инструментов)
             try:
                 response = await asyncio.wait_for(
-                    self.model.ainvoke("ping"),
+                    self.model
+                    .bind(
+                        extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+                    )
+                    .ainvoke("ping"),
                     timeout=10.0
                 )
                 self.logger.info(f"Server responded: {response.content[:50]}...")
