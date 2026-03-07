@@ -22,6 +22,7 @@ else
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${MODEL_NAME} \
         --dtype float16 \
+        --reasoning-parser qwen3 \
         --kv-cache-dtype fp8 \
         --gpu-memory-utilization 0.85 \
         --max-num-batched-tokens 4096 \

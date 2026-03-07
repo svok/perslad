@@ -11,6 +11,7 @@ class ChatRequest(BaseModel):
     stream: bool = False
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
+    thinking: bool = False  # Enable extended thinking for complex tasks
 
 class HealthStatus(BaseModel):
     status: str

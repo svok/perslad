@@ -66,5 +66,12 @@ class LLMManager(BaseManager):
         self.model = None
         self._connections["llm-server"] = False
 
-    def get_model(self) -> Optional[ChatOpenAI]:
-        return self.model if self.is_ready() else None
+    def get_model(self, enable_thinking: bool = False):
+        """Returns model with optional thinking mode."""
+        if not self.is_ready():
+            return None
+        if enable_thinking:
+            return self.model
+        return self.model.bind(
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}}
+        )

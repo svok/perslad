@@ -80,11 +80,14 @@ async def chat_completions(request: ChatRequest):
     if not request.messages:
         raise HTTPException(status_code=400, detail="Messages are required")
 
-    logger.info(f"Chat request: {len(request.messages)} messages, stream={request.stream}")
+    logger.info(f"📥 [RAW REQUEST] stream={request.stream}, thinking={request.thinking}, messages_count={len(request.messages)}")
 
     if request.stream:
-        return await chat_handler.stream_response(request.messages)
-    return await chat_handler.direct_response(request.messages)
+        # Use streaming for OpenWebUI and real-time updates
+        return await chat_handler.stream_response(request.messages, enable_thinking=request.thinking)
+    else:
+        # Standard JSON response for non-streaming clients
+        return await chat_handler.direct_response(request.messages, enable_thinking=request.thinking)
 
 @router.get(LangGraph.DEBUG_TOOLS)
 async def debug_tools() -> Dict[str, Any]:
