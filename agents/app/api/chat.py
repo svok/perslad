@@ -267,132 +267,57 @@ class ChatHandler:
                         
                         final_messages = truncated_list
 
-                # SSE format: OpenAI compatible + OpenWebUI status events
-                # Note: content_status removed - it pollutes chat history
-                def sse_status(description: str):
-                    # OpenAI compatible status
-                    openai_status = f"data: {json.dumps({'type': 'status', 'content': description})}\n\n"
-                    # OpenWebUI status event (for status display)
-                    openwebui_status = f"event: message\ndata: {json.dumps({'type': 'status', 'data': {'description': description, 'done': False, 'hidden': False}})}\n\n"
-                    return openai_status + openwebui_status
-                
-                def sse_status_done(description: str):
-                    openai_status = f"data: {json.dumps({'type': 'status', 'content': description})}\n\n"
-                    openwebui_status = f"event: message\ndata: {json.dumps({'type': 'status', 'data': {'description': description, 'done': True, 'hidden': False}})}\n\n"
-                    return openai_status + openwebui_status
-                
+                 # Pure OpenAI-compatible SSE format
                 def sse_content(content: str):
-                    return f"data: {json.dumps({'id': request_id, 'choices': [{'delta': {'content': content}, 'index': 0}]})}\n\n"
+                    data = json.dumps({
+                        'id': request_id, 
+                        'choices': [{'delta': {'content': content}, 'index': 0}]
+                    })
+                    return f"data: {data}\n\n"
 
                 def sse_done():
-                    return f"data: {json.dumps({'id': request_id, 'choices': [{'delta': {}, 'finish_reason': 'stop', 'index': 0}]})}\n\n"
-
-                # Send initial role message
-                logger.info("📤 [SSE] Sending initial delta")
-                yield sse_content("")
-                await asyncio.sleep(0)
+                    data = json.dumps({
+                        'id': request_id, 
+                        'choices': [{'delta': {}, 'finish_reason': 'stop', 'index': 0}]
+                    })
+                    return f"data: {data}\n\n"
 
                 # Stream through graph using astream_events for real-time tokens
-                tool_calls_buffer = []
-                
-                # Send initial status
-                logger.info("📤 [SSE] Sending: Processing request...")
-                yield sse_status("Processing request...")
-                await asyncio.sleep(0)
-                
                 try:
                     logger.info("📥 [STREAM] Starting astream_events")
                     async for event in graph.astream_events(
                         {"messages": final_messages},
                         version="v1"
                     ):
-                        try:
-                            event_type = event.get("event")
-                            
-                            # Handle LLM token generation
-                            if event_type == "on_chat_model_stream":
-                                chunk_data = event.get("data", {}).get("chunk")
-                                if chunk_data and hasattr(chunk_data, "content"):
-                                    content = chunk_data.content
-                                    if content:
-                                        yield sse_content(content)
-                                        await asyncio.sleep(0)
-                            
-                            # Handle LLM start
-                            elif event_type == "on_chat_model_start":
-                                logger.info("📤 [SSE] LLM started")
-                                yield sse_status("Generating response...")
-                                await asyncio.sleep(0)
-                            
-                            # Handle LLM end
-                            elif event_type == "on_chat_model_end":
-                                logger.info("📤 [SSE] LLM ended")
-                                yield sse_status_done("Response generated")
-                                await asyncio.sleep(0)
-                            
-                            # Handle tool node execution
-                            elif event_type == "on_tool_start":
-                                tool_name = event.get("name", "tool")
-                                # Get tool input arguments for better status
-                                tool_input = event.get("data", {}).get("input", {})
-                                input_str = ""
-                                if tool_input:
-                                    # Show first few args truncated
-                                    input_preview = str(tool_input)[:100]
-                                    input_str = f" ({input_preview}...)" if len(str(tool_input)) > 100 else f" ({tool_input})"
-                                logger.info(f"📤 [SSE] Tool started: {tool_name}{input_str}")
-                                yield sse_status(f"Running tool: {tool_name}{input_str}...")
-                                await asyncio.sleep(0)
-                            
-                            # Handle tool node end
-                            elif event_type == "on_tool_end":
-                                tool_name = event.get("name", "tool")
-                                logger.info(f"📤 [SSE] Tool ended: {tool_name}")
-                                yield sse_status_done(f"Tool {tool_name} completed")
-                                await asyncio.sleep(0)
-                            
-                            # Handle RAG/context operations
-                            elif event_type == "on_retriever_start":
-                                logger.info("📤 [SSE] Retriever started")
-                                yield sse_status("Searching knowledge base...")
-                                await asyncio.sleep(0)
-                            
-                            elif event_type == "on_retriever_end":
-                                logger.info("📤 [SSE] Retriever ended")
-                                yield sse_status_done("Knowledge base search complete")
-                                await asyncio.sleep(0)
-                            
-                            # Handle chain start/end
-                            elif event_type == "on_chain_start":
-                                chain_name = event.get("name", "chain")
-                                if "agent" in str(chain_name).lower():
-                                    logger.info("📤 [SSE] Chain started")
-                                    yield sse_status("Starting agent...")
-                                    await asyncio.sleep(0)
-                            
-                            elif event_type == "on_chain_end":
-                                logger.info("📤 [SSE] Chain ended")
-                                yield sse_status_done("Agent completed")
-                                await asyncio.sleep(0)
-                            
-                            else:
-                                logger.info(f"📥 [STREAM] Event: {event_type}")
-                        except Exception as inner_e:
-                            logger.error(f"❌ Error processing event: {inner_e}")
-                            yield sse_status_done(f"Error: {str(inner_e)[:50]}")
+                        event_type = event.get("event")
+                        
+                        # Only stream LLM token generation, ignore other events
+                        if event_type == "on_chat_model_stream":
+                            chunk_data = event.get("data", {}).get("chunk")
+                            if chunk_data and hasattr(chunk_data, "content"):
+                                content = chunk_data.content
+                                if content:
+                                    yield sse_content(content)
+                    
+                    # Signal completion
+                    yield sse_done()
+                    yield "data: [DONE]\n\n"
                 except Exception as stream_err:
                     logger.error(f"❌ Stream iteration error: {stream_err}", exc_info=True)
-                    yield sse_status_done(f"Error: {str(stream_err)[:50]}")
-
-                # astream_events already returns all messages, no need for extra invoke
-                logger.info("📤 [SSE] Sending: Done")
-                yield sse_status_done("Done")
-                yield sse_done()
-                yield "data: [DONE]\n\n"
+                    yield sse_done()
+                    yield "data: [DONE]\n\n"
                 
             except Exception as e:
                 logger.error(f"❌ Stream error: {e}", exc_info=True)
-                yield f"event: message\ndata: {json.dumps({'type': 'status', 'data': {'description': f'Error: {str(e)}', 'done': True, 'hidden': False}})}\n\n"
+                yield sse_done()
                 yield "data: [DONE]\n\n"
         
-        return StreamingResponse(stream_generator(), media_type="text/event-stream")
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
