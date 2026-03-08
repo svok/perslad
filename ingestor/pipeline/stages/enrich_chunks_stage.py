@@ -12,7 +12,7 @@ from llama_index.core.llms import LLM
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.services.lock import LLMLockManager
-
+from ingestor.services.smart_llm import SmartLLMService
 
 ENRICHMENT_PROMPT_TEMPLATE = """Analyze this code/documentation chunk and provide:
 
@@ -34,11 +34,12 @@ class EnrichChunksStage(ProcessorStage):
     Enriches TextNode objects with LLM-generated metadata.
     """
     
-    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2):
+    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2, enable_thinking: bool = False):
         super().__init__("chunk_enrich", max_workers)
-        self.llm = llm
+        self._llm_service = SmartLLMService(llm, max_workers=max_workers)
         self.lock_manager = lock_manager
         self._semaphore = asyncio.Semaphore(max_workers)
+        self._enable_thinking = enable_thinking
     
     async def process(self, context):
         """Process file context and enrich nodes."""
@@ -79,38 +80,32 @@ class EnrichChunksStage(ProcessorStage):
         """Enrich a single TextNode with summary and purpose."""
         text = node.text
         if not text or not text.strip():
-            # Skip empty/whitespace-only texts
             node.metadata["summary"] = ""
             node.metadata["purpose"] = ""
             return
-        
-        # Build prompt
-        prompt = ENRICHMENT_PROMPT_TEMPLATE.format(
-            content=text[:2000],
-        )
-        
+
+        prompt = ENRICHMENT_PROMPT_TEMPLATE.format(content=text[:2000])
+
         try:
-            # Call LLM
-            response = await self.llm.acomplete(prompt)
-            response_text = response.text if hasattr(response, 'text') else str(response)
+            response_text = await self._llm_service.complete(
+                prompt,
+                max_tokens=500,
+                enable_thinking=self._enable_thinking,
+            )
             self.log.debug("enrich.raw_response", response=response_text)
-            
-            # Parse response
+
             summary, purpose = self._parse_llm_response(response_text)
-            
-            # Fallback if summary is empty
+
             if not summary:
                 summary = text[:100]
             if not purpose:
                 purpose = "generated from content"
-            
-            # Add to metadata
+
             node.metadata["summary"] = summary
             node.metadata["purpose"] = purpose
-            
+
         except Exception as e:
             self.log.warning("enrich.llm.failed", text_preview=text[:100], error=str(e))
-            # Set fallback values on failure (non-empty)
             node.metadata["summary"] = text[:100]
             node.metadata["purpose"] = "content excerpt"
     

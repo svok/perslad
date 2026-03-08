@@ -21,20 +21,17 @@ else
     export VLLM_USE_V1=0
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${MODEL_NAME} \
-        --dtype float16 \
-        --reasoning-parser qwen3 \
         --kv-cache-dtype fp8 \
-        --gpu-memory-utilization 0.85 \
-        --max-num-batched-tokens 4096 \
         --host 0.0.0.0 --port 8000 \
         --no-enable-log-requests \
-        --max-num-seqs 8 \
+        --gpu-memory-utilization 0.85 \
+        --max-num-seqs 4 \
+        --max-num-batched-tokens 4096 \
         --block-size 16 --enforce-eager \
         --tool-call-parser ${TOOL_CALL_PARSER} \
         --enable-auto-tool-choice \
         --served-model-name default-model \
-        --max-model-len ${CONTEXT_SIZE} \
-        --trust-remote-code
+        --max-model-len ${CONTEXT_SIZE}
 fi
 
 #        --quantization ${QUANTIZATION} \

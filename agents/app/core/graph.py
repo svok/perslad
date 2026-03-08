@@ -11,6 +11,8 @@ def create_graph(llm: Runnable, tool_registry, ingestor_manager=None):
 
     # 1. Узел Агента
     async def agent_wrapper(state: dict):
+        # Extract config from state
+        config = state.get("config", {})
         # Передаем LLM и ingestor manager для RAG контекста
         return await agent_node(state, llm, ingestor_manager)
 

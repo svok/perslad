@@ -150,11 +150,12 @@ class TestLangGraphComponent:
     async def test_langgraph_temperature_control(self, langgraph_client):
         """Test different temperature settings"""
         messages = [
-            {"role": "user", "content": "Write a creative story about a robot"}
+            {"role": "user", "content": "/no_thinkWrite a creative story about a robot"}
         ]
         
         # Low temperature (deterministic)
         payload_low = {
+            "model": "default-model",
             "messages": messages,
             "temperature": 0.1,
             "max_tokens": 100
@@ -162,9 +163,12 @@ class TestLangGraphComponent:
         
         response_low = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload_low)
         assert response_low.status_code == 200
-        
+        data = response_low.json()
+        assert "error" not in data, f"Server returned error: {data['error']}"
+
         # High temperature (creative)
         payload_high = {
+            "model": "default-model",
             "messages": messages,
             "temperature": 0.9,
             "max_tokens": 100
@@ -172,9 +176,10 @@ class TestLangGraphComponent:
         
         response_high = await langgraph_client.post(LangGraph.CHAT_COMPLETIONS, json=payload_high)
         assert response_high.status_code == 200
-    
+        data = response_low.json()
+        assert "error" not in data, f"Server returned error: {data['error']}"
+
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Отложено на светлое будущее")
     async def test_langgraph_max_tokens(self, langgraph_client):
         """Test max tokens limit"""
         payload = {

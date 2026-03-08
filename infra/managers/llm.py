@@ -66,12 +66,22 @@ class LLMManager(BaseManager):
         self.model = None
         self._connections["llm-server"] = False
 
-    def get_model(self, enable_thinking: bool = False):
-        """Returns model with optional thinking mode."""
+    def get_model(self, enable_thinking: bool = False, **generation_kwargs):
+        """Returns model with optional thinking mode and custom generation params."""
         if not self.is_ready():
             return None
-        if enable_thinking:
-            return self.model
-        return self.model.bind(
-            extra_body={"chat_template_kwargs": {"enable_thinking": False}}
-        )
+        
+        # Разделяем нативные параметры LangChain и дополнительные body
+        native_params = {}
+
+        # Обрабатываем переданные параметры генерации
+        if generation_kwargs:
+            for key, value in generation_kwargs.items():
+                # Нативные параметры модели ChatOpenAI
+                if key in ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty", "stop", "tools", "tool_choice"]:
+                    native_params[key] = value
+
+        # Комбинируем параметры для bind
+        bind_kwargs = {**native_params}
+
+        return self.model.bind(**bind_kwargs)
