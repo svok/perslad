@@ -28,6 +28,7 @@ else
         --max-num-batched-tokens 4096 \
         --block-size 16 --enforce-eager \
         --served-model-name default-model \
+        --enable-auto-tool-choice \
         --tool-call-parser ${TOOL_CALL_PARSER} \
         --max-model-len ${CONTEXT_SIZE}
 fi

@@ -177,7 +177,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "max_tokens": 100
         }
