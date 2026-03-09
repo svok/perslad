@@ -18,19 +18,24 @@ if echo "$LLM_ENGINE_IMAGE" | grep -q "sglang"; then
         --context-length ${CONTEXT_SIZE}
 else
     echo "Starting vLLM for ${MODEL_NAME}..."
-    # Ключевые изменения для Qwen 2.5
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${MODEL_NAME} \
-        --quantization ${QUANTIZATION} \
-        --gpu-memory-utilization ${GPU_MEM_FRACTION} \
+        --kv-cache-dtype fp8 \
         --host 0.0.0.0 --port 8000 \
-        --tool-call-parser ${TOOL_CALL_PARSER} \
-        --enable-auto-tool-choice \
+        --no-enable-log-requests \
+        --gpu-memory-utilization 0.85 \
+        --max-num-seqs 4 \
+        --max-num-batched-tokens 4096 \
+        --block-size 16 --enforce-eager \
         --served-model-name default-model \
-        --max-model-len ${CONTEXT_SIZE} \
-        --trust-remote-code
+        --enable-auto-tool-choice \
+        --tool-call-parser ${TOOL_CALL_PARSER} \
+        --max-model-len ${CONTEXT_SIZE}
 fi
-#        --chat-template llama-3 \
-#        --chat-template /app/qwen_tool_template.jinja \
 
 #        --quantization ${QUANTIZATION} \
+#        --enable-lora \
+#        --max-loras 6 \
+#        --max-lora-rank 32 \
+#        --tool-call-parser ${TOOL_CALL_PARSER} \
+#        --enable-auto-tool-choice \

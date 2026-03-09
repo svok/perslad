@@ -11,7 +11,6 @@ import signal
 from pathlib import Path
 
 import uvicorn
-from llama_index.llms.openai import OpenAI
 from llama_index.llms.openai_like import OpenAILike
 
 from infra.logger import setup_logging, get_logger
@@ -131,6 +130,7 @@ async def main() -> None:
 
     # === LLM (for chunk enrichment) ===
     # Use MODEL_NAME from config
+
     llm = OpenAILike(
         api_base=config.llm.url,
         api_key=config.llm.api_key,

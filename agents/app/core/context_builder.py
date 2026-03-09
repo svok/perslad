@@ -196,7 +196,7 @@ class ContextBuilder:
             Отформатированный контекст
         """
         lines = ["# Project Knowledge Context (Summarized)\n"]
-        used_tokens = estimate_tokens(lines[0])
+        used_tokens = estimate_tokens('\n'.join(lines))
         
         for item in items:
             # Пробуем добавить полный контент

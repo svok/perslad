@@ -7,12 +7,13 @@ Adds summary and purpose to node.metadata.
 import asyncio
 from typing import List
 
+from llama_index.core.base.llms.types import ChatMessage, MessageRole, ChatResponse
 from llama_index.core.schema import TextNode
 from llama_index.core.llms import LLM
 
 from ingestor.pipeline.base.processor_stage import ProcessorStage
 from ingestor.services.lock import LLMLockManager
-
+from ingestor.services.smart_llm import SmartLLMService
 
 ENRICHMENT_PROMPT_TEMPLATE = """Analyze this code/documentation chunk and provide:
 
@@ -34,11 +35,12 @@ class EnrichChunksStage(ProcessorStage):
     Enriches TextNode objects with LLM-generated metadata.
     """
     
-    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2):
+    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 1, enable_thinking: bool = False):
         super().__init__("chunk_enrich", max_workers)
-        self.llm = llm
+        self._llm_service = llm
         self.lock_manager = lock_manager
         self._semaphore = asyncio.Semaphore(max_workers)
+        self._enable_thinking = enable_thinking
     
     async def process(self, context):
         """Process file context and enrich nodes."""
@@ -79,38 +81,35 @@ class EnrichChunksStage(ProcessorStage):
         """Enrich a single TextNode with summary and purpose."""
         text = node.text
         if not text or not text.strip():
-            # Skip empty/whitespace-only texts
             node.metadata["summary"] = ""
             node.metadata["purpose"] = ""
             return
-        
-        # Build prompt
-        prompt = ENRICHMENT_PROMPT_TEMPLATE.format(
-            content=text[:2000],
-        )
-        
+
+        prompt = ENRICHMENT_PROMPT_TEMPLATE.format(content=text[:2000])
+        messages = [
+            ChatMessage(role=MessageRole.SYSTEM, content="/no_think"),
+            ChatMessage(role=MessageRole.USER, content=prompt)
+        ]
+
         try:
-            # Call LLM
-            response = await self.llm.acomplete(prompt)
-            response_text = response.text if hasattr(response, 'text') else str(response)
-            self.log.debug("enrich.raw_response", response=response_text)
-            
-            # Parse response
-            summary, purpose = self._parse_llm_response(response_text)
-            
-            # Fallback if summary is empty
+            response_chat: ChatResponse = await (self._llm_service.achat(
+                messages=messages,
+                max_tokens=500,
+            ))
+            self.log.debug("enrich.raw_response", response=response_chat)
+
+            summary, purpose = self._parse_llm_response(response_chat.message.content)
+
             if not summary:
                 summary = text[:100]
             if not purpose:
                 purpose = "generated from content"
-            
-            # Add to metadata
+
             node.metadata["summary"] = summary
             node.metadata["purpose"] = purpose
-            
+
         except Exception as e:
             self.log.warning("enrich.llm.failed", text_preview=text[:100], error=str(e))
-            # Set fallback values on failure (non-empty)
             node.metadata["summary"] = text[:100]
             node.metadata["purpose"] = "content excerpt"
     

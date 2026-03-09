@@ -178,9 +178,9 @@ class TestLLMEndpoints:
     """Tests for LLM API endpoints"""
 
     @pytest.mark.asyncio
-    async def test_llm_chat_completion(self, llm_client):
+    async def test_llm_chat_completion(self, llm_client, config):
         payload = {
-            "model": "default",
+            "model": config['llm_served_model_name'],
             "messages": [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": "What is the capital of France?"}
@@ -197,9 +197,9 @@ class TestLLMEndpoints:
         assert data["choices"][0]["message"]["role"] == "assistant"
 
     @pytest.mark.asyncio
-    async def test_llm_streaming(self, llm_client):
+    async def test_llm_streaming(self, llm_client, config):
         payload = {
-            "model": "default",
+            "model": config['llm_served_model_name'],
             "messages": [{"role": "user", "content": "Count from 1 to 5"}],
             "stream": True,
             "max_tokens": 50
@@ -216,10 +216,10 @@ class TestEmbeddingEndpoints:
     """Tests for embedding API endpoints"""
 
     @pytest.mark.asyncio
-    async def test_embedding_generation(self, emb_client):
+    async def test_embedding_generation(self, emb_client, config):
         payload = {
             "input": "This is a test sentence for embedding.",
-            "model": "default"
+            "model": config['emb_served_model_name'],
         }
         
         response = await emb_client.post(Embedding.EMBEDDINGS, json=payload)

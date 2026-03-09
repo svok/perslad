@@ -1,54 +1,58 @@
-"""Sample Python module for testing initial scan."""
+# sample_test.py
+# Минимальная реализация DataLoader для подготовки датасета
+# Этап 2.3: Создание датасета
 
-import os
-from typing import List, Optional
+import torch
+from torch.utils.data import Dataset, DataLoader
+from transformers import BertTokenizer
 
+class RussianTextDataset(Dataset):
+    """Базовый датасет для русских текстов"""
 
-def calculate_sum(numbers: List[int]) -> int:
-    """Calculate sum of a list of numbers.
-    
-    Args:
-        numbers: List of integers to sum
-        
-    Returns:
-        Sum of all numbers
-    """
-    return sum(numbers)
+    def __init__(self, texts, tokenizer, max_length=512):
+        self.texts = texts
+        self.tokenizer = tokenizer
+        self.max_length = max_length
 
+    def __len__(self):
+        return len(self.texts)
 
-def greet(name: str) -> str:
-    """Generate a greeting message.
-    
-    Args:
-        name: Name to greet
-        
-    Returns:
-        Greeting message
-    """
-    return f"Hello, {name}!"
+    def __getitem__(self, idx):
+        text = self.texts[idx]
+        encoded = self.tokenizer(
+            text,
+            truncation=True,
+            padding='max_length',
+            max_length=self.max_length,
+            return_tensors='pt'
+        )
+        return {
+            'input_ids': encoded['input_ids'].squeeze(0),
+            'attention_mask': encoded['attention_mask'].squeeze(0),
+            'labels': encoded['input_ids'].squeeze(0)  # для авто-регрессии
+        }
 
-
-class DataProcessor:
-    """Process and transform data."""
-    
-    def __init__(self, name: str):
-        self.name = name
-        self._data: List[dict] = []
-    
-    def add_item(self, item: dict) -> None:
-        """Add item to processed data."""
-        self._data.append(item)
-    
-    def get_items(self) -> List[dict]:
-        """Get all processed items."""
-        return self._data.copy()
-    
-    def count(self) -> int:
-        """Get count of processed items."""
-        return len(self._data)
-
-
+# Пример использования
 if __name__ == "__main__":
-    processor = DataProcessor("test")
-    processor.add_item({"key": "value"})
-    print(f"Items: {processor.count()}")
+    # Пример данных (в реальности загружаются из файла)
+    texts = [
+        "Привет, мир!",
+        "Это пример текста на русском языке",
+        "Нейросеть обучается на больших данных"
+    ]
+
+    # Инициализация токенизатора
+    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+
+    # Создание датасета
+    dataset = RussianTextDataset(texts, tokenizer, max_length=128)
+
+    # Создание DataLoader
+    batch_size = 2
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+    # Пример итерации
+    for batch in dataloader:
+        print(f"Batch: {batch['input_ids']}")
+        print(f"Attention mask: {batch['attention_mask']}")
+        print("-" * 40)

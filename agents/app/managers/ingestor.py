@@ -58,7 +58,7 @@ class IngestorManager(BaseManager):
         if self.client:
             try:
                 await self.client.aclose()
-            except:
+            except Exception:
                 pass
         self.client = None
         self._connections["ingestor-server"] = False

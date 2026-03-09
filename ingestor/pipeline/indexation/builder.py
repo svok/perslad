@@ -30,7 +30,7 @@ class IndexationPipelineBuilder:
                 stage_class=EnrichStage,
                 factory=lambda ctx: EnrichStage(
                     ctx.workspace_path,
-                    max_workers=ctx.config.get("enrich_workers", 2)
+                    max_workers=ctx.config.get("enrich_workers", 1)
                 )
             ),
             StageDef(
@@ -48,7 +48,8 @@ class IndexationPipelineBuilder:
                 factory=lambda ctx: EnrichChunksStage(
                     llm=ctx.llm,
                     lock_manager=ctx.lock_manager,
-                    max_workers=ctx.config.get("enrich_chunks_workers", 2)
+                    max_workers=ctx.config.get("enrich_chunks_workers", 2),
+                    enable_thinking=False
                 )
             ),
             StageDef(

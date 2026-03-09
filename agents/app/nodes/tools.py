@@ -69,7 +69,7 @@ async def tool_node(state: Dict[str, Any], tool_registry) -> Dict[str, Any]:
         except asyncio.TimeoutError:
             logger.error(f"   ⏰ Timeout: {tool_name}")
             tool_outputs.append(ToolMessage(
-                content=f"Error: Tool execution timed out",
+                content="Error: Tool execution timed out",
                 tool_call_id=tool_id,
                 name=tool_name
             ))

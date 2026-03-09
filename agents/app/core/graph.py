@@ -1,6 +1,5 @@
 from langgraph.graph import StateGraph, END
 from langchain_core.runnables import Runnable, RunnableLambda
-from typing import Dict, Any, Optional
 
 from .state import AgentState
 from ..nodes.agent import agent_node
@@ -12,6 +11,8 @@ def create_graph(llm: Runnable, tool_registry, ingestor_manager=None):
 
     # 1. Узел Агента
     async def agent_wrapper(state: dict):
+        # Extract config from state
+        config = state.get("config", {})
         # Передаем LLM и ingestor manager для RAG контекста
         return await agent_node(state, llm, ingestor_manager)
 

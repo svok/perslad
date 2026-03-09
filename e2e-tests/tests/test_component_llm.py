@@ -35,7 +35,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "max_tokens": 50,
             "temperature": 0.1
@@ -80,7 +80,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "tools": tools,
             "max_tokens": 200
@@ -109,7 +109,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "max_tokens": 100,
             "stream": True
@@ -131,7 +131,7 @@ class TestLLMComponent:
         """Test error handling for invalid requests"""
         # Missing required field
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             # Missing "messages"
             "max_tokens": 50
         }
@@ -147,7 +147,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "max_tokens": 100,
             "stream": False
@@ -177,7 +177,7 @@ class TestLLMComponent:
         ]
         
         payload = {
-            "model": config['emb_served_model_name'],
+            "model": config['llm_served_model_name'],
             "messages": messages,
             "max_tokens": 100
         }
