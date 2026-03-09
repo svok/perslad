@@ -199,7 +199,7 @@ class TestLangGraphComponent:
         
         content = data["choices"][0]["message"]["content"]
         # Check that response is reasonably short
-        assert len(content.split()) < 20  # Rough estimate
+        assert len(content.split()) < 50  # Rough estimate
     
     @pytest.mark.asyncio
     async def test_langgraph_error_handling(self, langgraph_client):

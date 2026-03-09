@@ -17,6 +17,7 @@ import asyncio
 import os
 
 import uuid
+from pathlib import Path
 
 import pytest
 
@@ -186,18 +187,15 @@ class TestFileCreation:
             if not success:
                 pytest.skip("Could not create file in container")
             
-            # Wait for inotify to process the file
-            # Need to wait longer because file_summary stage may be behind index_and_enrich stage
-            await asyncio.sleep(INDEXATION_WAIT)
-            
             # Now retry for a few more seconds to handle race conditions
             summary = None
-            for attempt in range(15):  # Try for ~45 seconds total
+            for attempt in range(5):  # Try for ~45 seconds total
+                await asyncio.sleep(3)
                 summary = get_file_summary(db_engine, rel_file_path)
                 if summary is not None:
                     break
-                await asyncio.sleep(2)
-            
+
+            assert Path(container_file_path).exists(), f"File {rel_file_path} removed by other process"
             assert summary is not None, f"File {rel_file_path} should be in file_summaries (tried multiple times)"
             
             chunks_count = get_chunks_count_for_file(db_engine, rel_file_path)

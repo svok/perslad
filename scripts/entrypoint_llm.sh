@@ -18,7 +18,6 @@ if echo "$LLM_ENGINE_IMAGE" | grep -q "sglang"; then
         --context-length ${CONTEXT_SIZE}
 else
     echo "Starting vLLM for ${MODEL_NAME}..."
-    export VLLM_USE_V1=0
     exec python3 -m vllm.entrypoints.openai.api_server \
         --model ${MODEL_NAME} \
         --kv-cache-dtype fp8 \
@@ -28,9 +27,8 @@ else
         --max-num-seqs 4 \
         --max-num-batched-tokens 4096 \
         --block-size 16 --enforce-eager \
-        --tool-call-parser ${TOOL_CALL_PARSER} \
-        --enable-auto-tool-choice \
         --served-model-name default-model \
+        --tool-call-parser ${TOOL_CALL_PARSER} \
         --max-model-len ${CONTEXT_SIZE}
 fi
 
@@ -38,3 +36,5 @@ fi
 #        --enable-lora \
 #        --max-loras 6 \
 #        --max-lora-rank 32 \
+#        --tool-call-parser ${TOOL_CALL_PARSER} \
+#        --enable-auto-tool-choice \

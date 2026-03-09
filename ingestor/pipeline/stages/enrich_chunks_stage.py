@@ -7,6 +7,7 @@ Adds summary and purpose to node.metadata.
 import asyncio
 from typing import List
 
+from llama_index.core.base.llms.types import ChatMessage, MessageRole, ChatResponse
 from llama_index.core.schema import TextNode
 from llama_index.core.llms import LLM
 
@@ -34,9 +35,9 @@ class EnrichChunksStage(ProcessorStage):
     Enriches TextNode objects with LLM-generated metadata.
     """
     
-    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 2, enable_thinking: bool = False):
+    def __init__(self, llm: LLM, lock_manager: LLMLockManager, max_workers: int = 1, enable_thinking: bool = False):
         super().__init__("chunk_enrich", max_workers)
-        self._llm_service = SmartLLMService(llm, max_workers=max_workers)
+        self._llm_service = llm
         self.lock_manager = lock_manager
         self._semaphore = asyncio.Semaphore(max_workers)
         self._enable_thinking = enable_thinking
@@ -85,16 +86,19 @@ class EnrichChunksStage(ProcessorStage):
             return
 
         prompt = ENRICHMENT_PROMPT_TEMPLATE.format(content=text[:2000])
+        messages = [
+            ChatMessage(role=MessageRole.SYSTEM, content="/no_think"),
+            ChatMessage(role=MessageRole.USER, content=prompt)
+        ]
 
         try:
-            response_text = await self._llm_service.complete(
-                prompt,
+            response_chat: ChatResponse = await (self._llm_service.achat(
+                messages=messages,
                 max_tokens=500,
-                enable_thinking=self._enable_thinking,
-            )
-            self.log.debug("enrich.raw_response", response=response_text)
+            ))
+            self.log.debug("enrich.raw_response", response=response_chat)
 
-            summary, purpose = self._parse_llm_response(response_text)
+            summary, purpose = self._parse_llm_response(response_chat.message.content)
 
             if not summary:
                 summary = text[:100]
