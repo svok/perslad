@@ -14,7 +14,8 @@ class SystemManager:
         self.llm = LLMManager(
             api_base=Config.LLM_API_BASE,
             api_key=Config.LLM_API_KEY,
-            model_name=Config.LLM_SERVED_MODEL_NAME
+            model_name=Config.LLM_SERVED_MODEL_NAME,
+            timeout=Config.LLM_TIMEOUT
         )
 
         # Подготавливаем конфиг для MCP

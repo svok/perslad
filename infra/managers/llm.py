@@ -13,7 +13,7 @@ logger = logging.getLogger("infra.llm")
 class LLMManager(BaseManager):
     """Менеджер LLM с нативной поддержкой Qwen."""
 
-    def __init__(self, api_base: str, api_key: SecretStr, model_name: str = "default-model"):
+    def __init__(self, api_base: str, api_key: SecretStr, model_name: str = "default-model", timeout: int = 30):
         super().__init__("llm")
         self.model: Optional[ChatOpenAI] = None
         self._connections["llm-server"] = False
@@ -21,6 +21,7 @@ class LLMManager(BaseManager):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
         self.model_name = model_name
+        self.timeout = timeout
 
     async def _connect_all(self) -> Set[str]:
         try:
@@ -32,7 +33,7 @@ class LLMManager(BaseManager):
                 api_key=self.api_key,
                 model=self.model_name,
                 temperature=0.1,
-                timeout=30.0,
+                timeout=self.timeout,
                 max_retries=2,
             )
 
@@ -66,22 +67,22 @@ class LLMManager(BaseManager):
         self.model = None
         self._connections["llm-server"] = False
 
-    def get_model(self, enable_thinking: bool = False, **generation_kwargs):
-        """Returns model with optional thinking mode and custom generation params."""
+    def get_model(self, enable_thinking: bool = False, tools: Optional[list] = None, **generation_kwargs):
+        """Returns model with optional tools and custom generation params."""
         if not self.is_ready():
             return None
-        
-        # Разделяем нативные параметры LangChain и дополнительные body
+
         native_params = {}
 
-        # Обрабатываем переданные параметры генерации
         if generation_kwargs:
             for key, value in generation_kwargs.items():
-                # Нативные параметры модели ChatOpenAI
-                if key in ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty", "stop", "tools", "tool_choice"]:
+                if key in ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty", "stop", "tool_choice"]:
                     native_params[key] = value
 
-        # Комбинируем параметры для bind
         bind_kwargs = {**native_params}
+
+        if tools:
+            self.logger.info(f"🔗 Binding {len(tools)} tools to model")
+            return self.model.bind_tools(tools, **bind_kwargs)
 
         return self.model.bind(**bind_kwargs)

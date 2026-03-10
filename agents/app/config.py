@@ -22,6 +22,9 @@ class Config:
 
     MAX_TOOL_TOKENS = int(os.getenv("MAX_TOOL_TOKENS", "0")) or 1024
 
+    # Timeout for LLM calls
+    LLM_TIMEOUT: int = 120
+
 
     @classmethod
     def get_mcp_servers(cls):

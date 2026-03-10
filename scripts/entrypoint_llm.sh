@@ -24,7 +24,7 @@ else
         --host 0.0.0.0 --port 8000 \
         --no-enable-log-requests \
         --gpu-memory-utilization 0.85 \
-        --max-num-seqs 4 \
+        --max-num-seqs 2 \
         --max-num-batched-tokens 4096 \
         --block-size 16 --enforce-eager \
         --served-model-name default-model \
